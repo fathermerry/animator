@@ -36,7 +36,7 @@ export default function App() {
     if (!isHome) return;
     ensureDraft();
     loadDefaultProject();
-    navigate("/prompt");
+    navigate("/style");
   }, [isHome, ensureDraft, loadDefaultProject]);
 
   useEffect(() => {

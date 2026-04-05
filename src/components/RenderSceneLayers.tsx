@@ -1,18 +1,33 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, Folder, FolderOpen, X } from "lucide-react";
+import { useStore } from "zustand/react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  Trash2,
+  X,
+} from "lucide-react";
 
-import { Separator } from "@/components/ui/separator";
 import { formatFilmTime } from "@/lib/filmTime";
 import { framesForSceneSorted } from "@/lib/sceneFrames";
+import { useProjectStore } from "@/store/projectStore";
 import { cn } from "@/lib/utils";
 import type { Frame, Render, Scene } from "@/types/project";
 
-type PopupState = {
+type PopupMode = "hover" | "pinned";
+
+type PopupContentState = {
   frame: Frame;
   scene: Scene;
   render: Render | undefined;
   anchorRect: DOMRect;
+};
+
+type PopupState = {
+  mode: PopupMode;
+  state: PopupContentState;
 };
 
 function findRender(renders: Render[], frame: Frame): Render | undefined {
@@ -21,14 +36,21 @@ function findRender(renders: Render[], frame: Frame): Render | undefined {
 
 function FrameDetailPopup({
   state,
+  mode,
   onClose,
+  onPointerEnterPanel,
+  onPointerLeavePanel,
 }: {
-  state: PopupState;
+  state: PopupContentState;
+  mode: PopupMode;
   onClose: () => void;
+  onPointerEnterPanel: () => void;
+  onPointerLeavePanel: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const { frame, scene, render } = state;
+  const isPinned = mode === "pinned";
 
   useLayoutEffect(() => {
     const el = panelRef.current;
@@ -41,7 +63,6 @@ function FrameDetailPopup({
     const h = el.offsetHeight;
     const ar = state.anchorRect;
 
-    /** Prefer to the right of the row; fall back to the left if it would overflow. */
     let left = ar.right + pad;
     if (left + w > vw - pad) {
       left = ar.left - w - pad;
@@ -54,7 +75,7 @@ function FrameDetailPopup({
     if (top < pad) top = pad;
 
     setPos({ top, left });
-  }, [state.anchorRect, state.frame.id, scene.id, render?.id]);
+  }, [state.anchorRect, state.frame.id, scene.id, render?.id, render?.status]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -64,22 +85,33 @@ function FrameDetailPopup({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const subtitle = [
+    `Frame ${frame.index + 1}`,
+    formatFilmTime(scene.durationSeconds),
+    render?.status === "pending" ? "Rendering…" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return createPortal(
     <>
-      <button
-        type="button"
-        className="fixed inset-0 z-50 cursor-default bg-black/20"
-        aria-label="Dismiss frame details"
-        onClick={onClose}
-      />
+      {isPinned ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-50 cursor-default bg-black/25"
+          aria-label="Dismiss frame preview"
+          onClick={onClose}
+        />
+      ) : null}
       <div
         ref={panelRef}
         role="dialog"
-        aria-modal="true"
+        aria-modal={isPinned}
         aria-labelledby="frame-detail-title"
         className={cn(
-          "fixed z-[51] w-[min(calc(100vw-2rem),20rem)] rounded-xl border border-border bg-popover p-4 pt-3 text-popover-foreground shadow-lg",
+          "fixed z-[51] w-[min(calc(100vw-2rem),17.5rem)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl",
           pos ? "opacity-100" : "opacity-0",
+          isPinned ? "ring-1 ring-foreground/10" : "ring-0",
         )}
         style={
           pos
@@ -88,58 +120,41 @@ function FrameDetailPopup({
                 top: Math.max(8, state.anchorRect.top),
                 left: Math.min(
                   state.anchorRect.right + 8,
-                  typeof window !== "undefined" ? window.innerWidth - 320 - 8 : 8,
+                  typeof window !== "undefined" ? window.innerWidth - 280 - 8 : 8,
                 ),
               }
         }
+        onPointerEnter={onPointerEnterPanel}
+        onPointerLeave={onPointerLeavePanel}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-2 top-2 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="Close"
-        >
-          <X className="size-4" strokeWidth={2} aria-hidden />
-        </button>
-        <div className="flex flex-col gap-3 pr-6">
-          <div className="overflow-hidden rounded-md bg-muted/40">
-            <img
-              src={frame.src}
-              alt=""
-              className="aspect-video w-full object-cover"
-            />
-          </div>
-          <div>
-            <p id="frame-detail-title" className="text-base leading-snug text-foreground">
-              Scene {scene.index + 1}
-            </p>
-            {scene.action.trim() ? (
-              <p className="mt-0.5 text-sm text-muted-foreground">{scene.action}</p>
-            ) : null}
-            <p className="mt-1 text-sm text-muted-foreground">
-              Frame {frame.index + 1} · {formatFilmTime(scene.durationSeconds)}s
-            </p>
-          </div>
-          <Separator />
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-base">
-            <dt className="text-muted-foreground">Frame id</dt>
-            <dd className="min-w-0 font-mono text-base leading-snug text-foreground">{frame.id}</dd>
-            <dt className="text-muted-foreground">Scene id</dt>
-            <dd className="min-w-0 font-mono text-base leading-snug text-foreground">{frame.sceneId}</dd>
-            <dt className="text-muted-foreground">Render</dt>
-            <dd className="min-w-0 font-mono text-base leading-snug text-foreground">
-              {render ? `${render.engine} · ${render.status}` : "—"}
-            </dd>
-            {render ? (
-              <>
-                <dt className="text-muted-foreground">Render id</dt>
-                <dd className="min-w-0 font-mono text-base leading-snug text-foreground">{render.id}</dd>
-              </>
-            ) : null}
-            <dt className="text-muted-foreground">Source</dt>
-            <dd className="min-w-0 break-all font-mono text-base leading-snug text-foreground">{frame.src}</dd>
-          </dl>
+        <div className="relative aspect-video w-full bg-muted/50">
+          <img src={frame.src} alt="" className="h-full w-full object-cover" />
+          {isPinned ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className={cn(
+                "absolute right-2 top-2 z-10 flex size-8 items-center justify-center rounded-full",
+                "border border-border/60 bg-background/85 text-foreground shadow-md backdrop-blur-sm",
+                "hover:bg-background hover:shadow-lg",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              )}
+              aria-label="Close"
+            >
+              <X className="size-4" strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
+        </div>
+
+        <div className="border-t border-border/80 px-3 pb-2 pt-2.5">
+          <p id="frame-detail-title" className="text-base font-medium leading-snug text-foreground">
+            Scene {scene.index + 1}
+          </p>
+          {scene.action.trim() ? (
+            <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{scene.action}</p>
+          ) : null}
+          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
         </div>
       </div>
     </>,
@@ -156,6 +171,8 @@ type Props = {
   variant?: "default" | "sidebar";
 };
 
+const HOVER_DISMISS_MS = 220;
+
 export function RenderSceneLayers({
   scenes,
   frames,
@@ -163,6 +180,8 @@ export function RenderSceneLayers({
   className,
   variant = "default",
 }: Props) {
+  const removeFrame = useStore(useProjectStore, (s) => s.removeFrame);
+
   const ordered = useMemo(
     () => [...scenes].sort((a, b) => a.index - b.index),
     [scenes],
@@ -181,7 +200,81 @@ export function RenderSceneLayers({
   }, [sceneIdKey, ordered]);
 
   const [popup, setPopup] = useState<PopupState | null>(null);
-  const closePopup = useCallback(() => setPopup(null), []);
+  const hoverDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearHoverDismissTimer = useCallback(() => {
+    if (hoverDismissTimerRef.current) {
+      clearTimeout(hoverDismissTimerRef.current);
+      hoverDismissTimerRef.current = null;
+    }
+  }, []);
+
+  const closePopup = useCallback(() => {
+    clearHoverDismissTimer();
+    setPopup(null);
+  }, [clearHoverDismissTimer]);
+
+  const scheduleHoverDismiss = useCallback(() => {
+    clearHoverDismissTimer();
+    hoverDismissTimerRef.current = setTimeout(() => {
+      setPopup((p) => (p?.mode === "hover" ? null : p));
+      hoverDismissTimerRef.current = null;
+    }, HOVER_DISMISS_MS);
+  }, [clearHoverDismissTimer]);
+
+  useEffect(() => {
+    setPopup((p) => {
+      if (!p) return p;
+      const nextFrame = frames.find((f) => f.id === p.state.frame.id);
+      if (!nextFrame) return null;
+      return {
+        ...p,
+        state: {
+          ...p.state,
+          frame: nextFrame,
+          render: findRender(renders, nextFrame),
+        },
+      };
+    });
+  }, [frames, renders]);
+
+  const openHover = useCallback(
+    (fr: Frame, scene: Scene, anchorRect: DOMRect) => {
+      clearHoverDismissTimer();
+      setPopup((prev) => {
+        if (prev?.mode === "pinned") return prev;
+        return {
+          mode: "hover",
+          state: {
+            frame: fr,
+            scene,
+            render: findRender(renders, fr),
+            anchorRect,
+          },
+        };
+      });
+    },
+    [clearHoverDismissTimer, renders],
+  );
+
+  const pinOrToggle = useCallback(
+    (fr: Frame, scene: Scene, anchorRect: DOMRect) => {
+      clearHoverDismissTimer();
+      setPopup((prev) => {
+        if (prev?.state.frame.id === fr.id && prev.mode === "pinned") return null;
+        return {
+          mode: "pinned",
+          state: {
+            frame: fr,
+            scene,
+            render: findRender(renders, fr),
+            anchorRect,
+          },
+        };
+      });
+    },
+    [clearHoverDismissTimer, renders],
+  );
 
   const toggleScene = (sceneId: string) => {
     setExpandedById((p) => ({ ...p, [sceneId]: !p[sceneId] }));
@@ -259,28 +352,33 @@ export function RenderSceneLayers({
                           <li className="px-1 py-1 pl-2 text-sm text-muted-foreground">Empty</li>
                         ) : (
                           sceneFrames.map((fr) => {
-                            const isOpen = popup?.frame.id === fr.id;
+                            const isActive = popup?.state.frame.id === fr.id;
                             return (
-                              <li key={fr.id} role="treeitem" className="relative">
+                              <li
+                                key={fr.id}
+                                role="treeitem"
+                                className="group relative"
+                                onMouseEnter={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  openHover(fr, scene, rect);
+                                }}
+                                onMouseLeave={scheduleHoverDismiss}
+                              >
                                 <button
                                   type="button"
                                   onClick={(e) => {
-                                    const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                                    setPopup((prev) => {
-                                      if (prev?.frame.id === fr.id) return null;
-                                      return {
-                                        frame: fr,
-                                        scene,
-                                        render: findRender(renders, fr),
-                                        anchorRect: rect,
-                                      };
-                                    });
+                                    e.preventDefault();
+                                    const li = (e.currentTarget as HTMLButtonElement).closest("li");
+                                    const rect = li?.getBoundingClientRect();
+                                    if (!rect) return;
+                                    pinOrToggle(fr, scene, rect);
                                   }}
                                   className={cn(
-                                    "flex h-8 w-full min-w-0 items-center gap-2 rounded-sm py-0.5 pr-1 pl-1 text-left text-base leading-tight",
+                                    "flex h-8 w-full min-w-0 items-center gap-2 rounded-sm py-0.5 pl-1 text-left text-base leading-tight",
+                                    "pr-1 group-hover:pr-9",
                                     "hover:bg-foreground/[0.06]",
                                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-                                    isOpen ? "bg-muted/90" : "",
+                                    isActive ? "bg-muted/90" : "",
                                   )}
                                 >
                                   <span className="relative h-6 w-10 shrink-0 overflow-hidden rounded-[2px] bg-muted">
@@ -291,6 +389,26 @@ export function RenderSceneLayers({
                                     />
                                   </span>
                                   <span className="min-w-0 flex-1 truncate">Frame {fr.index + 1}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={`Remove frame ${fr.index + 1}`}
+                                  className={cn(
+                                    "absolute right-0.5 top-1/2 z-[1] flex size-7 -translate-y-1/2 items-center justify-center rounded-sm",
+                                    "text-muted-foreground opacity-0 pointer-events-none transition-opacity",
+                                    "group-hover:pointer-events-auto group-hover:opacity-100",
+                                    "hover:bg-destructive/15 hover:text-destructive",
+                                    "focus-visible:pointer-events-auto focus-visible:opacity-100",
+                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                  )}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    removeFrame(fr.id);
+                                    setPopup((p) => (p?.state.frame.id === fr.id ? null : p));
+                                  }}
+                                >
+                                  <Trash2 className="size-4" strokeWidth={2} aria-hidden />
                                 </button>
                               </li>
                             );
@@ -307,13 +425,21 @@ export function RenderSceneLayers({
       </div>
 
       {isSidebar ? (
-        <p className="sr-only">Select a frame to inspect details.</p>
+        <p className="sr-only">Hover a frame for a quick preview; click to pin.</p>
       ) : (
-        <p className="text-sm text-muted-foreground">Select a frame to inspect details.</p>
+        <p className="text-sm text-muted-foreground">Hover a frame for a quick preview; click to pin.</p>
       )}
 
       {popup ? (
-        <FrameDetailPopup state={popup} onClose={closePopup} />
+        <FrameDetailPopup
+          state={popup.state}
+          mode={popup.mode}
+          onClose={closePopup}
+          onPointerEnterPanel={clearHoverDismissTimer}
+          onPointerLeavePanel={() => {
+            if (popup.mode === "hover") scheduleHoverDismiss();
+          }}
+        />
       ) : null}
     </div>
   );

@@ -18,6 +18,7 @@ export type ProjectState = {
   updateStyle: (recipe: (style: Style) => Style) => void;
   patchScene: (sceneId: string, patch: Partial<Scene>) => void;
   loadDefaultProject: () => void;
+  removeFrame: (frameId: string) => void;
 };
 
 const bundledStyle = defaultStyleConfigJson as StyleConfig;
@@ -25,7 +26,12 @@ const initialBundle = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
 
 function initialState(): Omit<
   ProjectState,
-  "ensureDraftProject" | "setPromptText" | "updateStyle" | "patchScene" | "loadDefaultProject"
+  | "ensureDraftProject"
+  | "setPromptText"
+  | "updateStyle"
+  | "patchScene"
+  | "loadDefaultProject"
+  | "removeFrame"
 > {
   return {
     project: initialBundle.project,
@@ -81,6 +87,33 @@ export const useProjectStore = createStore<ProjectState>((set, get) => ({
     set((s) => ({
       scenes: s.scenes.map((sc) => (sc.id === sceneId ? { ...sc, ...patch } : sc)),
     }));
+  },
+
+  removeFrame: (frameId) => {
+    set((s) => {
+      const removed = s.frames.find((f) => f.id === frameId);
+      if (!removed) return s;
+      const sceneId = removed.sceneId;
+      const renderId = removed.renderId;
+
+      const framesWithout = s.frames.filter((f) => f.id !== frameId);
+      const inScene = framesWithout
+        .filter((f) => f.sceneId === sceneId)
+        .sort((a, b) => a.index - b.index);
+
+      const frames = framesWithout.map((f) => {
+        if (f.sceneId !== sceneId) return f;
+        const idx = inScene.findIndex((x) => x.id === f.id);
+        return idx >= 0 ? { ...f, index: idx } : f;
+      });
+
+      let renders = s.renders;
+      if (!frames.some((f) => f.renderId === renderId)) {
+        renders = renders.filter((r) => r.id !== renderId);
+      }
+
+      return { frames, renders };
+    });
   },
 }));
 

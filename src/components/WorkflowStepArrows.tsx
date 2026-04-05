@@ -12,7 +12,7 @@ export function WorkflowStepArrows({ path }: Props) {
   let idx = getFlowIndex(path);
   if (idx < 0) idx = 0;
 
-  /** No step before prompt; home (`/`) only redirects into the flow. */
+  /** No step before the first workflow step; home (`/`) only redirects into the flow. */
   const canPrev = idx > 1;
   const canNext = idx < FLOW_MAX;
 
