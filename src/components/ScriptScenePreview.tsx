@@ -11,7 +11,7 @@ type Props = {
 };
 
 /** 16:9 frame with background plate; editable scene description centered in frame. */
-export function StoryScenePreview({
+export function ScriptScenePreview({
   assetBundle,
   scene,
   onDescriptionChange,

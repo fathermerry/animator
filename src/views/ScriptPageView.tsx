@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useStore } from "zustand/react";
 
-import { StoryScenePreview } from "@/components/StoryScenePreview";
+import { ScriptScenePreview } from "@/components/ScriptScenePreview";
 import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepLayout } from "@/components/WorkflowStepLayout";
 import { useDocumentScrollScene } from "@/hooks/useDocumentScrollScene";
@@ -17,7 +17,7 @@ import type { Scene } from "@/types/project";
 
 type Props = { step: Step };
 
-export function StoryPageView({ step: _step }: Props) {
+export function ScriptPageView({ step: _step }: Props) {
   const project = useStore(useProjectStore, selectCurrentProject);
   const assetBundle = useStore(useProjectStore, selectResolvedAssetBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
@@ -68,7 +68,7 @@ export function StoryPageView({ step: _step }: Props) {
       }
       preview={
         <WorkflowPreviewColumn>
-          <StoryScenePreview
+          <ScriptScenePreview
             assetBundle={assetBundle}
             scene={activeScene}
             onDescriptionChange={(value) => {

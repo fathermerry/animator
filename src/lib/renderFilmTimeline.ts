@@ -99,6 +99,33 @@ export function buildRenderFilmTimeline(
   return { segments, totalFrames };
 }
 
+/** Start and length in seconds for each project frame row, derived only from {@link buildRenderFilmTimeline} segments (duration per row; start = sum of previous segment lengths). */
+export type FilmFrameTiming = {
+  startSeconds: number;
+  durationSeconds: number;
+};
+
+export function getFilmTimingByProjectFrameId(
+  scenes: Scene[],
+  frames: Frame[],
+  renders: Render[],
+  assetBundle: AssetBundle,
+): Map<string, FilmFrameTiming> {
+  const { segments } = buildRenderFilmTimeline(scenes, frames, renders, assetBundle);
+  const m = new Map<string, FilmFrameTiming>();
+  let accFrames = 0;
+  for (const seg of segments) {
+    if (seg.frameId != null) {
+      m.set(seg.frameId, {
+        startSeconds: accFrames / FILM_FPS,
+        durationSeconds: seg.durationInFrames / FILM_FPS,
+      });
+    }
+    accFrames += seg.durationInFrames;
+  }
+  return m;
+}
+
 /** Which project frame (by id) is shown at this global film frame index (matches {@link buildRenderFilmTimeline}). */
 export function getFrameIdAtFilmGlobalFrame(
   globalFrame: number,
@@ -149,31 +176,14 @@ export function getFilmStartFrameIndexForFrame(
   targetFrameId: string,
   scenes: Scene[],
   frames: Frame[],
-  _renders: Render[],
-  _assetBundle: AssetBundle,
+  renders: Render[],
+  assetBundle: AssetBundle,
 ): number | null {
-  const ordered = [...scenes].sort((a, b) => a.index - b.index);
+  const { segments } = buildRenderFilmTimeline(scenes, frames, renders, assetBundle);
   let acc = 0;
-
-  for (const scene of ordered) {
-    const sceneFrames = framesForSceneSorted(frames, scene.id);
-    const durSec = Number.isFinite(scene.durationSeconds) ? Math.max(0, scene.durationSeconds) : 0;
-
-    if (sceneFrames.length === 0) {
-      const total = Math.max(1, Math.round(durSec * FILM_FPS));
-      acc += total;
-      continue;
-    }
-
-    const frameDurations = splitSceneDurationToFrames(durSec, sceneFrames.length, FILM_FPS);
-
-    for (let i = 0; i < sceneFrames.length; i++) {
-      const fr = sceneFrames[i]!;
-      const durationInFrames = frameDurations[i] ?? 1;
-      if (fr.id === targetFrameId) return acc;
-      acc += durationInFrames;
-    }
+  for (const seg of segments) {
+    if (seg.frameId === targetFrameId) return acc;
+    acc += seg.durationInFrames;
   }
-
   return null;
 }

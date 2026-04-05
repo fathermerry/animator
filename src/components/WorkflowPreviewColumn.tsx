@@ -11,7 +11,7 @@ type Props = {
 
 /**
  * Preview block inside `WorkflowStepLayout`’s right column (max width lives on the layout).
- * Sticky below the fixed app header (`top-14`) while the document scrolls.
+ * Sticky below the fixed app header (`top-20`) while the document scrolls.
  */
 export function WorkflowPreviewColumn({ children, className, meta, headerRight }: Props) {
   return (

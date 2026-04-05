@@ -35,8 +35,35 @@ export function RenderSceneFrameDetails({
 
   return (
     <div className={cn("flex min-h-0 flex-col gap-6", className)}>
+      {frame ? (
+        <div className="flex flex-col gap-2.5">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Frame</p>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="render-frame-desc" className="text-sm text-muted-foreground">
+              Description
+            </Label>
+            <Textarea
+              id="render-frame-desc"
+              value={frameDesc}
+              onChange={(e) => onPatchFrame(frame.id, { description: e.target.value })}
+              className="min-h-[5rem]"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Frame</p>
+          <p className="text-sm text-muted-foreground">
+            This segment has no frame row (scene-only). Add frames in your pipeline or edit the scene
+            beat below.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2.5">
-        <p className="text-xs font-medium uppercase text-muted-foreground">Scene</p>
+        <div className="flex min-h-[1.25rem] min-w-0 items-center">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Scene</p>
+        </div>
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-1">
             <Label htmlFor="render-scene-title" className="text-sm text-muted-foreground">
@@ -80,31 +107,6 @@ export function RenderSceneFrameDetails({
           </div>
         </div>
       </div>
-
-      {frame ? (
-        <div className="flex flex-col gap-2.5">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Frame</p>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="render-frame-desc" className="text-sm text-muted-foreground">
-              Description
-            </Label>
-            <Textarea
-              id="render-frame-desc"
-              value={frameDesc}
-              onChange={(e) => onPatchFrame(frame.id, { description: e.target.value })}
-              className="min-h-[5rem]"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Frame</p>
-          <p className="text-sm text-muted-foreground">
-            This segment has no frame row (scene-only). Add frames in your pipeline or edit the scene
-            beat above.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

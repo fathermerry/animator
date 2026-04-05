@@ -10,10 +10,12 @@ import {
 } from "lucide-react";
 
 import { findRender } from "@/lib/frameRenderStatus";
-import { formatFilmTime } from "@/lib/filmTime";
+import { formatFilmSegmentClock } from "@/lib/filmTime";
+import { getFilmTimingByProjectFrameId } from "@/lib/renderFilmTimeline";
 import { framesForSceneSorted } from "@/lib/sceneFrames";
 import { useProjectStore } from "@/store/projectStore";
 import { cn } from "@/lib/utils";
+import type { AssetBundle } from "@/types/assetsConfig";
 import type { Frame, Render, Scene } from "@/types/project";
 
 type PopupContentState = {
@@ -21,6 +23,8 @@ type PopupContentState = {
   scene: Scene;
   render: Render | undefined;
   anchorRect: DOMRect;
+  /** From {@link getFilmTimingByProjectFrameId}: start = cumulative prior segments. */
+  filmStartSeconds: number;
 };
 
 function FrameDetailPopup({
@@ -72,8 +76,7 @@ function FrameDetailPopup({
   }, [onClose]);
 
   const subtitle = [
-    `Frame ${frame.index + 1}`,
-    formatFilmTime(scene.durationSeconds),
+    formatFilmSegmentClock(state.filmStartSeconds),
     render?.status === "pending" || render?.status === "processing" ? "Rendering…" : null,
   ]
     .filter(Boolean)
@@ -129,6 +132,7 @@ type Props = {
   scenes: Scene[];
   frames: Frame[];
   renders: Render[];
+  assetBundle: AssetBundle;
   className?: string;
   /** Full-height rail: flat chrome; same folder / frame rows. */
   variant?: "default" | "sidebar";
@@ -144,6 +148,7 @@ export function RenderSceneLayers({
   scenes,
   frames,
   renders,
+  assetBundle,
   className,
   variant = "default",
   onFrameSeek,
@@ -156,6 +161,12 @@ export function RenderSceneLayers({
     () => [...scenes].sort((a, b) => a.index - b.index),
     [scenes],
   );
+
+  const frameFilmTiming = useMemo(
+    () => getFilmTimingByProjectFrameId(scenes, frames, renders, assetBundle),
+    [scenes, frames, renders, assetBundle],
+  );
+
   const sceneIdKey = useMemo(() => ordered.map((s) => s.id).join("\0"), [ordered]);
   const [expandedById, setExpandedById] = useState<Record<string, boolean>>({});
 
@@ -201,21 +212,24 @@ export function RenderSceneLayers({
         ...p,
         frame: nextFrame,
         render: findRender(renders, nextFrame),
+        filmStartSeconds: frameFilmTiming.get(nextFrame.id)?.startSeconds ?? 0,
       };
     });
-  }, [frames, renders]);
+  }, [frames, renders, frameFilmTiming]);
 
   const openHover = useCallback(
     (fr: Frame, scene: Scene, anchorRect: DOMRect) => {
       clearHoverDismissTimer();
+      const t = frameFilmTiming.get(fr.id);
       setPopup({
         frame: fr,
         scene,
         render: findRender(renders, fr),
         anchorRect,
+        filmStartSeconds: t?.startSeconds ?? 0,
       });
     },
-    [clearHoverDismissTimer, renders],
+    [clearHoverDismissTimer, renders, frameFilmTiming],
   );
 
   const toggleScene = (sceneId: string) => {
@@ -313,6 +327,8 @@ export function RenderSceneLayers({
                         ) : (
                           sceneFrames.map((fr) => {
                             const isPlaybackActive = playbackActiveFrameId === fr.id;
+                            const timing = frameFilmTiming.get(fr.id);
+                            const startSs = timing?.startSeconds ?? 0;
                             return (
                               <li
                                 key={fr.id}
@@ -335,7 +351,7 @@ export function RenderSceneLayers({
                                     onFrameSeek?.(fr.id);
                                   }}
                                   className={cn(
-                                    "flex h-8 w-full min-w-0 items-center gap-2 rounded-sm py-0.5 pl-1 text-left text-base leading-tight",
+                                    "flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm py-0.5 pl-1 text-left text-base leading-tight",
                                     "pr-1 group-hover:pr-9",
                                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                                     isPlaybackActive ? "bg-muted/90" : "",
@@ -348,13 +364,16 @@ export function RenderSceneLayers({
                                       className="h-full w-full object-cover"
                                     />
                                   </span>
-                                  <span className="min-w-0 flex-1 truncate">
-                                    {`Frame ${fr.index + 1}`}
+                                  <span
+                                    className="min-w-0 flex-1 truncate text-base"
+                                    title="Start time in the film"
+                                  >
+                                    {formatFilmSegmentClock(startSs)}
                                   </span>
                                 </button>
                                 <button
                                   type="button"
-                                  aria-label={`Remove frame ${fr.index + 1}`}
+                                  aria-label={`Remove frame at ${formatFilmSegmentClock(startSs)}`}
                                   className={cn(
                                     "absolute right-0.5 top-1/2 z-[1] flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm",
                                     "text-muted-foreground opacity-0 pointer-events-none transition-opacity",
@@ -388,8 +407,8 @@ export function RenderSceneLayers({
 
       {isSidebar ? (
         <p className="sr-only">
-          Hover a frame to show a preview popover (stays while you hover the row or the popover). Click
-          seeks the film to that frame.
+          Each frame row shows start time in the film (minutes:seconds.hundredths). Hover a frame for
+          a preview popover; click seeks the film to that frame.
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">

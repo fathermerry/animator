@@ -21,7 +21,7 @@ import type { Step } from "@/steps";
 
 type Props = { step: Step };
 
-/** Render step: scene/frame breakdown; preview matches Story/Assets. */
+/** Render step: scene/frame breakdown; preview matches Script/Assets. */
 export function RenderPageView({ step: _step }: Props) {
   const assetBundle = useStore(useProjectStore, selectResolvedAssetBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
@@ -70,9 +70,9 @@ export function RenderPageView({ step: _step }: Props) {
   return (
     <WorkflowStepLayout
       className="py-2 md:py-3 lg:py-4"
-      primaryClassName="pt-0 pl-3 md:px-5 md:pt-0 lg:pl-4 lg:pt-1 lg:pr-6"
+      primaryClassName="pl-3 md:px-5 lg:pl-4"
       middle={
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-background pb-4">
+        <div className="w-full min-w-0 bg-background pb-4 lg:sticky lg:top-20 lg:z-10 lg:self-start">
           <RenderSceneFrameDetails
             scene={editScene}
             frame={editFrame}
@@ -83,29 +83,29 @@ export function RenderPageView({ step: _step }: Props) {
         </div>
       }
       primary={
-        <div className="flex w-full min-w-0 flex-col lg:min-h-0 lg:flex-row lg:items-stretch">
-          <aside
-            className={cn(
-              "flex w-full flex-col pb-4 lg:pb-0",
-              "lg:sticky lg:top-14 lg:w-[16rem] lg:shrink-0 lg:pr-4",
-            )}
-            aria-label="Scene layers"
-          >
-            <div className="mb-2 min-w-0">
+        <aside
+          className={cn(
+            "flex w-full min-w-0 flex-col pb-4 lg:pb-0",
+            "lg:sticky lg:top-14 lg:w-[16rem] lg:shrink-0 lg:pr-4",
+          )}
+          aria-label="Scene layers"
+        >
+          <div className="mb-2 min-w-0">
+            <div className="flex min-h-[1.25rem] min-w-0 items-center">
               <p className="text-xs font-medium uppercase text-muted-foreground">Layers</p>
             </div>
-            <RenderSceneLayers
-              variant="sidebar"
-              scenes={scenes}
-              frames={frames}
-              renders={renders}
-              className="w-full min-w-0"
-              playbackActiveFrameId={playbackActiveFrameId}
-              onFrameSeek={seekFilmToFrame}
-            />
-          </aside>
-          <div className="min-h-0 min-w-0 flex-1" aria-hidden />
-        </div>
+          </div>
+          <RenderSceneLayers
+            variant="sidebar"
+            scenes={scenes}
+            frames={frames}
+            renders={renders}
+            assetBundle={assetBundle}
+            className="w-full min-w-0"
+            playbackActiveFrameId={playbackActiveFrameId}
+            onFrameSeek={seekFilmToFrame}
+          />
+        </aside>
       }
       preview={
         <WorkflowPreviewColumn

@@ -14,6 +14,19 @@ export function formatFilmTime(seconds: number): string {
   return Math.max(0, seconds).toFixed(2);
 }
 
+/**
+ * Clock for one film segment: `m:ss.cc` with fractional seconds.
+ * Use this when showing **start** and **duration** together; {@link formatDurationMmSs} floors each
+ * value and makes “start + duration” disagree with the next row’s start when splits are sub-second.
+ */
+export function formatFilmSegmentClock(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds)) return "0:00.00";
+  const s = Math.max(0, totalSeconds);
+  const m = Math.floor(s / 60);
+  const secPart = s - m * 60;
+  return `${m}:${secPart.toFixed(2).padStart(5, "0")}`;
+}
+
 /** Seconds from film start to this scene (scenes ordered by `index`). */
 export function sceneStartSeconds(scenes: Scene[], sceneId: string): number {
   const ordered = [...scenes].sort((a, b) => a.index - b.index);

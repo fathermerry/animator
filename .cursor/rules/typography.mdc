@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Typography
 
-- **Font:** **Arial**, Helvetica, sans-serif everywhere (`src/index.css` `@theme` `--font-sans` and `html`). **Exclude** `.font-mono` where monospace is required (ids, tabular times). No other UI font stacks unless rendering inside a fixed canvas such as a video frame export.
+- **Font:** **Arial**, Helvetica, sans-serif everywhere (`src/index.css` `@theme` `--font-sans` and `html`). **Exclude** `.font-mono` except for the narrow cases below (inline tabular codes). **Film / timeline clock labels** (playhead, layer start times, etc.) use **`font-sans`**, not monospace. No other UI font stacks unless rendering inside a fixed canvas such as a video frame export.
 - **Size:** Base size is **14px**, set on `html` in `src/index.css`. Prefer **`text-base`** (1rem) or no size class so copy inherits 14px.
 - **Letter-spacing:** **`normal`** globally (`html` in `index.css`). Do not use Tailwind **`tracking-*`** (`tracking-tight`, `tracking-wide`, etc.) on app chrome — it breaks uniformity.
 
@@ -14,7 +14,7 @@ alwaysApply: true
 - **`text-sm`:** Secondary body — e.g. style kit **character/object description** inputs (one line next to the id).
 - **`text-xs`:** **Uppercase section labels** only (e.g. “CHARACTERS”, “OBJECTS” on the style page). Pair with `font-medium uppercase text-muted-foreground`. Do not use `text-xs` for sentence case body text.
 - **Ids / codes:** Character kit ids (e.g. `C01`) and **numeric** object ids (three digits, e.g. `010`) in list cards and preview overlay use the app **`font-sans`** stack with **`text-[13px] text-muted-foreground`** beside the name — use **`uppercase`** only for character ids (letter prefix). Preview badge uses **`text-base`**.
-- **Ids / codes (inline):** Tabular codes that need alignment may use **`font-mono`** with **`text-base`** (14px).
+- **Ids / codes (inline):** Tabular codes that need alignment may use **`font-mono`** with **`text-base`** (14px). Do not use **`font-mono`** for time-of-day–style film or timeline strings (e.g. `0:06.67`); those stay **`font-sans`**.
 
 Do not use arbitrary pixel font sizes (`text-[10px]`, etc.) on app chrome unless there is a documented exception in this file.
 
