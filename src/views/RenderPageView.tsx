@@ -55,8 +55,8 @@ export function RenderPageView({ step: _step }: Props) {
         <div className="flex w-full min-w-0 flex-col lg:min-h-0 lg:flex-row lg:items-stretch">
           <aside
             className={cn(
-              "flex min-h-0 w-full flex-col pb-4 lg:pb-0",
-              "lg:sticky lg:top-14 lg:max-h-[calc(100svh-3.5rem)] lg:min-h-0 lg:w-[16rem] lg:shrink-0 lg:pr-4",
+              "flex w-full flex-col pb-4 lg:pb-0",
+              "lg:sticky lg:top-14 lg:w-[16rem] lg:shrink-0 lg:pr-4",
             )}
             aria-label="Scene layers"
           >

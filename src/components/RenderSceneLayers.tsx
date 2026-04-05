@@ -262,8 +262,8 @@ export function RenderSceneLayers({
         <div
           ref={layersScrollRef}
           className={cn(
-            "overflow-y-auto py-0 pr-0.5 pl-0",
-            isSidebar ? "min-h-0 flex-1" : "max-h-[min(70vh,28rem)] py-1 pl-1",
+            "py-0 pr-0.5 pl-0",
+            isSidebar ? "" : "max-h-[min(70vh,28rem)] overflow-y-auto py-1 pl-1",
           )}
         >
           {ordered.length === 0 ? (
