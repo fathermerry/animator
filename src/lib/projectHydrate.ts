@@ -142,9 +142,8 @@ function reviveAssetBundle(raw: unknown): AssetBundle {
 
 export function reviveStyleConfig(raw: unknown): StyleConfig | null {
   if (!raw || typeof raw !== "object") return null;
-  const s = raw as Partial<StyleConfig> & { style?: unknown };
-  const bundleRaw = s.assets ?? s.style;
-  const assets = reviveAssetBundle(bundleRaw ?? {});
+  const s = raw as Partial<StyleConfig>;
+  const assets = reviveAssetBundle(s.assets ?? {});
   return {
     id: typeof s.id === "string" && s.id.trim() ? s.id : crypto.randomUUID(),
     name: typeof s.name === "string" ? s.name : "Style kit",
@@ -273,8 +272,8 @@ function dedupeStyleConfigs(configs: StyleConfig[]): StyleConfig[] {
   return [...byId.values()];
 }
 
-/** Hydrates from parsed JSON. Pass `extraStyleConfigs` for file-split defaults (e.g. bundled style JSON). */
-export function projectFromConfigJson(raw: unknown, extraStyleConfigs: StyleConfig[] = []): HydratedProjectBundle {
+/** Hydrates from parsed JSON (project file includes `styleConfigs` when present). */
+export function projectFromConfigJson(raw: unknown): HydratedProjectBundle {
   const seed = normalizeProjectConfigSeed(raw);
   const o = seed;
   const projectId = typeof o.id === "string" && o.id.trim() ? o.id : crypto.randomUUID();
@@ -282,8 +281,7 @@ export function projectFromConfigJson(raw: unknown, extraStyleConfigs: StyleConf
   const fromFile = Array.isArray(o.styleConfigs)
     ? o.styleConfigs.map(reviveStyleConfig).filter((x): x is StyleConfig => x !== null)
     : [];
-  const extra = extraStyleConfigs.map(reviveStyleConfig).filter((x): x is StyleConfig => x !== null);
-  let styleConfigs = dedupeStyleConfigs([...extra, ...fromFile]);
+  let styleConfigs = dedupeStyleConfigs(fromFile);
 
   if (styleConfigs.length === 0) {
     const fallback = createDefaultStyleConfig();

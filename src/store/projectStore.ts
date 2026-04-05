@@ -1,7 +1,6 @@
 import { createStore } from "zustand/vanilla";
 
 import defaultProjectJson from "../data/default-project.json";
-import defaultStyleConfigJson from "../data/default-style-config.json";
 import { buildFrameImagePrompt } from "../lib/buildFrameImagePrompt";
 import { frameHasOutputImage } from "../lib/frameRenderStatus";
 import {
@@ -88,8 +87,7 @@ export type ProjectState = {
   deleteProject: (id: string) => Promise<void>;
 };
 
-const bundledStyle = defaultStyleConfigJson as StyleConfig;
-const initialBundle = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
+const initialBundle = projectFromConfigJson(defaultProjectJson);
 
 function initialState(): Omit<
   ProjectState,
@@ -195,7 +193,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
 
     loadDefaultProject: () => {
       const prev = get().project;
-      const fresh = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
+      const fresh = projectFromConfigJson(defaultProjectJson);
       const projectId = prev.id;
       set({
         project: {
@@ -363,13 +361,32 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
 
     createNewProject: async () => {
       abortAllFrameRenders();
-      const bundle = projectFromConfigJson({}, [bundledStyle]);
+      const template = projectFromConfigJson(defaultProjectJson);
+      const newProjectId = crypto.randomUUID();
+      const styleConfigs = template.styleConfigs.map((c) => {
+        const newStyleId = crypto.randomUUID();
+        const newAssetsId = crypto.randomUUID();
+        const assets = structuredClone(c.assets);
+        return {
+          ...c,
+          id: newStyleId,
+          assets: { ...assets, id: newAssetsId },
+        };
+      });
       const slice: PersistableProjectSlice = {
-        project: bundle.project,
-        styleConfigs: bundle.styleConfigs,
-        scenes: bundle.scenes,
-        renders: bundle.renders,
-        frames: bundle.frames,
+        project: {
+          ...template.project,
+          id: newProjectId,
+          name: "Untitled",
+          prompt: "",
+          fileLabel: undefined,
+          createdAt: new Date(),
+          styleConfigId: styleConfigs[0]!.id,
+        },
+        styleConfigs,
+        scenes: [],
+        renders: [],
+        frames: [],
       };
       await putProjectSlice(slice);
       await setActiveProjectId(slice.project.id);

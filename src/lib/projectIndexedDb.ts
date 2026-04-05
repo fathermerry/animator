@@ -1,5 +1,4 @@
 import defaultProjectJson from "@/data/default-project.json";
-import defaultStyleConfigJson from "@/data/default-style-config.json";
 import { idbKvDelete, idbKvGet, idbKvSet, openAnimatorDb, PROJECTS_STORE } from "@/lib/indexedDbKv";
 import { projectFromConfigJson } from "@/lib/projectHydrate";
 import {
@@ -9,12 +8,9 @@ import {
   PROJECT_IDB_KEY,
 } from "@/lib/projectPersistence";
 import { LEGACY_PLACEHOLDER_PROJECT_ID, SAMPLE_PROJECT_ID } from "@/lib/sampleProject";
-import type { StyleConfig } from "@/types/styleConfig";
 import type { Render } from "@/types/project";
 
 const ACTIVE_PROJECT_KEY = "activeProjectId";
-
-const bundledStyle = defaultStyleConfigJson as StyleConfig;
 
 export type ProjectRecord = {
   id: string;
@@ -175,7 +171,7 @@ async function migrateLegacyProjectConfigKv(): Promise<void> {
   let slice: PersistableProjectSlice;
   try {
     const parsed: unknown = JSON.parse(raw);
-    const bundle = projectFromConfigJson(parsed, [bundledStyle]);
+    const bundle = projectFromConfigJson(parsed);
     slice = {
       project: bundle.project,
       styleConfigs: bundle.styleConfigs,
@@ -211,7 +207,7 @@ async function ensureSampleProjectSeeded(): Promise<void> {
   const existing = await projectStoreGet(SAMPLE_PROJECT_ID);
   if (existing) return;
 
-  const bundle = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
+  const bundle = projectFromConfigJson(defaultProjectJson);
   const slice: PersistableProjectSlice = {
     project: bundle.project,
     styleConfigs: bundle.styleConfigs,
@@ -248,7 +244,7 @@ export async function runProjectDbBootstrap(): Promise<PersistableProjectSlice> 
     slice = await getProjectSlice(SAMPLE_PROJECT_ID);
   }
   if (!slice) {
-    const bundle = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
+    const bundle = projectFromConfigJson(defaultProjectJson);
     return {
       project: bundle.project,
       styleConfigs: bundle.styleConfigs,
