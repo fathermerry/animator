@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
-import { StylePreview } from "@/components/StylePreview";
+import { StylePreview, type StylePreviewKitHover } from "@/components/StylePreview";
 import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepLayout } from "@/components/WorkflowStepLayout";
 import { Button } from "@/components/ui/button";
@@ -24,11 +24,6 @@ type Props = { step: Step };
 type KitKey = "characters" | "objects";
 
 type KitSelection = { kind: KitKey; id: string };
-
-function kitDisplayId(style: Style, kind: KitKey, id: string): string | null {
-  const list = style[kind];
-  return list.some((a) => a.id === id) ? id : null;
-}
 
 function ensureTwoTextStyles(style: Style): Style {
   const d = createDefaultStyle().textStyles;
@@ -71,10 +66,14 @@ export function StylePageView({ step: _step }: Props) {
   }, [ensureDraft, updateStyle]);
 
   useEffect(() => {
-    setKitSelection((sel) => {
-      if (!sel) return null;
-      const list = style[sel.kind];
-      return list.some((a) => a.id === sel.id) ? sel : null;
+    setKitSelection((prev) => {
+      if (prev) {
+        const list = style[prev.kind];
+        if (list.some((a) => a.id === prev.id)) return prev;
+      }
+      const first = style.characters[0];
+      if (first?.id) return { kind: "characters", id: first.id };
+      return null;
     });
   }, [style.characters, style.objects]);
 
@@ -115,9 +114,14 @@ export function StylePageView({ step: _step }: Props) {
   };
 
   const toggleKitSelection = (kind: KitKey, id: string) => {
-    setKitSelection((prev) =>
-      prev?.kind === kind && prev.id === id ? null : { kind, id },
-    );
+    setKitSelection((prev) => {
+      if (prev?.kind === kind && prev.id === id) {
+        const first = style.characters[0];
+        if (first?.id) return { kind: "characters", id: first.id };
+        return null;
+      }
+      return { kind, id };
+    });
   };
 
   const addKitPlaceholder = (kind: KitKey) => {
@@ -185,8 +189,19 @@ export function StylePageView({ step: _step }: Props) {
     });
   };
 
-  const kitPreviewId =
-    kitSelection && kitDisplayId(style, kitSelection.kind, kitSelection.id);
+  const kitHoverDetail = useMemo((): StylePreviewKitHover | null => {
+    if (!kitSelection) return null;
+    const list = style[kitSelection.kind];
+    const asset = list.find((a) => a.id === kitSelection.id);
+    if (!asset) return null;
+    const desc = asset.description?.trim();
+    return {
+      id: asset.id,
+      name: asset.name,
+      ...(desc ? { description: desc } : {}),
+      kind: kitSelection.kind,
+    };
+  }, [kitSelection, style]);
 
   const backgroundColorHex = normalizeHex(style.background.color);
   const backgroundHexShown = backgroundHexDraft ?? backgroundColorHex;
@@ -272,12 +287,13 @@ export function StylePageView({ step: _step }: Props) {
             type="button"
             variant="outline"
             size="sm"
+            className="cursor-pointer text-sm"
             onClick={() => {
               setBackgroundError(null);
               backgroundFileInputRef.current?.click();
             }}
           >
-            {style.background.src?.trim() ? "Replace image" : "Choose image"}
+            {style.background.src?.trim() ? "Replace file" : "Choose file"}
           </Button>
           {style.background.src?.trim() ? (
             <Button type="button" variant="ghost" size="sm" onClick={clearBackgroundImage}>
@@ -346,7 +362,7 @@ export function StylePageView({ step: _step }: Props) {
         <WorkflowPreviewColumn>
           <StylePreview
             style={style}
-            kitSelectionDisplayId={kitPreviewId}
+            kitHoverDetail={kitHoverDetail}
             backgroundEditor={backgroundEditor}
             className="w-full"
           />

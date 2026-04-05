@@ -26,6 +26,7 @@ export function WorkflowStepArrows({ path }: Props) {
         type="button"
         variant="outline"
         size="icon-sm"
+        className="cursor-pointer"
         disabled={!canPrev}
         aria-label="Previous step"
         onClick={() => navigate(pathForFlowIndex(idx - 1))}
@@ -36,6 +37,7 @@ export function WorkflowStepArrows({ path }: Props) {
         type="button"
         variant="outline"
         size="icon-sm"
+        className="cursor-pointer"
         disabled={!canNext}
         aria-label="Next step"
         onClick={() => navigate(pathForFlowIndex(idx + 1))}

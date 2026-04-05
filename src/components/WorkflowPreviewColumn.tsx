@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   children: React.ReactNode;
   className?: string;
-  /** Optional line between the “Video preview” label and the frame (e.g. scene · frame on Render). */
+  /** Optional line between the “Preview” label and the frame (e.g. scene · frame on Render). */
   meta?: React.ReactNode;
 };
 
@@ -19,7 +19,7 @@ export function WorkflowPreviewColumn({ children, className, meta }: Props) {
         className,
       )}
     >
-      <p className="text-xs font-medium uppercase text-muted-foreground">Video preview</p>
+      <p className="text-xs font-medium uppercase text-muted-foreground">Preview</p>
       {meta}
       <div className="relative w-full min-w-0">{children}</div>
     </div>

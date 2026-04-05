@@ -40,24 +40,33 @@ export type StyleConfig = {
 export const defaultCharacters: StyleAsset[] = [
   {
     id: "C01",
-    name: "Protagonist — self-employed borrower (viewer stand-in): smart-casual, relatable arc from stress to clarity",
-    description: "",
+    name: "Narrator",
+    description:
+      "The channel’s central host: direct-to-camera explainer energy like finance YouTube thumbnails—expressive face, simple outfit, the face of the story. He stands in for self-employed viewers learning the rules (charts, walkthroughs, reactions) but reads first as narrator/host, not only as an applicant. Smart-casual, approachable, not a caricature; arc from stressed or overwhelmed to calmer once things make sense.",
   },
   {
     id: "C02",
-    name: "Bank / lender professional — trustworthy, neutral, explains requirements and paperwork",
-    description: "",
+    name: "Lender",
+    description:
+      "Represents a bank or building society: professional, neutral, trustworthy. Explains rules in plain language—affordability, deposits, documents—not salesy. Typical props: branded folder, desk, screen with forms. Good for “what the bank needs from you” beats.",
   },
-  { id: "C03", name: "Accountant — calm, numbers-focused; papers, laptop, or tax office setting", description: "" },
+  {
+    id: "C03",
+    name: "Accountant",
+    description:
+      "Calm, numbers-first helper: reconciling books, SA302s, tax years, and declared income. Setting can be a small practice, home office, or meeting with the narrator. Laptop, printouts, calculator energy. Use when the story is about proving income from accounts, not just payslips.",
+  },
   {
     id: "C04",
-    name: "Mortgage broker — whole-of-market guide; consultative, often with docs or screen",
-    description: "",
+    name: "Broker",
+    description:
+      "Whole-of-market mortgage adviser: consultative, compares options, sits between the client and lenders. Often with a laptop, comparison notes, or a phone call in frame. Use for “shopping the market,” explaining product types, or walking through an application step-by-step.",
   },
   {
     id: "C05",
-    name: "PAYE employee — contrast character; simpler income proof / payslip energy for comparisons",
-    description: "",
+    name: "Employee",
+    description:
+      "A salaried PAYE worker for contrast: payslips, P60, simpler proof of income. Same friendly tone as the narrator but fewer moving parts—use in split-screen or before/after comparisons when you need to show how self-employed underwriting differs from standard employment.",
   },
 ];
 

@@ -34,6 +34,10 @@ function findRender(renders: Render[], frame: Frame): Render | undefined {
   return renders.find((r) => r.id === frame.renderId);
 }
 
+function isPlaceholderFrameSrc(src: string): boolean {
+  return src.includes("placeholder.png");
+}
+
 function FrameDetailPopup({
   state,
   mode,
@@ -88,10 +92,15 @@ function FrameDetailPopup({
   const subtitle = [
     `Frame ${frame.index + 1}`,
     formatFilmTime(scene.durationSeconds),
-    render?.status === "pending" ? "Rendering…" : null,
+    render?.status === "pending" || render?.status === "processing" ? "Rendering…" : null,
   ]
     .filter(Boolean)
     .join(" · ");
+
+  const renderInFlight = render?.status === "pending" || render?.status === "processing";
+  const showRenderCta =
+    !renderInFlight &&
+    (isPlaceholderFrameSrc(frame.src) || !render || render.status === "failed");
 
   return createPortal(
     <>
@@ -130,6 +139,20 @@ function FrameDetailPopup({
       >
         <div className="relative aspect-video w-full bg-muted/50">
           <img src={frame.src} alt="" className="h-full w-full object-cover" />
+          {showRenderCta ? (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25">
+              <button
+                type="button"
+                className={cn(
+                  "pointer-events-auto cursor-pointer rounded-md border border-border/80 bg-background/90 px-2.5 py-1",
+                  "text-sm text-foreground shadow-sm",
+                  "hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                )}
+              >
+                Render
+              </button>
+            </div>
+          ) : null}
           {isPinned ? (
             <button
               type="button"
@@ -151,9 +174,6 @@ function FrameDetailPopup({
           <p id="frame-detail-title" className="text-base font-medium leading-snug text-foreground">
             {scene.title.trim() || `Scene ${scene.index + 1}`}
           </p>
-          {scene.description.trim() ? (
-            <p className="mt-0.5 line-clamp-3 text-sm text-muted-foreground">{scene.description}</p>
-          ) : null}
           <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
         </div>
       </div>
