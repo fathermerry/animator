@@ -1,0 +1,65 @@
+{
+  "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "name": "Mortgage explainer kit",
+  "style": {
+    "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "name": "Mortgage explainer",
+    "notes": "",
+    "background": {
+      "color": "#0a0a0a"
+    },
+    "textStyles": [
+      {
+        "fontFamily": "Arial, Helvetica, sans-serif",
+        "fontWeight": 700,
+        "color": "#ffffff",
+        "instructions": "Primary on-screen title: short, high impact, often a single claim or section title. Prefer one line; two only if both are short."
+      },
+      {
+        "fontFamily": "Arial, Helvetica, sans-serif",
+        "fontWeight": 400,
+        "color": "#a3a3a3",
+        "instructions": "Supporting line: subtext, qualification, or CTA. Lighter weight than the title; use for subheads, caveats, and “what to do next”."
+      }
+    ],
+    "characters": [
+      {
+        "id": "C01",
+        "name": "Borrower",
+        "description": "Main viewer stand-in: a self-employed person trying to get a mortgage. Smart-casual, approachable, not a caricature. Show a clear arc from stressed or overwhelmed (paperwork, uncertainty) to calmer and more confident once things make sense. Use for empathy shots, POV moments, and reactions at a kitchen table or desk."
+      },
+      {
+        "id": "C02",
+        "name": "Lender",
+        "description": "Represents a bank or building society: professional, neutral, trustworthy. Explains rules in plain language—affordability, deposits, documents—not salesy. Typical props: branded folder, desk, screen with forms. Good for “what the bank needs from you” beats."
+      },
+      {
+        "id": "C03",
+        "name": "Accountant",
+        "description": "Calm, numbers-first helper: reconciling books, SA302s, tax years, and declared income. Setting can be a small practice, home office, or meeting with the borrower. Laptop, printouts, calculator energy. Use when the story is about proving income from accounts, not just payslips."
+      },
+      {
+        "id": "C04",
+        "name": "Broker",
+        "description": "Whole-of-market mortgage adviser: consultative, compares options, sits between borrower and lenders. Often with a laptop, comparison notes, or a phone call in frame. Use for “shopping the market,” explaining product types, or walking through an application step-by-step."
+      },
+      {
+        "id": "C05",
+        "name": "Employee",
+        "description": "A salaried PAYE worker for contrast: payslips, P60, simpler proof of income. Same friendly tone as the borrower but fewer moving parts—use in split-screen or before/after comparisons when you need to show how self-employed underwriting differs from standard employment."
+      }
+    ],
+    "objects": [
+      { "id": "001", "name": "House / property" },
+      { "id": "002", "name": "Documents stack" },
+      { "id": "003", "name": "SA302 form" },
+      { "id": "004", "name": "Tax vs borrowing seesaw" },
+      { "id": "005", "name": "Trading timeline" },
+      { "id": "006", "name": "Income scale" },
+      { "id": "007", "name": "Funnel" },
+      { "id": "008", "name": "Credit score meter" },
+      { "id": "009", "name": "Checkmark" },
+      { "id": "010", "name": "Warning triangle" }
+    ]
+  }
+}
