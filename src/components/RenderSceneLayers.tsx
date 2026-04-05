@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 import {
   ChevronDown,
@@ -9,7 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { findRender } from "@/lib/frameRenderStatus";
+import { findRender, frameHasOutputImage } from "@/lib/frameRenderStatus";
 import { formatFilmSegmentClock } from "@/lib/filmTime";
 import { getFilmTimingByProjectFrameId } from "@/lib/renderFilmTimeline";
 import { framesForSceneSorted } from "@/lib/sceneFrames";
@@ -18,113 +17,29 @@ import { cn } from "@/lib/utils";
 import type { AssetBundle } from "@/types/assetsConfig";
 import type { Frame, Render, Scene } from "@/types/project";
 
-type PopupContentState = {
-  frame: Frame;
-  scene: Scene;
-  render: Render | undefined;
-  anchorRect: DOMRect;
-  /** From {@link getFilmTimingByProjectFrameId}: start = cumulative prior segments. */
-  filmStartSeconds: number;
-};
+function isFrameRenderingUi(
+  frame: Frame,
+  render: Render | undefined,
+  renderingFrameIds: Record<string, true>,
+): boolean {
+  if (renderingFrameIds[frame.id]) return true;
+  return render?.status === "pending" || render?.status === "processing";
+}
 
-function FrameDetailPopup({
-  state,
-  onClose,
-  onPointerEnterPanel,
-  onPointerLeavePanel,
-}: {
-  state: PopupContentState;
-  onClose: () => void;
-  onPointerEnterPanel: () => void;
-  onPointerLeavePanel: () => void;
-}) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const { frame, scene, render } = state;
-
-  useLayoutEffect(() => {
-    const el = panelRef.current;
-    if (!el) return;
-
-    const pad = 8;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const w = el.offsetWidth;
-    const h = el.offsetHeight;
-    const ar = state.anchorRect;
-
-    let left = ar.right + pad;
-    if (left + w > vw - pad) {
-      left = ar.left - w - pad;
-    }
-    if (left < pad) left = pad;
-    if (left + w > vw - pad) left = vw - w - pad;
-
-    let top = ar.top;
-    if (top + h > vh - pad) top = vh - h - pad;
-    if (top < pad) top = pad;
-
-    setPos({ top, left });
-  }, [state.anchorRect, state.frame.id, scene.id, render?.id, render?.status]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  const subtitle = [
-    formatFilmSegmentClock(state.filmStartSeconds),
-    render?.status === "pending" || render?.status === "processing" ? "Rendering…" : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  const frameDesc = frame.description.trim();
-
-  return createPortal(
-    <>
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-labelledby="frame-detail-title"
-        className={cn(
-          "fixed z-[51] w-[min(calc(100vw-2rem),17.5rem)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl ring-0",
-          pos ? "opacity-100" : "opacity-0",
-        )}
-        style={
-          pos
-            ? { top: pos.top, left: pos.left }
-            : {
-                top: Math.max(8, state.anchorRect.top),
-                left: Math.min(
-                  state.anchorRect.right + 8,
-                  typeof window !== "undefined" ? window.innerWidth - 280 - 8 : 8,
-                ),
-              }
-        }
-        onPointerEnter={onPointerEnterPanel}
-        onPointerLeave={onPointerLeavePanel}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative aspect-video w-full bg-muted/50">
-          <img src={frame.src} alt="" className="h-full w-full object-cover" />
-        </div>
-
-        <div className="border-t border-border/80 px-3 pb-2 pt-2.5">
-          <p id="frame-detail-title" className="text-base font-medium leading-snug text-foreground">
-            {scene.title.trim() || "—"}
-          </p>
-          {frameDesc ? (
-            <p className="mt-1 text-sm leading-snug text-foreground">{frameDesc}</p>
-          ) : null}
-          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+function FrameThumbGloss() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-[2] overflow-hidden rounded-[inherit]"
+      aria-hidden
+    >
+      <div className="absolute inset-0 bg-white/[0.18] backdrop-blur-[2px]" />
+      <div className="absolute inset-0 rounded-[inherit] shadow-[inset_0_1px_0_0_rgb(255_255_255/0.4)]" />
+      <div className="absolute inset-0 overflow-hidden rounded-[inherit] opacity-[0.92]">
+        <div className="render-glass-shimmer-sweep absolute left-0 top-0 h-full min-h-full will-change-transform">
+          <div className="render-glass-shimmer-band" />
         </div>
       </div>
-    </>,
-    document.body,
+    </div>
   );
 }
 
@@ -142,8 +57,6 @@ type Props = {
   playbackActiveFrameId?: string | null;
 };
 
-const HOVER_DISMISS_MS = 220;
-
 export function RenderSceneLayers({
   scenes,
   frames,
@@ -155,6 +68,7 @@ export function RenderSceneLayers({
   playbackActiveFrameId = null,
 }: Props) {
   const removeFrame = useStore(useProjectStore, (s) => s.removeFrame);
+  const renderingFrameIds = useStore(useProjectStore, (s) => s.renderingFrameIds);
   const layersScrollRef = useRef<HTMLDivElement>(null);
 
   const ordered = useMemo(
@@ -179,58 +93,6 @@ export function RenderSceneLayers({
       return next;
     });
   }, [sceneIdKey, ordered]);
-
-  const [popup, setPopup] = useState<PopupContentState | null>(null);
-  const hoverDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearHoverDismissTimer = useCallback(() => {
-    if (hoverDismissTimerRef.current) {
-      clearTimeout(hoverDismissTimerRef.current);
-      hoverDismissTimerRef.current = null;
-    }
-  }, []);
-
-  const closePopup = useCallback(() => {
-    clearHoverDismissTimer();
-    setPopup(null);
-  }, [clearHoverDismissTimer]);
-
-  const scheduleHoverDismiss = useCallback(() => {
-    clearHoverDismissTimer();
-    hoverDismissTimerRef.current = setTimeout(() => {
-      setPopup(null);
-      hoverDismissTimerRef.current = null;
-    }, HOVER_DISMISS_MS);
-  }, [clearHoverDismissTimer]);
-
-  useEffect(() => {
-    setPopup((p) => {
-      if (!p) return p;
-      const nextFrame = frames.find((f) => f.id === p.frame.id);
-      if (!nextFrame) return null;
-      return {
-        ...p,
-        frame: nextFrame,
-        render: findRender(renders, nextFrame),
-        filmStartSeconds: frameFilmTiming.get(nextFrame.id)?.startSeconds ?? 0,
-      };
-    });
-  }, [frames, renders, frameFilmTiming]);
-
-  const openHover = useCallback(
-    (fr: Frame, scene: Scene, anchorRect: DOMRect) => {
-      clearHoverDismissTimer();
-      const t = frameFilmTiming.get(fr.id);
-      setPopup({
-        frame: fr,
-        scene,
-        render: findRender(renders, fr),
-        anchorRect,
-        filmStartSeconds: t?.startSeconds ?? 0,
-      });
-    },
-    [clearHoverDismissTimer, renders, frameFilmTiming],
-  );
 
   const toggleScene = (sceneId: string) => {
     setExpandedById((p) => ({ ...p, [sceneId]: !p[sceneId] }));
@@ -329,25 +191,19 @@ export function RenderSceneLayers({
                             const isPlaybackActive = playbackActiveFrameId === fr.id;
                             const timing = frameFilmTiming.get(fr.id);
                             const startSs = timing?.startSeconds ?? 0;
+                            const rowRender = findRender(renders, fr);
+                            const rowGloss = isFrameRenderingUi(fr, rowRender, renderingFrameIds);
                             return (
                               <li
                                 key={fr.id}
                                 role="treeitem"
                                 data-frame-row-id={fr.id}
                                 className="group relative"
-                                onMouseEnter={(e) => {
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  openHover(fr, scene, rect);
-                                }}
-                                onMouseLeave={scheduleHoverDismiss}
                               >
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.preventDefault();
-                                    const li = (e.currentTarget as HTMLButtonElement).closest("li");
-                                    const rect = li?.getBoundingClientRect();
-                                    if (rect) openHover(fr, scene, rect);
                                     onFrameSeek?.(fr.id);
                                   }}
                                   className={cn(
@@ -358,11 +214,14 @@ export function RenderSceneLayers({
                                   )}
                                 >
                                   <span className="relative h-6 w-10 shrink-0 overflow-hidden rounded-[2px] bg-muted">
-                                    <img
-                                      src={fr.src}
-                                      alt=""
-                                      className="h-full w-full object-cover"
-                                    />
+                                    {frameHasOutputImage(fr.src) ? (
+                                      <img
+                                        src={fr.src}
+                                        alt=""
+                                        className="relative z-0 h-full w-full object-cover"
+                                      />
+                                    ) : null}
+                                    {rowGloss ? <FrameThumbGloss /> : null}
                                   </span>
                                   <span
                                     className="min-w-0 flex-1 truncate text-base"
@@ -386,7 +245,6 @@ export function RenderSceneLayers({
                                     e.preventDefault();
                                     e.stopPropagation();
                                     removeFrame(fr.id);
-                                    setPopup((p) => (p?.frame.id === fr.id ? null : p));
                                   }}
                                 >
                                   <Trash2 className="size-4" strokeWidth={2} aria-hidden />
@@ -407,24 +265,14 @@ export function RenderSceneLayers({
 
       {isSidebar ? (
         <p className="sr-only">
-          Each frame row shows start time in the film (minutes:seconds.hundredths). Hover a frame for
-          a preview popover; click seeks the film to that frame.
+          Each frame row shows start time in the film (minutes:seconds.hundredths). Click a frame to
+          seek the film to that frame.
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Hover a frame to show a preview popover (stays while you hover the row or the popover). Click
-          seeks the film to that frame.
+          Click a frame row to seek the film to that frame.
         </p>
       )}
-
-      {popup ? (
-        <FrameDetailPopup
-          state={popup}
-          onClose={closePopup}
-          onPointerEnterPanel={clearHoverDismissTimer}
-          onPointerLeavePanel={scheduleHoverDismiss}
-        />
-      ) : null}
     </div>
   );
 }

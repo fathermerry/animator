@@ -12,6 +12,8 @@ export type ProjectState = {
   scenes: Scene[];
   renders: Render[];
   frames: Frame[];
+  /** Ephemeral UI: frames currently in a render pass (not persisted; engine will drive this later). */
+  renderingFrameIds: Record<string, true>;
 
   ensureDraftProject: () => string;
   setPromptText: (text: string) => void;
@@ -20,6 +22,11 @@ export type ProjectState = {
   patchFrame: (frameId: string, patch: Partial<Frame>) => void;
   loadDefaultProject: () => void;
   removeFrame: (frameId: string) => void;
+  /** Stub: marks the frame as rendering until the real engine wires in. */
+  requestFrameRender: (frameId: string) => void;
+  /** Stub: marks every frame as rendering until the real engine wires in. */
+  requestFullFilmRender: () => void;
+  cancelFrameRender: (frameId: string) => void;
 };
 
 const bundledAssets = defaultAssetsConfigJson as AssetsConfig;
@@ -34,6 +41,9 @@ function initialState(): Omit<
   | "patchFrame"
   | "loadDefaultProject"
   | "removeFrame"
+  | "requestFrameRender"
+  | "requestFullFilmRender"
+  | "cancelFrameRender"
 > {
   return {
     project: initialBundle.project,
@@ -41,6 +51,7 @@ function initialState(): Omit<
     scenes: initialBundle.scenes,
     renders: initialBundle.renders,
     frames: initialBundle.frames,
+    renderingFrameIds: {},
   };
 }
 
@@ -63,6 +74,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => ({
       scenes: fresh.scenes.map((sc) => ({ ...sc, projectId })),
       renders: fresh.renders.map((r) => ({ ...r, projectId })),
       frames: fresh.frames.map((f) => ({ ...f, projectId })),
+      renderingFrameIds: {},
     });
   },
 
@@ -120,8 +132,35 @@ export const useProjectStore = createStore<ProjectState>((set, get) => ({
         renders = renders.filter((r) => r.id !== renderId);
       }
 
-      return { frames, renders };
+      const renderingFrameIds = { ...s.renderingFrameIds };
+      delete renderingFrameIds[frameId];
+      return { frames, renders, renderingFrameIds };
     });
+  },
+
+  requestFrameRender: (frameId) => {
+    set((s) => ({
+      renderingFrameIds: { ...s.renderingFrameIds, [frameId]: true },
+    }));
+    // TODO: invoke standalone render engine for `frameId`; clear flag when the job completes.
+  },
+
+  requestFullFilmRender: () => {
+    set((s) => {
+      const renderingFrameIds = { ...s.renderingFrameIds };
+      for (const f of s.frames) renderingFrameIds[f.id] = true;
+      return { renderingFrameIds };
+    });
+    // TODO: invoke standalone render engine for all frames; clear flags when jobs complete.
+  },
+
+  cancelFrameRender: (frameId) => {
+    set((s) => {
+      const renderingFrameIds = { ...s.renderingFrameIds };
+      delete renderingFrameIds[frameId];
+      return { renderingFrameIds };
+    });
+    // TODO: abort standalone render job for `frameId` when wired.
   },
 }));
 

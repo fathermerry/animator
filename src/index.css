@@ -126,6 +126,64 @@
   .archive-text-muted {
     @apply font-sans text-xs font-medium text-muted-foreground;
   }
+
+}
+
+/**
+ * Frame thumbnail render overlay: kept outside @layer so keyframes + animation always apply.
+ * Opacity stays at 1 during the sweep so motion stays visible on tiny thumbs (no fade-out mid-move).
+ */
+.render-glass-shimmer-sweep {
+  width: 200%;
+  min-width: 200%;
+  animation: render-glass-sweep-kf 2.5s infinite;
+  backface-visibility: hidden;
+}
+
+.render-glass-shimmer-band {
+  display: block;
+  height: 100%;
+  width: 100%;
+  min-height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 36%,
+    rgb(255 255 255 / 0.18) 43%,
+    rgb(255 255 255 / 0.55) 50%,
+    rgb(255 255 255 / 0.18) 57%,
+    transparent 64%,
+    transparent 100%
+  );
+}
+
+/**
+ * Half of a 5s-style cycle: ~1.25s swipe (2%→52%), ~1.2s idle (53%→100%).
+ */
+@keyframes render-glass-sweep-kf {
+  0%,
+  1% {
+    transform: translate3d(100%, 0, 0);
+    opacity: 0;
+  }
+  2% {
+    transform: translate3d(100%, 0, 0);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.1, 0.65, 0.15, 1);
+  }
+  50% {
+    opacity: 1;
+  }
+  52% {
+    transform: translate3d(-100%, 0, 0);
+    opacity: 0;
+    animation-timing-function: linear;
+  }
+  53%,
+  100% {
+    transform: translate3d(100%, 0, 0);
+    opacity: 0;
+  }
 }
 
 .dark {

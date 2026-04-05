@@ -1,7 +1,9 @@
 import type { PlayerRef } from "@remotion/player";
+import { Clapperboard } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
+import { Button } from "@/components/ui/button";
 import { RenderFilmPreview } from "@/components/RenderFilmPreview";
 import { RenderSceneFrameDetails } from "@/components/RenderSceneFrameDetails";
 import { RenderSceneLayers } from "@/components/RenderSceneLayers";
@@ -29,6 +31,8 @@ export function RenderPageView({ step: _step }: Props) {
   const renders = useStore(useProjectStore, (s) => s.renders);
   const patchScene = useStore(useProjectStore, (s) => s.patchScene);
   const patchFrame = useStore(useProjectStore, (s) => s.patchFrame);
+  const requestFullFilmRender = useStore(useProjectStore, (s) => s.requestFullFilmRender);
+  const renderingFrameIds = useStore(useProjectStore, (s) => s.renderingFrameIds);
 
   const filmPlayerRef = useRef<PlayerRef>(null);
   const [filmGlobalFrame, setFilmGlobalFrame] = useState(0);
@@ -66,6 +70,9 @@ export function RenderPageView({ step: _step }: Props) {
     },
     [scenes, frames, renders, assetBundle],
   );
+
+  const allFramesRendering =
+    frames.length > 0 && frames.every((f) => Boolean(renderingFrameIds[f.id]));
 
   return (
     <WorkflowStepLayout
@@ -108,27 +115,41 @@ export function RenderPageView({ step: _step }: Props) {
         </aside>
       }
       preview={
-        <WorkflowPreviewColumn
-          headerRight={
-            totalFrames > 0 ? (
-              <>
-                {formatDurationMmSs(filmGlobalFrame / FILM_FPS)}
-                <span className="text-muted-foreground/70"> / </span>
-                {formatDurationMmSs(totalFrames / FILM_FPS)}
-              </>
-            ) : null
-          }
-        >
-          <RenderFilmPreview
-            assetBundle={assetBundle}
-            scenes={scenes}
-            frames={frames}
-            renders={renders}
-            className="w-full shrink-0"
-            filmPlayerRef={filmPlayerRef}
-            onGlobalFrameChange={setFilmGlobalFrame}
-          />
-        </WorkflowPreviewColumn>
+        <>
+          <WorkflowPreviewColumn
+            headerRight={
+              totalFrames > 0 ? (
+                <>
+                  {formatDurationMmSs(filmGlobalFrame / FILM_FPS)}
+                  <span className="text-muted-foreground/70"> / </span>
+                  {formatDurationMmSs(totalFrames / FILM_FPS)}
+                </>
+              ) : null
+            }
+          >
+            <RenderFilmPreview
+              assetBundle={assetBundle}
+              scenes={scenes}
+              frames={frames}
+              renders={renders}
+              className="w-full shrink-0"
+              filmPlayerRef={filmPlayerRef}
+              onGlobalFrameChange={setFilmGlobalFrame}
+            />
+          </WorkflowPreviewColumn>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="fixed bottom-6 right-6 z-30 gap-1.5 shadow-md"
+            disabled={frames.length === 0 || allFramesRendering}
+            aria-label="Render all frames at once"
+            onClick={() => requestFullFilmRender()}
+          >
+            <Clapperboard className="size-4" strokeWidth={2} aria-hidden />
+            Render all
+          </Button>
+        </>
       }
     />
   );

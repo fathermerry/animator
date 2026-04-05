@@ -284,7 +284,7 @@
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 0,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Wide establishing shot; narrator approaches the counter with upbeat energy."
     },
     {
@@ -293,7 +293,7 @@
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 1,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Stack of paperwork rises between narrator and lender; the bar feels higher."
     },
     {
@@ -302,7 +302,7 @@
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 2,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Lender leans in; warning icon pulses beside the document pile."
     },
     {
@@ -311,7 +311,7 @@
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 3,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Narrator reacts — overwhelmed but hooked, leaning into the beat."
     },
     {
@@ -320,7 +320,7 @@
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 4,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Direct-to-camera: rejections often mean you did not know the rules yet."
     },
     {
@@ -329,7 +329,7 @@
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 5,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Channel ID and subscribe cue; hand gesture invites the viewer forward."
     },
     {
@@ -338,7 +338,7 @@
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "renderId": "10000002-0000-4000-8000-000000000002",
       "index": 0,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Ownership graphic animates in beside the narrator — it is about equity, not labels."
     },
     {
@@ -347,7 +347,7 @@
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "renderId": "10000002-0000-4000-8000-000000000002",
       "index": 1,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "PAYE employee enters frame left for an instant contrast with payslip simplicity."
     },
     {
@@ -356,7 +356,7 @@
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "renderId": "10000002-0000-4000-8000-000000000002",
       "index": 2,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Lender points at the 20–25% ownership band on the on-screen graphic."
     },
     {
@@ -365,7 +365,7 @@
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "renderId": "10000002-0000-4000-8000-000000000002",
       "index": 3,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Split composition: self-employed path vs employed path, side by side."
     },
     {
@@ -374,7 +374,7 @@
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "renderId": "10000002-0000-4000-8000-000000000002",
       "index": 4,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Umbrella / six-month payslip note: often not classed as self-employed for lending."
     },
     {
@@ -383,7 +383,7 @@
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "renderId": "10000003-0000-4000-8000-000000000003",
       "index": 0,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Sole trader / partnership: net profit years roll up on the desk display."
     },
     {
@@ -392,7 +392,7 @@
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "renderId": "10000003-0000-4000-8000-000000000003",
       "index": 1,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Limited company: salary plus dividends vs profit-after-tax — two different ceilings."
     },
     {
@@ -401,7 +401,7 @@
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "renderId": "10000003-0000-4000-8000-000000000003",
       "index": 2,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Contractor strip: day rate × five × ~46 weeks animates across a calendar."
     },
     {
@@ -410,7 +410,7 @@
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "renderId": "10000003-0000-4000-8000-000000000003",
       "index": 3,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Borrowing band graphic: ~4.5× income cap with a higher-earner stretch callout."
     },
     {
@@ -419,7 +419,7 @@
       "sceneId": "00000004-0000-4000-8000-000000000004",
       "renderId": "10000004-0000-4000-8000-000000000004",
       "index": 0,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Accountant unrolls the SA302; narrator locks onto the numbers."
     },
     {
@@ -428,7 +428,7 @@
       "sceneId": "00000004-0000-4000-8000-000000000004",
       "renderId": "10000004-0000-4000-8000-000000000004",
       "index": 1,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Tax-versus-borrowing seesaw balances overhead — the trade-off lands."
     },
     {
@@ -437,7 +437,7 @@
       "sceneId": "00000004-0000-4000-8000-000000000004",
       "renderId": "10000004-0000-4000-8000-000000000004",
       "index": 2,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Tighter framing: loading expenses before you apply cuts the offer — beat lands."
     },
     {
@@ -446,7 +446,7 @@
       "sceneId": "00000005-0000-4000-8000-000000000005",
       "renderId": "10000005-0000-4000-8000-000000000005",
       "index": 0,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Timeline scrub: twelve months through three years of accounts on a rail."
     },
     {
@@ -455,7 +455,7 @@
       "sceneId": "00000005-0000-4000-8000-000000000005",
       "renderId": "10000005-0000-4000-8000-000000000005",
       "index": 1,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "One-year path: extra statements and income projection cards appear."
     },
     {
@@ -464,7 +464,7 @@
       "sceneId": "00000005-0000-4000-8000-000000000005",
       "renderId": "10000005-0000-4000-8000-000000000005",
       "index": 2,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Caution card: sole trader to limited company can reset the clock — timing matters."
     },
     {
@@ -473,7 +473,7 @@
       "sceneId": "00000006-0000-4000-8000-000000000006",
       "renderId": "10000006-0000-4000-8000-000000000006",
       "index": 0,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "ID, bank statements, and deposit proof laid in a clean, organised grid."
     },
     {
@@ -482,7 +482,7 @@
       "sceneId": "00000006-0000-4000-8000-000000000006",
       "renderId": "10000006-0000-4000-8000-000000000006",
       "index": 1,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Sole trader stack: SA302 and Tax Year Overview pairs labelled by tax year."
     },
     {
@@ -491,7 +491,7 @@
       "sceneId": "00000006-0000-4000-8000-000000000006",
       "renderId": "10000006-0000-4000-8000-000000000006",
       "index": 2,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Limited company and contractor: certified accounts, certificate, and contracts fan out."
     },
     {
@@ -500,7 +500,7 @@
       "sceneId": "00000007-0000-4000-8000-000000000007",
       "renderId": "10000007-0000-4000-8000-000000000007",
       "index": 0,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Credit meter and electoral roll checkmark — fix the file before you apply."
     },
     {
@@ -509,7 +509,7 @@
       "sceneId": "00000007-0000-4000-8000-000000000007",
       "renderId": "10000007-0000-4000-8000-000000000007",
       "index": 1,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Deposit tiers and split accounts checklist; no new credit before applying."
     },
     {
@@ -518,7 +518,7 @@
       "sceneId": "00000008-0000-4000-8000-000000000008",
       "renderId": "10000008-0000-4000-8000-000000000008",
       "index": 0,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Broker laptop grid: lender logos and criteria side by side."
     },
     {
@@ -527,7 +527,7 @@
       "sceneId": "00000008-0000-4000-8000-000000000008",
       "renderId": "10000008-0000-4000-8000-000000000008",
       "index": 1,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Whole-of-market funnel vs single-bank limitation — protect the credit search."
     },
     {
@@ -536,7 +536,7 @@
       "sceneId": "00000009-0000-4000-8000-000000000009",
       "renderId": "10000009-0000-4000-8000-000000000009",
       "index": 0,
-      "src": "/placeholder.png",
+      "src": "",
       "description": "Warm sign-off; like and subscribe marks settle — hold on the hero frame."
     }
   ]

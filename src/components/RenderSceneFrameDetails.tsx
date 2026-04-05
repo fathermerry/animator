@@ -1,7 +1,12 @@
+import { useStore } from "zustand/react";
+
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { frameHasOutputImage } from "@/lib/frameRenderStatus";
 import { cn } from "@/lib/utils";
+import { useProjectStore } from "@/store/projectStore";
 import type { Frame, Scene } from "@/types/project";
 
 type Props = {
@@ -19,6 +24,10 @@ export function RenderSceneFrameDetails({
   onPatchFrame,
   className,
 }: Props) {
+  const renderingFrameIds = useStore(useProjectStore, (s) => s.renderingFrameIds);
+  const requestFrameRender = useStore(useProjectStore, (s) => s.requestFrameRender);
+  const cancelFrameRender = useStore(useProjectStore, (s) => s.cancelFrameRender);
+
   if (!scene) {
     return (
       <div className={cn("flex min-h-0 flex-col gap-3", className)}>
@@ -38,7 +47,7 @@ export function RenderSceneFrameDetails({
       {frame ? (
         <div className="flex flex-col gap-2.5">
           <p className="text-xs font-medium uppercase text-muted-foreground">Frame</p>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="render-frame-desc" className="text-sm text-muted-foreground">
               Description
             </Label>
@@ -107,6 +116,31 @@ export function RenderSceneFrameDetails({
           </div>
         </div>
       </div>
+
+      {frame ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 self-start">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={
+              frameHasOutputImage(frame.src) || Boolean(renderingFrameIds[frame.id])
+            }
+            onClick={() => requestFrameRender(frame.id)}
+          >
+            Render
+          </Button>
+          {renderingFrameIds[frame.id] ? (
+            <button
+              type="button"
+              className="rounded-md px-1.5 py-0.5 text-base text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              onClick={() => cancelFrameRender(frame.id)}
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
