@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 
 import { normalizeHex } from "@/lib/color";
@@ -53,6 +61,21 @@ export function RenderFilmPreview({
   const hasTimeline = totalFrames > 0 && segments.length > 0;
   const maxFrame = Math.max(0, totalFrames - 1);
   const scrubFrame = Math.min(Math.max(0, globalFrame), maxFrame);
+
+  /** Keep latest scrub position for layout seek without re-subscribing listeners every frame. */
+  const scrubFrameRef = useRef(scrubFrame);
+  scrubFrameRef.current = scrubFrame;
+
+  /**
+   * When `stillSignature` changes we remount the Player so new stills load; without this, the new
+   * instance starts at frame 0 while `globalFrame` state still reflects the old playhead — preview
+   * and scrub bar disagree and the finished render can appear "missing".
+   */
+  useLayoutEffect(() => {
+    const p = playerRef.current;
+    if (!p || !hasTimeline) return;
+    p.seekTo(scrubFrameRef.current);
+  }, [stillSignature, totalFrames, hasTimeline, playerRef]);
 
   useEffect(() => {
     if (!hasTimeline || !onGlobalFrameChange) return;
@@ -133,6 +156,7 @@ export function RenderFilmPreview({
           key={`${totalFrames}-${stillSignature}`}
           component={FilmComposition}
           durationInFrames={totalFrames}
+          initialFrame={scrubFrame}
           compositionWidth={COMPOSITION_WIDTH}
           compositionHeight={COMPOSITION_HEIGHT}
           fps={FILM_FPS}

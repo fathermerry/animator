@@ -9,12 +9,28 @@ import {
   type OpenAiImageModelId,
   isOpenAiImageModelId,
 } from "../lib/imageModels";
+import {
+  deleteProjectRecord,
+  getProjectSlice,
+  putProjectSlice,
+  setActiveProjectId,
+} from "../lib/projectIndexedDb";
+import type { PersistableProjectSlice } from "../lib/projectPersistence";
 import { projectFromConfigJson } from "../lib/projectHydrate";
 import { requestFrameImageRender } from "../lib/renderFrameApi";
+import { navigate } from "../router";
+import { SAMPLE_PROJECT_ID } from "../lib/sampleProject";
 import type { Frame, Project, Render, Scene } from "../types/project";
 import { createDefaultAssetBundle, type AssetBundle, type AssetsConfig } from "../types/assetsConfig";
 
 const frameRenderAbortControllers = new Map<string, AbortController>();
+
+function abortAllFrameRenders(): void {
+  for (const id of [...frameRenderAbortControllers.keys()]) {
+    frameRenderAbortControllers.get(id)?.abort();
+    frameRenderAbortControllers.delete(id);
+  }
+}
 
 function takeSignalForFrame(frameId: string): AbortSignal {
   frameRenderAbortControllers.get(frameId)?.abort();
@@ -57,6 +73,10 @@ export type ProjectState = {
   requestFrameRender: (frameId: string, modelId?: OpenAiImageModelId) => Promise<void>;
   requestFullFilmRender: (modelId?: OpenAiImageModelId) => Promise<void>;
   cancelFrameRender: (frameId: string) => void;
+
+  openProject: (id: string) => Promise<void>;
+  createNewProject: () => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
 };
 
 const bundledAssets = defaultAssetsConfigJson as AssetsConfig;
@@ -76,6 +96,9 @@ function initialState(): Omit<
   | "requestFrameRender"
   | "requestFullFilmRender"
   | "cancelFrameRender"
+  | "openProject"
+  | "createNewProject"
+  | "deleteProject"
 > {
   return {
     project: initialBundle.project,
@@ -302,6 +325,66 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       if (r?.status === "processing") {
         get().patchRender(fr!.renderId, { status: "pending" });
       }
+    },
+
+    openProject: async (id) => {
+      const slice = await getProjectSlice(id);
+      if (!slice) return;
+      abortAllFrameRenders();
+      await setActiveProjectId(id);
+      set({
+        project: slice.project,
+        assetsConfigs: slice.assetsConfigs,
+        scenes: slice.scenes,
+        renders: slice.renders,
+        frames: slice.frames,
+        renderingFrameIds: {},
+        frameRenderErrors: {},
+      });
+      navigate("/script");
+    },
+
+    createNewProject: async () => {
+      abortAllFrameRenders();
+      const bundle = projectFromConfigJson({}, [bundledAssets]);
+      const slice: PersistableProjectSlice = {
+        project: bundle.project,
+        assetsConfigs: bundle.assetsConfigs,
+        scenes: bundle.scenes,
+        renders: bundle.renders,
+        frames: bundle.frames,
+      };
+      await putProjectSlice(slice);
+      await setActiveProjectId(slice.project.id);
+      set({
+        project: slice.project,
+        assetsConfigs: slice.assetsConfigs,
+        scenes: slice.scenes,
+        renders: slice.renders,
+        frames: slice.frames,
+        renderingFrameIds: {},
+        frameRenderErrors: {},
+      });
+      navigate("/script");
+    },
+
+    deleteProject: async (id) => {
+      if (id === SAMPLE_PROJECT_ID) return;
+      await deleteProjectRecord(id);
+      if (get().project.id !== id) return;
+      abortAllFrameRenders();
+      const sample = await getProjectSlice(SAMPLE_PROJECT_ID);
+      if (!sample) return;
+      await setActiveProjectId(SAMPLE_PROJECT_ID);
+      set({
+        project: sample.project,
+        assetsConfigs: sample.assetsConfigs,
+        scenes: sample.scenes,
+        renders: sample.renders,
+        frames: sample.frames,
+        renderingFrameIds: {},
+        frameRenderErrors: {},
+      });
     },
   };
 });

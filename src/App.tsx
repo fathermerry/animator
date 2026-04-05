@@ -10,6 +10,8 @@ import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 import { RenderPageView } from "@/views/RenderPageView";
 import { ScriptPageView } from "@/views/ScriptPageView";
 import { AssetsPageView } from "@/views/AssetsPageView";
+import { HomePageView } from "@/views/HomePageView";
+import { RendersOverviewPageView } from "@/views/RendersOverviewPageView";
 
 function parseSlug(path: string): string | null {
   const segments = path.split("/").filter(Boolean);
@@ -24,13 +26,17 @@ export default function App() {
   }, [path]);
   useArrowNavigation(path);
 
-  const ensureDraft = useStore(useProjectStore, (s) => s.ensureDraftProject);
-  const loadDefaultProject = useStore(useProjectStore, (s) => s.loadDefaultProject);
   const project = useStore(useProjectStore, selectCurrentProject);
 
   const slug = parseSlug(path);
-  const isHome = path === "/" || slug === null;
+  const isProjectsPage = path === "/" || path === "/projects";
+  const isRendersPage = path === "/renders";
   const currentSlug = slug && STEPS.some((s) => s.slug === slug) ? slug : null;
+  const mainNav: "projects" | "renders" | null = isProjectsPage
+    ? "projects"
+    : isRendersPage
+      ? "renders"
+      : null;
 
   useLayoutEffect(() => {
     if (slug === "style") {
@@ -38,26 +44,30 @@ export default function App() {
     }
   }, [slug]);
 
-  useLayoutEffect(() => {
-    if (!isHome) return;
-    ensureDraft();
-    loadDefaultProject();
-    navigate("/script");
-  }, [isHome, ensureDraft, loadDefaultProject]);
-
   useEffect(() => {
+    if (!isProjectsPage && !isRendersPage && slug && !currentSlug) {
+      document.title = "animator — Not found";
+      return;
+    }
     const fileTitle = project?.fileLabel?.trim() || project?.name?.trim() || "Untitled";
-    const title =
-      isHome || !currentSlug
-        ? fileTitle
-        : `${STEPS.find((s) => s.slug === currentSlug)?.label ?? "Step"} — ${fileTitle}`;
+    let title: string;
+    if (isProjectsPage) {
+      title = "animator — Projects";
+    } else if (isRendersPage) {
+      title = "animator — Renders";
+    } else if (currentSlug) {
+      const stepLabel = STEPS.find((s) => s.slug === currentSlug)?.label ?? "Step";
+      title = `animator — ${stepLabel} — ${fileTitle}`;
+    } else {
+      title = `animator — ${fileTitle}`;
+    }
     document.title = title;
-  }, [isHome, currentSlug, project?.fileLabel, project?.name]);
+  }, [isProjectsPage, isRendersPage, slug, currentSlug, project?.fileLabel, project?.name]);
 
-  if (!isHome && slug && !currentSlug) {
+  if (!isProjectsPage && !isRendersPage && slug && !currentSlug) {
     return (
       <div className="min-h-svh flex flex-col">
-        <AppHeader path={path} currentSlug={null} />
+        <AppHeader currentSlug={null} mainNav={null} />
         <main className="mx-auto w-full max-w-xl px-6 pb-10 pt-14">
           <p className="text-muted-foreground">Page not found.</p>
         </main>
@@ -67,10 +77,14 @@ export default function App() {
 
   return (
     <div className="min-h-svh flex flex-col">
-      <AppHeader path={path} currentSlug={currentSlug} />
+      <AppHeader currentSlug={currentSlug} mainNav={mainNav} />
       {/* Fixed header: pad so flow starts below it; one document scroll — no nested overflow */}
       <div className="pt-14">
-        {isHome ? null : currentSlug === "script" ? (
+        {isProjectsPage ? (
+          <HomePageView />
+        ) : isRendersPage ? (
+          <RendersOverviewPageView />
+        ) : currentSlug === "script" ? (
           <ScriptPageView step={stepBySlug("script")!} />
         ) : currentSlug === "assets" ? (
           <AssetsPageView step={stepBySlug("assets")!} />

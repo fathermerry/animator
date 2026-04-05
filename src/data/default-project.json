@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "fileLabel": "default-project.json",
-  "id": "11111111-2222-4333-8444-555555555555",
+  "id": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
   "name": "Untitled",
   "createdAt": "2026-04-05T12:00:00.000Z",
   "prompt": "[HOOK — 0:00–0:20]\n\n[Upbeat, direct-to-camera]\n\nYou've built your own income — but walk into a bank self-employed and the bar jumps: years of accounts, tax proof, paperwork — and you can still get a no. Harder? Yes. Impossible? No. Most rejections are people who didn't know the rules first.\n\nThis video breaks down what you need: documents, traps, tips — so you can get approved. New here? I'm from Double Ur Hustle — real finance for self-employed people. Subscribe. Let's go.\n\n⸻\n\n[SECTION 1 — WHO COUNTS AS SELF-EMPLOYED? — 0:20–0:44]\n\nLenders care about ownership, not how you describe yourself. In the UK you're usually \"self-employed\" if you own more than about 20–25% of a business and your income comes from it — sole traders, freelancers, contractors, directors, partners. If PAYE is your main income, even with a side hustle, you're often still \"employed\" — that can help. Umbrella company: six months of payslips, often not treated as self-employed — usually easier.\n\n⸻\n\n[SECTION 2 — HOW LENDERS ASSESS INCOME — 0:44–1:14]\n\nRules aren't the same everywhere. Sole trader / partnership: net profit over two to three years, averaged; a volatile year may pull you down to the lowest figure. Limited company: some lenders salary + dividends only; others add company profit after tax — huge swing in what you can borrow. I've seen £90k earned assessed at £38k on salary/dividends alone. Contractors: often day rate × five days × ~46 weeks. Borrowing: many cap near 4.5× annual income; some go higher for big earners.\n\n⸻\n\n[SECTION 3 — THE TAX TRAP — 1:14–1:40]\n\n[Slightly more serious]\n\nLow taxable income from good accounting? That's the same number lenders use to size your loan. You can't max tax optimisation and borrowing without a plan. If a mortgage is one to two years out, loop in you, your accountant, and a broker. Loading expenses right before you apply cuts profit — and your offer.\n\n⸻\n\n[SECTION 4 — TRADING HISTORY — 1:40–2:04]\n\nTwo to three years of accounts is the norm; two years is the mainstream sweet spot. One year? Narrower options — some lenders (e.g. Halifax-style packages) want extra statements and projections. Minimum is usually twelve months; under that is tough. Going sole trader → limited before applying can reset how some lenders see you — timing matters.\n\n⸻\n\n[SECTION 5 — DOCUMENTS — 2:04–2:32]\n\n[Clear, organised]\n\nBasics for everyone: ID, address, three to six months' bank statements, deposit proof. Sole trader: SA302 + Tax Year Overview — often two years. Limited company: certified accounts, accountant's certificate on salary, dividends, turnover, profit — accounts usually within 18 months. Contractor: day rate evidence, contracts, upcoming work if you have it. Messy files read as risk.\n\n⸻\n\n[SECTION 6 — MAXIMISE YOUR CHANCES — 2:32–2:58]\n\nCredit file before you apply — fix errors, get on the electoral roll. Bigger deposit opens more doors (15%+ helps; short history may need 20%). Separate business and personal accounts. Tax paid and current. No new big credit right before applying — and every rejection leaves a trace; use a broker or research first.\n\n⸻\n\n[SECTION 7 — BROKER? — 2:58–3:20]\n\nPAYE: maybe skip. Self-employed: almost always yes. Criteria differ by lender — years trading, company vs contractor, product fit. Whole-of-market brokers match you before hard searches and protect your score. Your bank only selling its own products limits you.\n\n⸻\n\n[OUTRO — 3:20–4:00]\n\nSelf-employed mortgages are messier — but doable if you know how lenders think, prep documents, and don't go in blind. Plan early, talk to your accountant, consider a broker who gets self-employment.\n\nLike if this helped; subscribe to Double Ur Hustle for more. See you next time.\n",
@@ -9,7 +9,7 @@
   "scenes": [
     {
       "id": "00000001-0000-4000-8000-000000000001",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 0,
       "title": "Hook / Bank counter",
       "description": "Narrator at the lender's counter: document stack, warning icon, overwhelmed-but-hooked energy. Direct to camera.",
@@ -26,7 +26,7 @@
     },
     {
       "id": "00000002-0000-4000-8000-000000000002",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 1,
       "title": "Who counts as self-employed?",
       "description": "Narrator beside income graphic; PAYE contrast. Lender signals ownership %. Clear educational framing.",
@@ -43,7 +43,7 @@
     },
     {
       "id": "00000003-0000-4000-8000-000000000003",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 2,
       "title": "How lenders assess income",
       "description": "Desk walkthrough: net profit, dividends, contractor math. Scale and funnel show how rules change the borrowing ceiling.",
@@ -60,7 +60,7 @@
     },
     {
       "id": "00000004-0000-4000-8000-000000000004",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 3,
       "title": "The tax trap",
       "description": "Accountant with SA302; tax vs borrowing trade-off. Slightly serious: declared income drives the offer.",
@@ -77,7 +77,7 @@
     },
     {
       "id": "00000005-0000-4000-8000-000000000005",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 4,
       "title": "Trading history timeline",
       "description": "Lender traces 12 months → three years on a timeline. Beat on entity switches resetting some lenders' clocks.",
@@ -93,7 +93,7 @@
     },
     {
       "id": "00000006-0000-4000-8000-000000000006",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 5,
       "title": "The document pile",
       "description": "Table covered in SA302s, accounts, stacks. Accountant organises; narrator gets that sloppiness signals risk.",
@@ -110,7 +110,7 @@
     },
     {
       "id": "00000007-0000-4000-8000-000000000007",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 6,
       "title": "Maximising your chances",
       "description": "Credit meter, checklist: electoral roll, split accounts, no last-minute credit. Calm prep-before-you-apply vibe.",
@@ -126,7 +126,7 @@
     },
     {
       "id": "00000008-0000-4000-8000-000000000008",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 7,
       "title": "Whole-of-market broker",
       "description": "Broker with laptop: lender criteria side-by-side. Shop the market before hard searches.",
@@ -143,7 +143,7 @@
     },
     {
       "id": "00000009-0000-4000-8000-000000000009",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 8,
       "title": "Outro",
       "description": "Warm sign-off to camera; checkmark and house reinforce takeaway and subscribe. Static hold.",
@@ -161,7 +161,7 @@
   "renders": [
     {
       "id": "10000001-0000-4000-8000-000000000001",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "engine": "remotion",
       "status": "complete",
@@ -174,7 +174,7 @@
     },
     {
       "id": "10000002-0000-4000-8000-000000000002",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "engine": "remotion",
       "status": "complete",
@@ -187,7 +187,7 @@
     },
     {
       "id": "10000003-0000-4000-8000-000000000003",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "engine": "remotion",
       "status": "complete",
@@ -200,7 +200,7 @@
     },
     {
       "id": "10000004-0000-4000-8000-000000000004",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000004-0000-4000-8000-000000000004",
       "engine": "remotion",
       "status": "complete",
@@ -213,7 +213,7 @@
     },
     {
       "id": "10000005-0000-4000-8000-000000000005",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000005-0000-4000-8000-000000000005",
       "engine": "remotion",
       "status": "complete",
@@ -226,7 +226,7 @@
     },
     {
       "id": "10000006-0000-4000-8000-000000000006",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000006-0000-4000-8000-000000000006",
       "engine": "remotion",
       "status": "complete",
@@ -239,7 +239,7 @@
     },
     {
       "id": "10000007-0000-4000-8000-000000000007",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000007-0000-4000-8000-000000000007",
       "engine": "remotion",
       "status": "complete",
@@ -252,7 +252,7 @@
     },
     {
       "id": "10000008-0000-4000-8000-000000000008",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000008-0000-4000-8000-000000000008",
       "engine": "remotion",
       "status": "complete",
@@ -265,7 +265,7 @@
     },
     {
       "id": "10000009-0000-4000-8000-000000000009",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000009-0000-4000-8000-000000000009",
       "engine": "remotion",
       "status": "complete",
@@ -280,7 +280,7 @@
   "frames": [
     {
       "id": "20000001-0000-4000-8000-000000000001",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 0,
@@ -289,7 +289,7 @@
     },
     {
       "id": "20000002-0000-4000-8000-000000000002",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 1,
@@ -298,7 +298,7 @@
     },
     {
       "id": "20000003-0000-4000-8000-000000000003",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 2,
@@ -307,7 +307,7 @@
     },
     {
       "id": "20000004-0000-4000-8000-000000000004",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 3,
@@ -316,7 +316,7 @@
     },
     {
       "id": "20000005-0000-4000-8000-000000000005",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 4,
@@ -325,7 +325,7 @@
     },
     {
       "id": "20000006-0000-4000-8000-000000000006",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "renderId": "10000001-0000-4000-8000-000000000001",
       "index": 5,
@@ -334,7 +334,7 @@
     },
     {
       "id": "20000007-0000-4000-8000-000000000007",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "renderId": "10000002-0000-4000-8000-000000000002",
       "index": 0,
@@ -343,7 +343,7 @@
     },
     {
       "id": "20000008-0000-4000-8000-000000000008",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "renderId": "10000002-0000-4000-8000-000000000002",
       "index": 1,
@@ -352,7 +352,7 @@
     },
     {
       "id": "20000009-0000-4000-8000-000000000009",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "renderId": "10000002-0000-4000-8000-000000000002",
       "index": 2,
@@ -361,7 +361,7 @@
     },
     {
       "id": "20000010-0000-4000-8000-000000000010",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "renderId": "10000002-0000-4000-8000-000000000002",
       "index": 3,
@@ -370,7 +370,7 @@
     },
     {
       "id": "20000011-0000-4000-8000-000000000011",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "renderId": "10000002-0000-4000-8000-000000000002",
       "index": 4,
@@ -379,7 +379,7 @@
     },
     {
       "id": "20000012-0000-4000-8000-000000000012",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "renderId": "10000003-0000-4000-8000-000000000003",
       "index": 0,
@@ -388,7 +388,7 @@
     },
     {
       "id": "20000013-0000-4000-8000-000000000013",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "renderId": "10000003-0000-4000-8000-000000000003",
       "index": 1,
@@ -397,7 +397,7 @@
     },
     {
       "id": "20000014-0000-4000-8000-000000000014",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "renderId": "10000003-0000-4000-8000-000000000003",
       "index": 2,
@@ -406,7 +406,7 @@
     },
     {
       "id": "20000015-0000-4000-8000-000000000015",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "renderId": "10000003-0000-4000-8000-000000000003",
       "index": 3,
@@ -415,7 +415,7 @@
     },
     {
       "id": "20000016-0000-4000-8000-000000000016",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000004-0000-4000-8000-000000000004",
       "renderId": "10000004-0000-4000-8000-000000000004",
       "index": 0,
@@ -424,7 +424,7 @@
     },
     {
       "id": "20000017-0000-4000-8000-000000000017",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000004-0000-4000-8000-000000000004",
       "renderId": "10000004-0000-4000-8000-000000000004",
       "index": 1,
@@ -433,7 +433,7 @@
     },
     {
       "id": "20000018-0000-4000-8000-000000000018",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000004-0000-4000-8000-000000000004",
       "renderId": "10000004-0000-4000-8000-000000000004",
       "index": 2,
@@ -442,7 +442,7 @@
     },
     {
       "id": "20000019-0000-4000-8000-000000000019",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000005-0000-4000-8000-000000000005",
       "renderId": "10000005-0000-4000-8000-000000000005",
       "index": 0,
@@ -451,7 +451,7 @@
     },
     {
       "id": "20000020-0000-4000-8000-000000000020",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000005-0000-4000-8000-000000000005",
       "renderId": "10000005-0000-4000-8000-000000000005",
       "index": 1,
@@ -460,7 +460,7 @@
     },
     {
       "id": "20000021-0000-4000-8000-000000000021",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000005-0000-4000-8000-000000000005",
       "renderId": "10000005-0000-4000-8000-000000000005",
       "index": 2,
@@ -469,7 +469,7 @@
     },
     {
       "id": "20000022-0000-4000-8000-000000000022",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000006-0000-4000-8000-000000000006",
       "renderId": "10000006-0000-4000-8000-000000000006",
       "index": 0,
@@ -478,7 +478,7 @@
     },
     {
       "id": "20000023-0000-4000-8000-000000000023",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000006-0000-4000-8000-000000000006",
       "renderId": "10000006-0000-4000-8000-000000000006",
       "index": 1,
@@ -487,7 +487,7 @@
     },
     {
       "id": "20000024-0000-4000-8000-000000000024",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000006-0000-4000-8000-000000000006",
       "renderId": "10000006-0000-4000-8000-000000000006",
       "index": 2,
@@ -496,7 +496,7 @@
     },
     {
       "id": "20000025-0000-4000-8000-000000000025",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000007-0000-4000-8000-000000000007",
       "renderId": "10000007-0000-4000-8000-000000000007",
       "index": 0,
@@ -505,7 +505,7 @@
     },
     {
       "id": "20000026-0000-4000-8000-000000000026",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000007-0000-4000-8000-000000000007",
       "renderId": "10000007-0000-4000-8000-000000000007",
       "index": 1,
@@ -514,7 +514,7 @@
     },
     {
       "id": "20000027-0000-4000-8000-000000000027",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000008-0000-4000-8000-000000000008",
       "renderId": "10000008-0000-4000-8000-000000000008",
       "index": 0,
@@ -523,7 +523,7 @@
     },
     {
       "id": "20000028-0000-4000-8000-000000000028",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000008-0000-4000-8000-000000000008",
       "renderId": "10000008-0000-4000-8000-000000000008",
       "index": 1,
@@ -532,7 +532,7 @@
     },
     {
       "id": "20000029-0000-4000-8000-000000000029",
-      "projectId": "11111111-2222-4333-8444-555555555555",
+      "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "sceneId": "00000009-0000-4000-8000-000000000009",
       "renderId": "10000009-0000-4000-8000-000000000009",
       "index": 0,

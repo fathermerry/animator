@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import { navigate } from "@/router";
-import { FLOW_MAX, getFlowIndex, pathForFlowIndex } from "@/steps";
+import { FLOW_MAX, getFlowIndex, isWorkflowStepPath, pathForFlowIndex } from "@/steps";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -16,9 +16,10 @@ export function useArrowNavigation(path: string): void {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       if (e.altKey || e.ctrlKey || e.metaKey) return;
       if (isEditableTarget(e.target)) return;
+      if (!isWorkflowStepPath(path)) return;
 
       let idx = getFlowIndex(path);
-      if (idx < 0) idx = 0;
+      if (idx < 1) return;
 
       if (e.key === "ArrowRight") {
         if (idx >= FLOW_MAX) return;
