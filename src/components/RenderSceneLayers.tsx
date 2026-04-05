@@ -79,6 +79,8 @@ function FrameDetailPopup({
     .filter(Boolean)
     .join(" · ");
 
+  const frameDesc = frame.description.trim();
+
   return createPortal(
     <>
       <div
@@ -110,8 +112,11 @@ function FrameDetailPopup({
 
         <div className="border-t border-border/80 px-3 pb-2 pt-2.5">
           <p id="frame-detail-title" className="text-base font-medium leading-snug text-foreground">
-            {scene.title.trim() || `Scene ${scene.index + 1}`}
+            {scene.title.trim() || "—"}
           </p>
+          {frameDesc ? (
+            <p className="mt-1 text-sm leading-snug text-foreground">{frameDesc}</p>
+          ) : null}
           <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
         </div>
       </div>
@@ -343,7 +348,9 @@ export function RenderSceneLayers({
                                       className="h-full w-full object-cover"
                                     />
                                   </span>
-                                  <span className="min-w-0 flex-1 truncate">Frame {fr.index + 1}</span>
+                                  <span className="min-w-0 flex-1 truncate">
+                                    {`Frame ${fr.index + 1}`}
+                                  </span>
                                 </button>
                                 <button
                                   type="button"

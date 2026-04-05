@@ -26,6 +26,8 @@ export type Frame = {
   renderId: string;
   index: number;
   src: string;
+  /** Staging copy for this still — shown under the scene title in the film and UI. */
+  description: string;
 };
 
 export type Scene = {

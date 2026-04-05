@@ -12,7 +12,8 @@ export type FilmSegmentInput = {
   frameId: string | null;
   style: Style;
   sceneTitle: string;
-  sceneDescription: string;
+  /** Frame staging copy, or scene beat when there is no frame row. */
+  frameDescription: string;
   characters: StyleAsset[];
   objects: StyleAsset[];
 };
@@ -53,6 +54,9 @@ export function buildRenderFilmTimeline(
     const chars = resolveStyleAssets(scene.characterIds, style.characters);
     const objs = resolveStyleAssets(scene.objectIds, style.objects);
 
+    const title = scene.title.trim();
+    const sceneBeat = scene.description.trim();
+
     if (sceneFrames.length === 0) {
       const total = Math.max(1, Math.round(durSec * FILM_FPS));
       segments.push({
@@ -60,28 +64,27 @@ export function buildRenderFilmTimeline(
         blank: true,
         frameId: null,
         style,
-        sceneTitle: "",
-        sceneDescription: "",
-        characters: [],
-        objects: [],
+        sceneTitle: title,
+        frameDescription: sceneBeat,
+        characters: chars,
+        objects: objs,
       });
       continue;
     }
 
     const frameDurations = splitSceneDurationToFrames(durSec, sceneFrames.length, FILM_FPS);
-    const title = scene.title.trim() || `Scene ${scene.index + 1}`;
-    const description = scene.description.trim();
 
     sceneFrames.forEach((fr, i) => {
       const durationInFrames = frameDurations[i] ?? 1;
       const generated = isFrameGeneratedForPreview(fr, renders);
+      const frameText = (fr.description ?? "").trim();
       segments.push({
         durationInFrames,
         blank: !generated,
         frameId: fr.id,
         style,
         sceneTitle: title,
-        sceneDescription: description,
+        frameDescription: frameText || sceneBeat,
         characters: chars,
         objects: objs,
       });

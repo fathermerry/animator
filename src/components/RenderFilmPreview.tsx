@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { Player, type PlayerRef } from "@remotion/player";
 
 import { normalizeHex } from "@/lib/color";
-import { formatDurationMmSs } from "@/lib/filmTime";
 import { buildRenderFilmTimeline, FILM_FPS } from "@/lib/renderFilmTimeline";
 import { cn } from "@/lib/utils";
 import { FilmComposition } from "@/remotion/FilmComposition";
@@ -132,11 +131,6 @@ export function RenderFilmPreview({
           style={{ width: "100%", height: "100%" }}
           acknowledgeRemotionLicense
         />
-        <div className="pointer-events-none absolute top-2 right-2 z-10 text-base tabular-nums text-muted-foreground">
-          {formatDurationMmSs(uiFrame / FILM_FPS)}
-          <span className="text-muted-foreground/70"> / </span>
-          {formatDurationMmSs(totalFrames / FILM_FPS)}
-        </div>
       </div>
 
       <div className="flex w-full min-w-0 items-center gap-3">

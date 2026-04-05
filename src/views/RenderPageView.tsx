@@ -6,7 +6,13 @@ import { RenderFilmPreview } from "@/components/RenderFilmPreview";
 import { RenderSceneLayers } from "@/components/RenderSceneLayers";
 import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepLayout } from "@/components/WorkflowStepLayout";
-import { getFilmStartFrameIndexForFrame, getFrameIdAtFilmGlobalFrame } from "@/lib/renderFilmTimeline";
+import { formatDurationMmSs } from "@/lib/filmTime";
+import {
+  buildRenderFilmTimeline,
+  FILM_FPS,
+  getFilmStartFrameIndexForFrame,
+  getFrameIdAtFilmGlobalFrame,
+} from "@/lib/renderFilmTimeline";
 import { cn } from "@/lib/utils";
 import { selectResolvedStyle, useProjectStore } from "@/store/projectStore";
 import type { Step } from "@/steps";
@@ -25,6 +31,11 @@ export function RenderPageView({ step: _step }: Props) {
   const playbackActiveFrameId = useMemo(
     () => getFrameIdAtFilmGlobalFrame(filmGlobalFrame, scenes, frames, renders, style),
     [filmGlobalFrame, scenes, frames, renders, style],
+  );
+
+  const { totalFrames } = useMemo(
+    () => buildRenderFilmTimeline(scenes, frames, renders, style),
+    [scenes, frames, renders, style],
   );
 
   const seekFilmToFrame = useCallback(
@@ -63,7 +74,17 @@ export function RenderPageView({ step: _step }: Props) {
         </div>
       }
       preview={
-        <WorkflowPreviewColumn>
+        <WorkflowPreviewColumn
+          headerRight={
+            totalFrames > 0 ? (
+              <>
+                {formatDurationMmSs(filmGlobalFrame / FILM_FPS)}
+                <span className="text-muted-foreground/70"> / </span>
+                {formatDurationMmSs(totalFrames / FILM_FPS)}
+              </>
+            ) : null
+          }
+        >
           <RenderFilmPreview
             style={style}
             scenes={scenes}

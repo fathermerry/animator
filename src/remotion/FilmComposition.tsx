@@ -8,16 +8,18 @@ import type { Style, StyleAsset, TextStyle } from "@/types/styleConfig";
 const W = 1920;
 const H = 1080;
 
-/** Single reading size for all frame copy; hierarchy via weight, color, and layout only. */
-const FRAME_BODY_PX = 34;
-/** Uppercase section labels (video frame — not app chrome). */
-const FRAME_LABEL_PX = 20;
-/** Smaller uppercase labels for Characters / Objects blocks. */
-const FRAME_CHAR_OBJ_LABEL_PX = 14;
-/** Asset name next to id tag (smaller than scene body). */
-const FRAME_ASSET_NAME_PX = 20;
-/** Id text inside black tags (smaller than body). */
-const FRAME_TAG_ID_PX = 16;
+/** Hero line: centered frame staging copy. */
+const FRAME_HERO_PX = 46;
+/** Scene title in top-left corner. */
+const FRAME_SCENE_CORNER_PX = 32;
+/** Asset name next to id tag (bottom bar). */
+const FRAME_ASSET_NAME_PX = 28;
+/** Id text inside black tags. */
+const FRAME_TAG_ID_PX = 22;
+
+const EDGE_PAD = 56;
+/** Inset for the scene title in the top-left (tighter than full edge padding). */
+const SCENE_TITLE_INSET = 24;
 
 function StylePlate({ style }: { style: Style }) {
   const bgHex = normalizeHex(style.background.color);
@@ -70,8 +72,8 @@ function IdTag({
         fontWeight: 600,
         letterSpacing: "normal",
         lineHeight: 1,
-        padding: "5px 10px",
-        borderRadius: 3,
+        padding: "7px 12px",
+        borderRadius: 4,
       }}
     >
       {id}
@@ -79,18 +81,38 @@ function IdTag({
   );
 }
 
-function AssetTagRow({
-  assets,
+function CenteredAssetLine({
+  characters,
+  objects,
   assetName,
-  emptyLine,
+  fontFamily,
 }: {
-  assets: StyleAsset[];
+  characters: StyleAsset[];
+  objects: StyleAsset[];
   assetName: CSSProperties;
-  emptyLine: CSSProperties;
+  fontFamily: string;
 }) {
-  if (assets.length === 0) {
+  const chip = (a: StyleAsset) => (
+    <span
+      key={a.id}
+      style={{
+        display: "inline-flex",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        minWidth: 0,
+      }}
+    >
+      <IdTag id={a.id} fontFamily={fontFamily} />
+      <span style={{ ...assetName, lineHeight: 1.35 }}>{a.name.trim() || "—"}</span>
+    </span>
+  );
+
+  const hasC = characters.length > 0;
+  const hasO = objects.length > 0;
+  if (!hasC && !hasO) {
     return (
-      <p style={{ ...emptyLine, marginTop: 12, whiteSpace: "pre-wrap" }}>—</p>
+      <p style={{ ...assetName, margin: 0, opacity: 0.55 }}>—</p>
     );
   }
 
@@ -101,65 +123,58 @@ function AssetTagRow({
         flexDirection: "row",
         flexWrap: "wrap",
         alignItems: "center",
-        gap: "14px 20px",
-        marginTop: 12,
+        justifyContent: "center",
+        gap: "16px 26px",
+        maxWidth: 1720,
       }}
     >
-      {assets.map((a) => (
+      {characters.map((a) => chip(a))}
+      {hasC && hasO ? (
         <span
-          key={a.id}
+          aria-hidden
           style={{
-            display: "inline-flex",
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            minWidth: 0,
+            fontFamily,
+            fontSize: FRAME_ASSET_NAME_PX,
+            color: "rgba(255,255,255,0.35)",
+            lineHeight: 1,
+            padding: "0 4px",
           }}
         >
-          <IdTag id={a.id} fontFamily={assetName.fontFamily as string} />
-          <span style={{ ...assetName, lineHeight: 1.35 }}>{a.name.trim() || "—"}</span>
+          ·
         </span>
-      ))}
+      ) : null}
+      {objects.map((a) => chip(a))}
     </div>
   );
 }
 
 function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
-  const { style, sceneTitle, sceneDescription, characters, objects } = segment;
+  const { style, sceneTitle, frameDescription, characters, objects } = segment;
 
   const titleTs = textStyleForTitle(style);
   const bodyTs = textStyleForBody(style);
-  const fontFamily = bodyTs.fontFamily;
-
-  const label: CSSProperties = {
-    fontFamily,
-    fontSize: FRAME_LABEL_PX,
-    fontWeight: 600,
-    color: "rgba(255,255,255,0.48)",
-    letterSpacing: "normal",
-    textTransform: "uppercase",
-    margin: 0,
-  };
-
-  const labelCharObj: CSSProperties = {
-    ...label,
-    fontSize: FRAME_CHAR_OBJ_LABEL_PX,
-  };
+  const fontFamily = bodyTs.fontFamily as string;
 
   const body: CSSProperties = {
     margin: 0,
     fontFamily,
-    fontSize: FRAME_BODY_PX,
+    fontSize: FRAME_HERO_PX,
     fontWeight: bodyTs.fontWeight,
     color: bodyTs.color,
-    lineHeight: 1.45,
+    lineHeight: 1.35,
     letterSpacing: "normal",
   };
 
-  const titleText: CSSProperties = {
-    ...body,
+  const sceneCorner: CSSProperties = {
+    margin: 0,
+    fontFamily,
+    fontSize: FRAME_SCENE_CORNER_PX,
     fontWeight: titleTs.fontWeight,
     color: titleTs.color,
+    lineHeight: 1.25,
+    letterSpacing: "normal",
+    maxWidth: "min(48vw, 640px)",
+    whiteSpace: "pre-wrap",
   };
 
   const assetName: CSSProperties = {
@@ -172,9 +187,6 @@ function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
     letterSpacing: "normal",
   };
 
-  const gapCol = 72;
-  const gapBlock = 28;
-
   return (
     <AbsoluteFill style={{ width: W, height: H }}>
       <StylePlate style={style} />
@@ -182,72 +194,69 @@ function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
         style={{
           width: W,
           height: H,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
           boxSizing: "border-box",
+          padding: EDGE_PAD,
         }}
       >
+        <p style={{ ...sceneCorner, position: "absolute", top: SCENE_TITLE_INSET, left: SCENE_TITLE_INSET, zIndex: 1 }}>
+          {sceneTitle.trim() || "—"}
+        </p>
+
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 420px) minmax(0, 1fr)",
-            columnGap: gapCol,
-            rowGap: 0,
-            alignItems: "stretch",
             width: "100%",
-            maxWidth: 1680,
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            boxSizing: "border-box",
           }}
         >
-          {/* Metadata column */}
           <div
             style={{
+              flex: 1,
+              minHeight: 0,
               display: "flex",
-              flexDirection: "column",
-              gap: gapBlock,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingLeft: 48,
+              paddingRight: 48,
+              paddingTop: 72,
+              paddingBottom: 24,
+              boxSizing: "border-box",
             }}
           >
-            <div>
-              <p style={labelCharObj}>Characters</p>
-              <AssetTagRow assets={characters} assetName={assetName} emptyLine={assetName} />
-            </div>
-            <div>
-              <p style={labelCharObj}>Objects</p>
-              <AssetTagRow assets={objects} assetName={assetName} emptyLine={assetName} />
-            </div>
+            {frameDescription.trim() ? (
+              <p
+                style={{
+                  ...body,
+                  textAlign: "center",
+                  maxWidth: 1400,
+                  maxHeight: 560,
+                  overflow: "hidden",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {frameDescription}
+              </p>
+            ) : (
+              <p style={{ ...body, textAlign: "center", opacity: 0.45 }}>—</p>
+            )}
           </div>
 
-          {/* Story column: title as hero line, description as supporting block */}
           <div
             style={{
+              flexShrink: 0,
               display: "flex",
-              flexDirection: "column",
               justifyContent: "center",
-              gap: 40,
-              minWidth: 0,
+              alignItems: "center",
+              paddingLeft: EDGE_PAD,
+              paddingRight: EDGE_PAD,
+              paddingBottom: 8,
+              boxSizing: "border-box",
             }}
           >
-            <div>
-              <p style={{ ...label, marginBottom: 14 }}>Scene title</p>
-              <p style={{ ...titleText, whiteSpace: "pre-wrap" }}>{sceneTitle || "—"}</p>
-            </div>
-            <div style={{ minHeight: 0 }}>
-              <p style={{ ...label, marginBottom: 14 }}>Frame description</p>
-              {sceneDescription ? (
-                <p
-                  style={{
-                    ...body,
-                    maxHeight: 380,
-                    overflow: "hidden",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {sceneDescription}
-                </p>
-              ) : (
-                <p style={body}>—</p>
-              )}
-            </div>
+            <CenteredAssetLine characters={characters} objects={objects} assetName={assetName} fontFamily={fontFamily} />
           </div>
         </div>
       </AbsoluteFill>

@@ -200,6 +200,7 @@ function reviveFrame(raw: unknown): Frame | null {
   if (typeof f.renderId !== "string" || !f.renderId.trim()) return null;
   const index = typeof f.index === "number" && Number.isFinite(f.index) ? Math.max(0, Math.floor(f.index)) : 0;
   const src = typeof f.src === "string" ? f.src : "";
+  const description = typeof f.description === "string" ? f.description : "";
   return {
     id: f.id,
     projectId: f.projectId,
@@ -207,6 +208,7 @@ function reviveFrame(raw: unknown): Frame | null {
     renderId: f.renderId,
     index,
     src,
+    description,
   };
 }
 
