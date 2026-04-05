@@ -1,41 +1,43 @@
 import { createStore } from "zustand/vanilla";
 
 import defaultProjectJson from "../data/default-project.json";
-import defaultStyleConfigJson from "../data/default-style-config.json";
+import defaultAssetsConfigJson from "../data/default-assets-config.json";
 import { projectFromConfigJson } from "../lib/projectHydrate";
 import type { Frame, Project, Render, Scene } from "../types/project";
-import { createDefaultStyle, type Style, type StyleConfig } from "../types/styleConfig";
+import { createDefaultAssetBundle, type AssetBundle, type AssetsConfig } from "../types/assetsConfig";
 
 export type ProjectState = {
   project: Project;
-  styleConfigs: StyleConfig[];
+  assetsConfigs: AssetsConfig[];
   scenes: Scene[];
   renders: Render[];
   frames: Frame[];
 
   ensureDraftProject: () => string;
   setPromptText: (text: string) => void;
-  updateStyle: (recipe: (style: Style) => Style) => void;
+  updateAssets: (recipe: (bundle: AssetBundle) => AssetBundle) => void;
   patchScene: (sceneId: string, patch: Partial<Scene>) => void;
+  patchFrame: (frameId: string, patch: Partial<Frame>) => void;
   loadDefaultProject: () => void;
   removeFrame: (frameId: string) => void;
 };
 
-const bundledStyle = defaultStyleConfigJson as StyleConfig;
-const initialBundle = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
+const bundledAssets = defaultAssetsConfigJson as AssetsConfig;
+const initialBundle = projectFromConfigJson(defaultProjectJson, [bundledAssets]);
 
 function initialState(): Omit<
   ProjectState,
   | "ensureDraftProject"
   | "setPromptText"
-  | "updateStyle"
+  | "updateAssets"
   | "patchScene"
+  | "patchFrame"
   | "loadDefaultProject"
   | "removeFrame"
 > {
   return {
     project: initialBundle.project,
-    styleConfigs: initialBundle.styleConfigs,
+    assetsConfigs: initialBundle.assetsConfigs,
     scenes: initialBundle.scenes,
     renders: initialBundle.renders,
     frames: initialBundle.frames,
@@ -49,7 +51,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => ({
 
   loadDefaultProject: () => {
     const prev = get().project;
-    const fresh = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
+    const fresh = projectFromConfigJson(defaultProjectJson, [bundledAssets]);
     const projectId = prev.id;
     set({
       project: {
@@ -57,7 +59,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => ({
         id: projectId,
         createdAt: prev.createdAt,
       },
-      styleConfigs: fresh.styleConfigs,
+      assetsConfigs: fresh.assetsConfigs,
       scenes: fresh.scenes.map((sc) => ({ ...sc, projectId })),
       renders: fresh.renders.map((r) => ({ ...r, projectId })),
       frames: fresh.frames.map((f) => ({ ...f, projectId })),
@@ -73,19 +75,25 @@ export const useProjectStore = createStore<ProjectState>((set, get) => ({
     }));
   },
 
-  updateStyle: (recipe) => {
+  updateAssets: (recipe) => {
     set((s) => {
-      const id = s.project.styleConfigId;
-      const styleConfigs = s.styleConfigs.map((c) =>
-        c.id === id ? { ...c, style: recipe(c.style) } : c,
+      const id = s.project.assetsConfigId;
+      const assetsConfigs = s.assetsConfigs.map((c) =>
+        c.id === id ? { ...c, assets: recipe(c.assets) } : c,
       );
-      return { styleConfigs };
+      return { assetsConfigs };
     });
   },
 
   patchScene: (sceneId, patch) => {
     set((s) => ({
       scenes: s.scenes.map((sc) => (sc.id === sceneId ? { ...sc, ...patch } : sc)),
+    }));
+  },
+
+  patchFrame: (frameId, patch) => {
+    set((s) => ({
+      frames: s.frames.map((f) => (f.id === frameId ? { ...f, ...patch } : f)),
     }));
   },
 
@@ -121,9 +129,9 @@ export function selectCurrentProject(s: ProjectState): Project {
   return s.project;
 }
 
-export function selectResolvedStyle(s: ProjectState): Style {
-  const c = s.styleConfigs.find((x) => x.id === s.project.styleConfigId);
-  return c?.style ?? createDefaultStyle();
+export function selectResolvedAssetBundle(s: ProjectState): AssetBundle {
+  const c = s.assetsConfigs.find((x) => x.id === s.project.assetsConfigId);
+  return c?.assets ?? createDefaultAssetBundle();
 }
 
 export function selectScenes(s: ProjectState): Scene[] {

@@ -9,7 +9,7 @@ import { STEPS, stepBySlug } from "@/steps";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 import { RenderPageView } from "@/views/RenderPageView";
 import { StoryPageView } from "@/views/StoryPageView";
-import { StylePageView } from "@/views/StylePageView";
+import { AssetsPageView } from "@/views/AssetsPageView";
 
 function parseSlug(path: string): string | null {
   const segments = path.split("/").filter(Boolean);
@@ -31,6 +31,12 @@ export default function App() {
   const slug = parseSlug(path);
   const isHome = path === "/" || slug === null;
   const currentSlug = slug && STEPS.some((s) => s.slug === slug) ? slug : null;
+
+  useLayoutEffect(() => {
+    if (slug === "style") {
+      navigate("/assets");
+    }
+  }, [slug]);
 
   useLayoutEffect(() => {
     if (!isHome) return;
@@ -66,8 +72,8 @@ export default function App() {
       <div className="pt-14">
         {isHome ? null : currentSlug === "story" ? (
           <StoryPageView step={stepBySlug("story")!} />
-        ) : currentSlug === "style" ? (
-          <StylePageView step={stepBySlug("style")!} />
+        ) : currentSlug === "assets" ? (
+          <AssetsPageView step={stepBySlug("assets")!} />
         ) : currentSlug === "render" ? (
           <RenderPageView step={stepBySlug("render")!} />
         ) : null}

@@ -3,7 +3,7 @@ import { AbsoluteFill, Img, Series } from "remotion";
 
 import { normalizeHex } from "@/lib/color";
 import type { FilmSegmentInput } from "@/lib/renderFilmTimeline";
-import type { Style, StyleAsset, TextStyle } from "@/types/styleConfig";
+import type { AssetBundle, KitAsset, TextStyle } from "@/types/assetsConfig";
 
 const W = 1920;
 const H = 1080;
@@ -21,9 +21,9 @@ const EDGE_PAD = 56;
 /** Inset for the scene title in the top-left (tighter than full edge padding). */
 const SCENE_TITLE_INSET = 24;
 
-function StylePlate({ style }: { style: Style }) {
-  const bgHex = normalizeHex(style.background.color);
-  const bgSrc = style.background.src?.trim();
+function AssetBundlePlate({ bundle }: { bundle: AssetBundle }) {
+  const bgHex = normalizeHex(bundle.background.color);
+  const bgSrc = bundle.background.src?.trim();
 
   return (
     <>
@@ -37,8 +37,8 @@ function StylePlate({ style }: { style: Style }) {
   );
 }
 
-function textStyleForTitle(style: Style): TextStyle {
-  return style.textStyles[0] ?? {
+function textStyleForTitle(bundle: AssetBundle): TextStyle {
+  return bundle.textStyles[0] ?? {
     fontFamily: "Arial, Helvetica, sans-serif",
     fontWeight: 700,
     color: "#ffffff",
@@ -46,9 +46,9 @@ function textStyleForTitle(style: Style): TextStyle {
   };
 }
 
-function textStyleForBody(style: Style): TextStyle {
-  if (style.textStyles.length > 1) return style.textStyles[1]!;
-  const t = textStyleForTitle(style);
+function textStyleForBody(bundle: AssetBundle): TextStyle {
+  if (bundle.textStyles.length > 1) return bundle.textStyles[1]!;
+  const t = textStyleForTitle(bundle);
   return { ...t, fontWeight: 400 };
 }
 
@@ -87,12 +87,12 @@ function CenteredAssetLine({
   assetName,
   fontFamily,
 }: {
-  characters: StyleAsset[];
-  objects: StyleAsset[];
+  characters: KitAsset[];
+  objects: KitAsset[];
   assetName: CSSProperties;
   fontFamily: string;
 }) {
-  const chip = (a: StyleAsset) => (
+  const chip = (a: KitAsset) => (
     <span
       key={a.id}
       style={{
@@ -149,10 +149,10 @@ function CenteredAssetLine({
 }
 
 function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
-  const { style, sceneTitle, frameDescription, characters, objects } = segment;
+  const { assetBundle, sceneTitle, frameDescription, characters, objects } = segment;
 
-  const titleTs = textStyleForTitle(style);
-  const bodyTs = textStyleForBody(style);
+  const titleTs = textStyleForTitle(assetBundle);
+  const bodyTs = textStyleForBody(assetBundle);
   const fontFamily = bodyTs.fontFamily as string;
 
   const body: CSSProperties = {
@@ -189,7 +189,7 @@ function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
 
   return (
     <AbsoluteFill style={{ width: W, height: H }}>
-      <StylePlate style={style} />
+      <AssetBundlePlate bundle={assetBundle} />
       <AbsoluteFill
         style={{
           width: W,

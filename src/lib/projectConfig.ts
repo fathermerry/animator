@@ -9,16 +9,30 @@ export function normalizeProjectConfigSeed(raw: unknown): Record<string, unknown
   const now = new Date().toISOString();
   const fileLabel =
     typeof o.fileLabel === "string" && o.fileLabel.trim() ? o.fileLabel.trim() : undefined;
+
+  const assetsConfigId =
+    typeof o.assetsConfigId === "string" && o.assetsConfigId.trim()
+      ? o.assetsConfigId.trim()
+      : typeof o.styleConfigId === "string" && o.styleConfigId.trim()
+        ? o.styleConfigId.trim()
+        : "";
+
+  const assetsConfigs = Array.isArray(o.assetsConfigs)
+    ? o.assetsConfigs
+    : Array.isArray(o.styleConfigs)
+      ? o.styleConfigs
+      : [];
+
   return {
     id: typeof o.id === "string" && o.id.trim() ? o.id : crypto.randomUUID(),
     name: typeof o.name === "string" ? o.name : "Untitled",
     createdAt: o.createdAt ?? now,
     prompt: typeof o.prompt === "string" ? o.prompt : "",
-    styleConfigId: typeof o.styleConfigId === "string" ? o.styleConfigId : "",
+    assetsConfigId,
     scenes: Array.isArray(o.scenes) ? o.scenes : [],
     renders: Array.isArray(o.renders) ? o.renders : [],
     frames: Array.isArray(o.frames) ? o.frames : [],
-    styleConfigs: Array.isArray(o.styleConfigs) ? o.styleConfigs : [],
+    assetsConfigs,
     ...(fileLabel ? { fileLabel } : {}),
   };
 }
@@ -30,10 +44,10 @@ function minimalSeed(): Record<string, unknown> {
     name: "Untitled",
     createdAt: now,
     prompt: "",
-    styleConfigId: "",
+    assetsConfigId: "",
     scenes: [],
     renders: [],
     frames: [],
-    styleConfigs: [],
+    assetsConfigs: [],
   };
 }

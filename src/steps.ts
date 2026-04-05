@@ -11,12 +11,12 @@ export const STEPS: readonly Step[] = [
     label: "Story",
     title: "Story",
     body:
-      "Script and scene beats for the film. The story step is where you shape the narrative; style and render build on it.",
+      "Script and scene beats for the film. The story step is where you shape the narrative; assets and render build on it.",
   },
   {
-    slug: "style",
-    label: "Style",
-    title: "Style",
+    slug: "assets",
+    label: "Assets",
+    title: "Assets",
     body:
       "Visual kit for the film: world and character direction, typography, and transparent PNG assets for the cast. Direction text guides the story model—pixels come from your kit; Remotion composes the animation.",
   },
@@ -25,7 +25,7 @@ export const STEPS: readonly Step[] = [
     label: "Render",
     title: "Render",
     body:
-      "The construction layer. Takes project content and style and produces frames and sequences. Starts with text and geometry, grows toward richer elements over time.",
+      "The construction layer. Takes project content and assets and produces frames and sequences. Starts with text and geometry, grows toward richer elements over time.",
   },
 ] as const;
 

@@ -9,7 +9,7 @@ import { formatDurationMmSs } from "@/lib/filmTime";
 import { cn } from "@/lib/utils";
 import {
   selectCurrentProject,
-  selectResolvedStyle,
+  selectResolvedAssetBundle,
   useProjectStore,
 } from "@/store/projectStore";
 import type { Step } from "@/steps";
@@ -19,7 +19,7 @@ type Props = { step: Step };
 
 export function StoryPageView({ step: _step }: Props) {
   const project = useStore(useProjectStore, selectCurrentProject);
-  const style = useStore(useProjectStore, selectResolvedStyle);
+  const assetBundle = useStore(useProjectStore, selectResolvedAssetBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const ensureDraft = useStore(useProjectStore, (s) => s.ensureDraftProject);
   const setPromptText = useStore(useProjectStore, (s) => s.setPromptText);
@@ -69,7 +69,7 @@ export function StoryPageView({ step: _step }: Props) {
       preview={
         <WorkflowPreviewColumn>
           <StoryScenePreview
-            style={style}
+            assetBundle={assetBundle}
             scene={activeScene}
             onDescriptionChange={(value) => {
               if (activeScene) patchScene(activeScene.id, { description: value });

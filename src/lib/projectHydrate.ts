@@ -1,19 +1,19 @@
-import { renumberStyleKitAssetsWithMaps } from "./kitAssetId";
+import { renumberKitAssetsWithMaps } from "./kitAssetId";
 import { normalizeProjectConfigSeed } from "./projectConfig";
 import type { Cost, CostItem, Frame, Project, Render, Scene } from "../types/project";
 import {
-  createDefaultStyle,
-  createDefaultStyleConfig,
+  createDefaultAssetBundle,
+  createDefaultAssetsConfig,
+  type AssetBundle,
+  type AssetsConfig,
   type Background,
-  type Style,
-  type StyleAsset,
-  type StyleConfig,
+  type KitAsset,
   type TextStyle,
-} from "../types/styleConfig";
+} from "../types/assetsConfig";
 
 export type HydratedProjectBundle = {
   project: Project;
-  styleConfigs: StyleConfig[];
+  assetsConfigs: AssetsConfig[];
   scenes: Scene[];
   renders: Render[];
   frames: Frame[];
@@ -39,9 +39,9 @@ function reviveTextStyle(raw: unknown, fallback: TextStyle): TextStyle {
   };
 }
 
-function reviveCharacterAsset(raw: unknown): StyleAsset | null {
+function reviveCharacterAsset(raw: unknown): KitAsset | null {
   if (!raw || typeof raw !== "object") return null;
-  const o = raw as Partial<StyleAsset>;
+  const o = raw as Partial<KitAsset>;
   const id = typeof o.id === "string" ? o.id.trim() : "";
   if (!id) return null;
   const name = typeof o.name === "string" ? o.name : "";
@@ -60,10 +60,10 @@ function reviveCharacterAsset(raw: unknown): StyleAsset | null {
   };
 }
 
-/** Style kit objects do not carry `description`; legacy keys in JSON are ignored. */
-function reviveObjectAsset(raw: unknown): StyleAsset | null {
+/** Kit objects do not carry `description`; legacy keys in JSON are ignored. */
+function reviveObjectAsset(raw: unknown): KitAsset | null {
   if (!raw || typeof raw !== "object") return null;
-  const o = raw as Partial<StyleAsset>;
+  const o = raw as Partial<KitAsset>;
   const id = typeof o.id === "string" ? o.id.trim() : "";
   if (!id) return null;
   const name = typeof o.name === "string" ? o.name : "";
@@ -80,11 +80,11 @@ function reviveObjectAsset(raw: unknown): StyleAsset | null {
   };
 }
 
-function reviveCharacterAssets(raw: unknown): StyleAsset[] {
+function reviveCharacterAssets(raw: unknown): KitAsset[] {
   if (!Array.isArray(raw)) return [];
-  const list = raw.map(reviveCharacterAsset).filter((x): x is StyleAsset => x !== null);
+  const list = raw.map(reviveCharacterAsset).filter((x): x is KitAsset => x !== null);
   const seen = new Set<string>();
-  const out: StyleAsset[] = [];
+  const out: KitAsset[] = [];
   for (const a of list) {
     if (seen.has(a.id)) continue;
     seen.add(a.id);
@@ -93,11 +93,11 @@ function reviveCharacterAssets(raw: unknown): StyleAsset[] {
   return out;
 }
 
-function reviveObjectAssets(raw: unknown): StyleAsset[] {
+function reviveObjectAssets(raw: unknown): KitAsset[] {
   if (!Array.isArray(raw)) return [];
-  const list = raw.map(reviveObjectAsset).filter((x): x is StyleAsset => x !== null);
+  const list = raw.map(reviveObjectAsset).filter((x): x is KitAsset => x !== null);
   const seen = new Set<string>();
-  const out: StyleAsset[] = [];
+  const out: KitAsset[] = [];
   for (const a of list) {
     if (seen.has(a.id)) continue;
     seen.add(a.id);
@@ -115,12 +115,12 @@ function reviveBackground(raw: unknown, fallback: Background): Background {
   return { color, ...(src ? { src } : {}) };
 }
 
-function reviveStyle(raw: unknown): Style {
-  const d = createDefaultStyle();
+function reviveAssetBundle(raw: unknown): AssetBundle {
+  const d = createDefaultAssetBundle();
   if (!raw || typeof raw !== "object") {
     return { ...d, id: crypto.randomUUID() };
   }
-  const s = raw as Partial<Style>;
+  const s = raw as Partial<AssetBundle>;
   const bg = reviveBackground(s.background, d.background);
   const characters = reviveCharacterAssets(s.characters);
   const objects = reviveObjectAssets(s.objects);
@@ -139,14 +139,15 @@ function reviveStyle(raw: unknown): Style {
   };
 }
 
-function reviveStyleConfig(raw: unknown): StyleConfig | null {
+function reviveAssetsConfig(raw: unknown): AssetsConfig | null {
   if (!raw || typeof raw !== "object") return null;
-  const s = raw as Partial<StyleConfig>;
-  const style = reviveStyle(s.style ?? {});
+  const s = raw as Partial<AssetsConfig> & { style?: unknown };
+  const bundleRaw = s.assets ?? s.style;
+  const assets = reviveAssetBundle(bundleRaw ?? {});
   return {
     id: typeof s.id === "string" && s.id.trim() ? s.id : crypto.randomUUID(),
-    name: typeof s.name === "string" ? s.name : "Style",
-    style,
+    name: typeof s.name === "string" ? s.name : "Assets",
+    assets,
   };
 }
 
@@ -257,43 +258,43 @@ function reviveScene(raw: unknown, projectId: string): Scene | null {
   };
 }
 
-function dedupeStyleConfigs(configs: StyleConfig[]): StyleConfig[] {
-  const byId = new Map<string, StyleConfig>();
+function dedupeAssetsConfigs(configs: AssetsConfig[]): AssetsConfig[] {
+  const byId = new Map<string, AssetsConfig>();
   for (const c of configs) {
     if (!byId.has(c.id)) byId.set(c.id, c);
   }
   return [...byId.values()];
 }
 
-/** Hydrates from parsed JSON. Pass `extraStyleConfigs` for file-split defaults (e.g. bundled style JSON). */
-export function projectFromConfigJson(raw: unknown, extraStyleConfigs: StyleConfig[] = []): HydratedProjectBundle {
+/** Hydrates from parsed JSON. Pass `extraAssetsConfigs` for file-split defaults (e.g. bundled assets JSON). */
+export function projectFromConfigJson(raw: unknown, extraAssetsConfigs: AssetsConfig[] = []): HydratedProjectBundle {
   const seed = normalizeProjectConfigSeed(raw);
   const o = seed;
   const projectId = typeof o.id === "string" && o.id.trim() ? o.id : crypto.randomUUID();
 
-  const fromFile = Array.isArray(o.styleConfigs)
-    ? o.styleConfigs.map(reviveStyleConfig).filter((x): x is StyleConfig => x !== null)
+  const fromFile = Array.isArray(o.assetsConfigs)
+    ? o.assetsConfigs.map(reviveAssetsConfig).filter((x): x is AssetsConfig => x !== null)
     : [];
-  const extra = extraStyleConfigs.map(reviveStyleConfig).filter((x): x is StyleConfig => x !== null);
-  let styleConfigs = dedupeStyleConfigs([...extra, ...fromFile]);
+  const extra = extraAssetsConfigs.map(reviveAssetsConfig).filter((x): x is AssetsConfig => x !== null);
+  let assetsConfigs = dedupeAssetsConfigs([...extra, ...fromFile]);
 
-  if (styleConfigs.length === 0) {
-    const fallback = createDefaultStyleConfig();
-    styleConfigs = [fallback];
+  if (assetsConfigs.length === 0) {
+    const fallback = createDefaultAssetsConfig();
+    assetsConfigs = [fallback];
   }
 
-  const renumbered = styleConfigs.map((c) => {
-    const r = renumberStyleKitAssetsWithMaps(c.style);
-    return { config: { ...c, style: r.style }, maps: r };
+  const renumbered = assetsConfigs.map((c) => {
+    const r = renumberKitAssetsWithMaps(c.assets);
+    return { config: { ...c, assets: r.assets }, maps: r };
   });
-  styleConfigs = renumbered.map((x) => x.config);
+  assetsConfigs = renumbered.map((x) => x.config);
 
-  let styleConfigId = typeof o.styleConfigId === "string" ? o.styleConfigId.trim() : "";
-  if (!styleConfigId || !styleConfigs.some((c) => c.id === styleConfigId)) {
-    styleConfigId = styleConfigs[0]!.id;
+  let assetsConfigId = typeof o.assetsConfigId === "string" ? o.assetsConfigId.trim() : "";
+  if (!assetsConfigId || !assetsConfigs.some((c) => c.id === assetsConfigId)) {
+    assetsConfigId = assetsConfigs[0]!.id;
   }
 
-  const activeRenumber = renumbered.find((x) => x.config.id === styleConfigId) ?? renumbered[0]!;
+  const activeRenumber = renumbered.find((x) => x.config.id === assetsConfigId) ?? renumbered[0]!;
   const { characterIdMap, objectIdMap } = activeRenumber.maps;
 
   const scenesRaw = Array.isArray(o.scenes) ? o.scenes : [];
@@ -321,9 +322,9 @@ export function projectFromConfigJson(raw: unknown, extraStyleConfigs: StyleConf
     name: typeof o.name === "string" ? o.name : "Untitled",
     createdAt: reviveDate(o.createdAt),
     prompt: typeof o.prompt === "string" ? o.prompt : "",
-    styleConfigId,
+    assetsConfigId,
     ...(fileLabel ? { fileLabel } : {}),
   };
 
-  return { project, styleConfigs, scenes, renders, frames };
+  return { project, assetsConfigs, scenes, renders, frames };
 }

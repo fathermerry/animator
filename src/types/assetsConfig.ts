@@ -10,34 +10,34 @@ export type TextStyle = {
   instructions: string;
 };
 
-export type StyleAsset = {
+export type KitAsset = {
   id: string;
   name: string;
-  /** Present for characters only; omit for style kit objects. */
+  /** Present for characters only; omit for kit objects. */
   description?: string;
   src?: string;
   width?: number;
   height?: number;
 };
 
-/** Visual kit: lives in a style config file, referenced by `Project.styleConfigId`. */
-export type Style = {
+/** Visual kit (plate, type, characters, objects). Referenced by `Project.assetsConfigId`. */
+export type AssetBundle = {
   id: string;
   name: string;
   background: Background;
   textStyles: TextStyle[];
-  characters: StyleAsset[];
-  objects: StyleAsset[];
+  characters: KitAsset[];
+  objects: KitAsset[];
   notes: string;
 };
 
-export type StyleConfig = {
+export type AssetsConfig = {
   id: string;
   name: string;
-  style: Style;
+  assets: AssetBundle;
 };
 
-export const defaultCharacters: StyleAsset[] = [
+export const defaultCharacters: KitAsset[] = [
   {
     id: "C01",
     name: "Narrator",
@@ -70,7 +70,7 @@ export const defaultCharacters: StyleAsset[] = [
   },
 ];
 
-export const defaultObjects: StyleAsset[] = [
+export const defaultObjects: KitAsset[] = [
   { id: "001", name: "House / property" },
   { id: "002", name: "Documents stack" },
   { id: "003", name: "SA302 form" },
@@ -83,14 +83,14 @@ export const defaultObjects: StyleAsset[] = [
   { id: "010", name: "Warning triangle" },
 ];
 
-function cloneDefaultAssets(list: StyleAsset[]): StyleAsset[] {
+function cloneDefaultKitAssets(list: KitAsset[]): KitAsset[] {
   return list.map((a) => ({ ...a }));
 }
 
-export function createDefaultStyle(): Style {
+export function createDefaultAssetBundle(): AssetBundle {
   return {
     id: crypto.randomUUID(),
-    name: "Default style",
+    name: "Default assets",
     notes: "",
     background: { color: "#0a0a0a" },
     textStyles: [
@@ -107,15 +107,15 @@ export function createDefaultStyle(): Style {
         instructions: "Supporting line — subtext or CTA",
       },
     ],
-    characters: cloneDefaultAssets(defaultCharacters),
-    objects: cloneDefaultAssets(defaultObjects),
+    characters: cloneDefaultKitAssets(defaultCharacters),
+    objects: cloneDefaultKitAssets(defaultObjects),
   };
 }
 
-export function createDefaultStyleConfig(): StyleConfig {
+export function createDefaultAssetsConfig(): AssetsConfig {
   return {
     id: crypto.randomUUID(),
-    name: "Default style",
-    style: createDefaultStyle(),
+    name: "Default assets",
+    assets: createDefaultAssetBundle(),
   };
 }

@@ -1,4 +1,4 @@
-import type { Style, StyleAsset } from "@/types/styleConfig";
+import type { AssetBundle, KitAsset } from "@/types/assetsConfig";
 
 /** Three-character character id: C + two-digit index (1-based), e.g. C01. */
 export function formatCharacterKitId(index: number): string {
@@ -10,36 +10,36 @@ export function formatObjectKitId(index: number): string {
   return String(index + 1).padStart(3, "0");
 }
 
-export function renumberCharacterKitIds(list: StyleAsset[]): StyleAsset[] {
+export function renumberCharacterKitIds(list: KitAsset[]): KitAsset[] {
   return list.map((a, i) => ({ ...a, id: formatCharacterKitId(i) }));
 }
 
-export function renumberObjectKitIds(list: StyleAsset[]): StyleAsset[] {
+export function renumberObjectKitIds(list: KitAsset[]): KitAsset[] {
   return list.map((a, i) => ({ ...a, id: formatObjectKitId(i) }));
 }
 
-export function renumberStyleKitAssetsWithMaps(style: Style): {
-  style: Style;
+export function renumberKitAssetsWithMaps(bundle: AssetBundle): {
+  assets: AssetBundle;
   characterIdMap: Map<string, string>;
   objectIdMap: Map<string, string>;
 } {
   const characterIdMap = new Map<string, string>();
   const objectIdMap = new Map<string, string>();
 
-  const characters = style.characters.map((a, i) => {
+  const characters = bundle.characters.map((a, i) => {
     const newId = formatCharacterKitId(i);
     characterIdMap.set(a.id, newId);
     return { ...a, id: newId };
   });
 
-  const objects = style.objects.map((a, i) => {
+  const objects = bundle.objects.map((a, i) => {
     const newId = formatObjectKitId(i);
     objectIdMap.set(a.id, newId);
     return { ...a, id: newId };
   });
 
   return {
-    style: { ...style, characters, objects },
+    assets: { ...bundle, characters, objects },
     characterIdMap,
     objectIdMap,
   };

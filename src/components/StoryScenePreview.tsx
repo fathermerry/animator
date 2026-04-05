@@ -1,24 +1,24 @@
 import { normalizeHex } from "@/lib/color";
 import type { Scene } from "@/types/project";
-import type { Style } from "@/types/styleConfig";
+import type { AssetBundle } from "@/types/assetsConfig";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  style: Style;
+  assetBundle: AssetBundle;
   scene: Scene | null;
   onDescriptionChange: (value: string) => void;
   className?: string;
 };
 
-/** 16:9 frame with style plate; editable scene description centered in frame. */
+/** 16:9 frame with background plate; editable scene description centered in frame. */
 export function StoryScenePreview({
-  style,
+  assetBundle,
   scene,
   onDescriptionChange,
   className,
 }: Props) {
-  const bgHex = normalizeHex(style.background.color);
-  const bgSrc = style.background.src?.trim();
+  const bgHex = normalizeHex(assetBundle.background.color);
+  const bgSrc = assetBundle.background.src?.trim();
   const value = scene?.description ?? "";
   const onImage = Boolean(bgSrc);
 

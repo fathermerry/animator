@@ -52,5 +52,5 @@ export type Project = {
   createdAt: Date;
 
   prompt: string;
-  styleConfigId: string;
+  assetsConfigId: string;
 };

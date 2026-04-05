@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
-import { StylePreview, type StylePreviewKitHover } from "@/components/StylePreview";
+import { AssetsPreview, type AssetsPreviewKitHover } from "@/components/AssetsPreview";
 import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepLayout } from "@/components/WorkflowStepLayout";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,11 @@ import {
   renumberObjectKitIds,
 } from "@/lib/kitAssetId";
 import { normalizeHex } from "@/lib/color";
-import { validateBackgroundImageFile, validateTransparentStylePng } from "@/lib/styleAssetPng";
+import { validateBackgroundImageFile, validateTransparentKitPng } from "@/lib/kitAssetPng";
 import { cn } from "@/lib/utils";
-import { selectResolvedStyle, useProjectStore } from "@/store/projectStore";
+import { selectResolvedAssetBundle, useProjectStore } from "@/store/projectStore";
 import type { Step } from "@/steps";
-import { createDefaultStyle, type Style, type StyleAsset } from "@/types/styleConfig";
+import { createDefaultAssetBundle, type AssetBundle, type KitAsset } from "@/types/assetsConfig";
 import { ImagePlus, Trash2 } from "lucide-react";
 
 type Props = { step: Step };
@@ -25,27 +25,27 @@ type KitKey = "characters" | "objects";
 
 type KitSelection = { kind: KitKey; id: string };
 
-function ensureTwoTextStyles(style: Style): Style {
-  const d = createDefaultStyle().textStyles;
-  const next = [...style.textStyles];
+function ensureTwoTextStyles(bundle: AssetBundle): AssetBundle {
+  const d = createDefaultAssetBundle().textStyles;
+  const next = [...bundle.textStyles];
   while (next.length < 2) {
     next.push({ ...d[next.length]! });
   }
-  return { ...style, textStyles: next };
+  return { ...bundle, textStyles: next };
 }
 
-function normalizeCharacterIds(list: StyleAsset[]): StyleAsset[] {
+function normalizeCharacterIds(list: KitAsset[]): KitAsset[] {
   return renumberCharacterKitIds(list);
 }
 
-function normalizeObjectIds(list: StyleAsset[]): StyleAsset[] {
+function normalizeObjectIds(list: KitAsset[]): KitAsset[] {
   return renumberObjectKitIds(list);
 }
 
-export function StylePageView({ step: _step }: Props) {
+export function AssetsPageView({ step: _step }: Props) {
   const ensureDraft = useStore(useProjectStore, (s) => s.ensureDraftProject);
-  const updateStyle = useStore(useProjectStore, (s) => s.updateStyle);
-  const style = useStore(useProjectStore, selectResolvedStyle);
+  const updateAssets = useStore(useProjectStore, (s) => s.updateAssets);
+  const assetBundle = useStore(useProjectStore, selectResolvedAssetBundle);
 
   const [pngError, setPngError] = useState<string | null>(null);
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export function StylePageView({ step: _step }: Props) {
 
   useEffect(() => {
     ensureDraft();
-    updateStyle((s) => {
+    updateAssets((s) => {
       const next = ensureTwoTextStyles(s);
       return {
         ...next,
@@ -63,36 +63,36 @@ export function StylePageView({ step: _step }: Props) {
         objects: normalizeObjectIds(next.objects),
       };
     });
-  }, [ensureDraft, updateStyle]);
+  }, [ensureDraft, updateAssets]);
 
   useEffect(() => {
     setKitSelection((prev) => {
       if (prev) {
-        const list = style[prev.kind];
+        const list = assetBundle[prev.kind];
         if (list.some((a) => a.id === prev.id)) return prev;
       }
-      const first = style.characters[0];
+      const first = assetBundle.characters[0];
       if (first?.id) return { kind: "characters", id: first.id };
       return null;
     });
-  }, [style.characters, style.objects]);
+  }, [assetBundle.characters, assetBundle.objects]);
 
   useEffect(() => {
     setBackgroundHexDraft(null);
-  }, [style.background.color]);
+  }, [assetBundle.background.color]);
 
   const kitFileInputRef = useRef<HTMLInputElement>(null);
   const backgroundFileInputRef = useRef<HTMLInputElement>(null);
   const pickKitTargetRef = useRef<{ kind: KitKey; id: string } | null>(null);
 
-  const patchKitAsset = (kind: KitKey, id: string, patch: Partial<StyleAsset>) => {
-    updateStyle((s) => {
+  const patchKitAsset = (kind: KitKey, id: string, patch: Partial<KitAsset>) => {
+    updateAssets((s) => {
       const list = s[kind];
       const idx = list.findIndex((a) => a.id === id);
       if (idx === -1) return s;
       const prev = list[idx]!;
       const { id: _omitPatchId, ...patchRest } = patch;
-      let merged: StyleAsset = { ...prev, ...patchRest, id: prev.id };
+      let merged: KitAsset = { ...prev, ...patchRest, id: prev.id };
       if (kind === "objects") {
         const { description: _omit, ...rest } = merged;
         merged = rest;
@@ -105,7 +105,7 @@ export function StylePageView({ step: _step }: Props) {
 
   const removeKitAsset = (kind: KitKey, id: string) => {
     setKitSelection((sel) => (sel?.kind === kind && sel.id === id ? null : sel));
-    updateStyle((s) => {
+    updateAssets((s) => {
       const filtered = s[kind].filter((a) => a.id !== id);
       const next =
         kind === "characters" ? normalizeCharacterIds(filtered) : normalizeObjectIds(filtered);
@@ -116,7 +116,7 @@ export function StylePageView({ step: _step }: Props) {
   const toggleKitSelection = (kind: KitKey, id: string) => {
     setKitSelection((prev) => {
       if (prev?.kind === kind && prev.id === id) {
-        const first = style.characters[0];
+        const first = assetBundle.characters[0];
         if (first?.id) return { kind: "characters", id: first.id };
         return null;
       }
@@ -125,9 +125,9 @@ export function StylePageView({ step: _step }: Props) {
   };
 
   const addKitPlaceholder = (kind: KitKey) => {
-    updateStyle((s) => {
+    updateAssets((s) => {
       const list = s[kind];
-      const row: StyleAsset =
+      const row: KitAsset =
         kind === "characters"
           ? { id: "", name: "", description: "" }
           : { id: "", name: "" };
@@ -155,7 +155,7 @@ export function StylePageView({ step: _step }: Props) {
       return;
     }
     setBackgroundError(null);
-    updateStyle((s) => ({
+    updateAssets((s) => ({
       ...s,
       background: { ...s.background, src: result.dataUrl },
     }));
@@ -163,7 +163,7 @@ export function StylePageView({ step: _step }: Props) {
 
   const clearBackgroundImage = () => {
     setBackgroundError(null);
-    updateStyle((s) => ({
+    updateAssets((s) => ({
       ...s,
       background: { color: s.background.color },
     }));
@@ -176,7 +176,7 @@ export function StylePageView({ step: _step }: Props) {
     pickKitTargetRef.current = null;
     if (!target || !file) return;
 
-    const result = await validateTransparentStylePng(file);
+    const result = await validateTransparentKitPng(file);
     if (!result.ok) {
       setPngError(result.reason);
       return;
@@ -189,9 +189,9 @@ export function StylePageView({ step: _step }: Props) {
     });
   };
 
-  const kitHoverDetail = useMemo((): StylePreviewKitHover | null => {
+  const kitHoverDetail = useMemo((): AssetsPreviewKitHover | null => {
     if (!kitSelection) return null;
-    const list = style[kitSelection.kind];
+    const list = assetBundle[kitSelection.kind];
     const asset = list.find((a) => a.id === kitSelection.id);
     if (!asset) return null;
     const desc = asset.description?.trim();
@@ -201,15 +201,15 @@ export function StylePageView({ step: _step }: Props) {
       ...(desc ? { description: desc } : {}),
       kind: kitSelection.kind,
     };
-  }, [kitSelection, style]);
+  }, [kitSelection, assetBundle]);
 
-  const backgroundColorHex = normalizeHex(style.background.color);
+  const backgroundColorHex = normalizeHex(assetBundle.background.color);
   const backgroundHexShown = backgroundHexDraft ?? backgroundColorHex;
 
   const commitBackgroundHex = (raw: string) => {
     const t = raw.trim();
     if (/^#[0-9A-Fa-f]{6}$/i.test(t)) {
-      updateStyle((s) => ({
+      updateAssets((s) => ({
         ...s,
         background: { ...s.background, color: t.toLowerCase() },
       }));
@@ -218,7 +218,7 @@ export function StylePageView({ step: _step }: Props) {
     }
     if (/^#[0-9A-Fa-f]{3}$/i.test(t)) {
       const n = normalizeHex(t);
-      updateStyle((s) => ({
+      updateAssets((s) => ({
         ...s,
         background: { ...s.background, color: n },
       }));
@@ -245,7 +245,7 @@ export function StylePageView({ step: _step }: Props) {
             )}
             value={backgroundColorHex}
             onChange={(e) =>
-              updateStyle((s) => ({
+              updateAssets((s) => ({
                 ...s,
                 background: { ...s.background, color: e.target.value },
               }))
@@ -293,9 +293,9 @@ export function StylePageView({ step: _step }: Props) {
               backgroundFileInputRef.current?.click();
             }}
           >
-            {style.background.src?.trim() ? "Replace file" : "Choose file"}
+            {assetBundle.background.src?.trim() ? "Replace file" : "Choose file"}
           </Button>
-          {style.background.src?.trim() ? (
+          {assetBundle.background.src?.trim() ? (
             <Button type="button" variant="ghost" size="sm" onClick={clearBackgroundImage}>
               Remove image
             </Button>
@@ -333,7 +333,7 @@ export function StylePageView({ step: _step }: Props) {
               label="Characters"
               addLabel="Add character"
               emptyMessage="Nothing here yet"
-              assets={style.characters}
+              assets={assetBundle.characters}
               selection={kitSelection}
               onToggleSelect={toggleKitSelection}
               onAddLine={() => addKitPlaceholder("characters")}
@@ -347,7 +347,7 @@ export function StylePageView({ step: _step }: Props) {
               label="Objects"
               addLabel="Add object"
               emptyMessage="Nothing here yet"
-              assets={style.objects}
+              assets={assetBundle.objects}
               selection={kitSelection}
               onToggleSelect={toggleKitSelection}
               onAddLine={() => addKitPlaceholder("objects")}
@@ -360,9 +360,14 @@ export function StylePageView({ step: _step }: Props) {
       }
       preview={
         <WorkflowPreviewColumn>
-          <StylePreview
-            style={style}
+          <AssetsPreview
+            assetBundle={assetBundle}
             kitHoverDetail={kitHoverDetail}
+            onPatchKitDetail={
+              kitSelection
+                ? (patch) => patchKitAsset(kitSelection.kind, kitSelection.id, patch)
+                : undefined
+            }
             backgroundEditor={backgroundEditor}
             className="w-full"
           />
@@ -391,11 +396,11 @@ function KitThumbnailTile({
 }: {
   kind: KitKey;
   label: string;
-  asset: StyleAsset;
+  asset: KitAsset;
   index: number;
   isSelected: boolean;
   onToggleSelect: (kind: KitKey, id: string) => void;
-  onPatch: (id: string, patch: Partial<StyleAsset>) => void;
+  onPatch: (id: string, patch: Partial<KitAsset>) => void;
   onPickImage: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
@@ -504,11 +509,11 @@ function KitSection({
   label: string;
   addLabel: string;
   emptyMessage: string;
-  assets: StyleAsset[];
+  assets: KitAsset[];
   selection: KitSelection | null;
   onToggleSelect: (kind: KitKey, id: string) => void;
   onAddLine: () => void;
-  onPatch: (id: string, patch: Partial<StyleAsset>) => void;
+  onPatch: (id: string, patch: Partial<KitAsset>) => void;
   onPickImage: (id: string) => void;
   onRemove: (id: string) => void;
 }) {

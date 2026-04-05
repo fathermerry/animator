@@ -29,7 +29,7 @@ export function isLightBackground(hex: string): boolean {
   return relativeLuminance(hex) > 0.5;
 }
 
-/** Tailwind classes for the style preview kit id badge (flat border + text only). */
+/** Tailwind classes for the assets preview kit id badge (flat border + text only). */
 export function kitSelectionOverlayClasses(bgHex: string): string {
   return isLightBackground(bgHex)
     ? "border-2 border-black text-black"

@@ -6,13 +6,13 @@ import { buildRenderFilmTimeline, FILM_FPS } from "@/lib/renderFilmTimeline";
 import { cn } from "@/lib/utils";
 import { FilmComposition } from "@/remotion/FilmComposition";
 import type { Frame, Render, Scene } from "@/types/project";
-import type { Style } from "@/types/styleConfig";
+import type { AssetBundle } from "@/types/assetsConfig";
 
 const COMPOSITION_WIDTH = 1920;
 const COMPOSITION_HEIGHT = 1080;
 
 type Props = {
-  style: Style;
+  assetBundle: AssetBundle;
   scenes: Scene[];
   frames: Frame[];
   renders: Render[];
@@ -24,7 +24,7 @@ type Props = {
 };
 
 export function RenderFilmPreview({
-  style,
+  assetBundle,
   scenes,
   frames,
   renders,
@@ -38,8 +38,8 @@ export function RenderFilmPreview({
   const [playing, setPlaying] = useState(false);
 
   const { segments, totalFrames } = useMemo(
-    () => buildRenderFilmTimeline(scenes, frames, renders, style),
-    [scenes, frames, renders, style],
+    () => buildRenderFilmTimeline(scenes, frames, renders, assetBundle),
+    [scenes, frames, renders, assetBundle],
   );
 
   const hasTimeline = totalFrames > 0 && segments.length > 0;
@@ -88,8 +88,8 @@ export function RenderFilmPreview({
     [maxFrame],
   );
 
-  const bgHex = normalizeHex(style.background.color);
-  const bgSrc = style.background.src?.trim();
+  const bgHex = normalizeHex(assetBundle.background.color);
+  const bgSrc = assetBundle.background.src?.trim();
 
   if (!hasTimeline) {
     return (

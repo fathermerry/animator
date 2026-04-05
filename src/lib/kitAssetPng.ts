@@ -1,5 +1,5 @@
-/** Max size per asset when stored as data URL in localStorage */
-export const MAX_STYLE_ASSET_BYTES = 3 * 1024 * 1024;
+/** Max size per file when stored as data URL in localStorage */
+export const MAX_KIT_ASSET_BYTES = 3 * 1024 * 1024;
 
 export function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -47,14 +47,14 @@ export type ValidatePngResult =
   | { ok: false; reason: string };
 
 /**
- * Style kit assets must be transparent PNGs. Rejects non-PNG, oversize files,
+ * Kit PNGs must be transparent. Rejects non-PNG, oversize files,
  * and fully opaque images (no usable alpha).
  */
-export async function validateTransparentStylePng(file: File): Promise<ValidatePngResult> {
+export async function validateTransparentKitPng(file: File): Promise<ValidatePngResult> {
   if (file.type !== "image/png") {
     return { ok: false, reason: "Use a PNG file with transparency." };
   }
-  if (file.size > MAX_STYLE_ASSET_BYTES) {
+  if (file.size > MAX_KIT_ASSET_BYTES) {
     return { ok: false, reason: "File is too large." };
   }
   let dataUrl: string;
@@ -83,13 +83,13 @@ export type ValidateBackgroundImageResult =
   | { ok: false; reason: string };
 
 /**
- * Full-bleed style background: any common raster image, decoded and stored as data URL.
+ * Full-bleed background plate: any common raster image, decoded and stored as data URL.
  */
 export async function validateBackgroundImageFile(file: File): Promise<ValidateBackgroundImageResult> {
   if (file.type && !file.type.startsWith("image/")) {
     return { ok: false, reason: "Choose an image file." };
   }
-  if (file.size > MAX_STYLE_ASSET_BYTES) {
+  if (file.size > MAX_KIT_ASSET_BYTES) {
     return { ok: false, reason: "File is too large." };
   }
   let dataUrl: string;
