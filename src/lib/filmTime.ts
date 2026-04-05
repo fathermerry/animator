@@ -1,5 +1,13 @@
 import type { Scene } from "@/types/project";
 
+/** Whole seconds as `m:ss` (e.g. `0:45`, `12:30`). */
+export function formatDurationMmSs(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(Number.isFinite(totalSeconds) ? totalSeconds : 0));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+
 /** Format seconds as fixed two-decimal film time (e.g. `0.00`, `12.50`). */
 export function formatFilmTime(seconds: number): string {
   if (!Number.isFinite(seconds)) return "0.00";

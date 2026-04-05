@@ -11,9 +11,16 @@
       "id": "00000001-0000-4000-8000-000000000001",
       "projectId": "11111111-2222-4333-8444-555555555555",
       "index": 0,
-      "action": "Hook — self-employed at the bank",
-      "characterIds": ["C01"],
-      "objectIds": [],
+      "title": "Hook — bank counter",
+      "description": "The borrower stands at the lender's counter while a tall stack of documents and a warning icon sit between them. The lender explains what proof self-employed applicants need; the borrower looks overwhelmed but engaged. Upbeat, direct-to-camera energy.",
+      "characterIds": [
+        "C01",
+        "C02"
+      ],
+      "objectIds": [
+        "002",
+        "010"
+      ],
       "durationSeconds": 45,
       "createdAt": "2026-04-05T12:00:00.000Z"
     },
@@ -21,20 +28,133 @@
       "id": "00000002-0000-4000-8000-000000000002",
       "projectId": "11111111-2222-4333-8444-555555555555",
       "index": 1,
-      "action": "How lenders assess income",
-      "characterIds": ["C01", "C02"],
-      "objectIds": [],
-      "durationSeconds": 150,
+      "title": "Who counts as self-employed?",
+      "description": "Split composition: the self-employed borrower stands beside an income-scale graphic while a PAYE employee appears for contrast with simpler payslip energy. The lender gestures toward ownership percentages. Educational, clear framing.",
+      "characterIds": [
+        "C01",
+        "C02",
+        "C05"
+      ],
+      "objectIds": [
+        "006"
+      ],
+      "durationSeconds": 75,
       "createdAt": "2026-04-05T12:00:00.000Z"
     },
     {
       "id": "00000003-0000-4000-8000-000000000003",
       "projectId": "11111111-2222-4333-8444-555555555555",
       "index": 2,
-      "action": "Documents to gather before you apply",
-      "characterIds": ["C01", "C03"],
-      "objectIds": [],
+      "title": "How lenders assess income",
+      "description": "The borrower and lender walk through net profit, dividends, and contractor day-rate math at a desk. An income scale and application funnel float between them as the lender shows how different rules change the borrowing ceiling.",
+      "characterIds": [
+        "C01",
+        "C02"
+      ],
+      "objectIds": [
+        "006",
+        "007"
+      ],
+      "durationSeconds": 150,
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "00000004-0000-4000-8000-000000000004",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "index": 3,
+      "title": "The tax trap",
+      "description": "The accountant unrolls an SA302 beside a tax-versus-borrowing seesaw while the borrower listens. The tone turns slightly more serious: minimised taxable income on paper is what lenders use to size the loan.",
+      "characterIds": [
+        "C01",
+        "C03"
+      ],
+      "objectIds": [
+        "003",
+        "004"
+      ],
+      "durationSeconds": 90,
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "00000005-0000-4000-8000-000000000005",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "index": 4,
+      "title": "Trading history timeline",
+      "description": "The lender traces a trading timeline from twelve months to three years of accounts while the borrower reacts. A beat on how switching from sole trader to limited company can reset the clock with some lenders.",
+      "characterIds": [
+        "C01",
+        "C02"
+      ],
+      "objectIds": [
+        "005"
+      ],
+      "durationSeconds": 90,
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "00000006-0000-4000-8000-000000000006",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "index": 5,
+      "title": "The document pile",
+      "description": "The borrower and accountant spread SA302s, accounts, and a thick documents stack across a table. The accountant organises while the borrower realises disorganised paperwork signals risk to lenders.",
+      "characterIds": [
+        "C01",
+        "C03"
+      ],
+      "objectIds": [
+        "002",
+        "003"
+      ],
       "durationSeconds": 120,
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000007",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "index": 6,
+      "title": "Maximising your chances",
+      "description": "The borrower studies a credit score meter and a green checkmark list: electoral roll, separated accounts, no last-minute credit. Calm, practical, forward-looking—doing homework before applications hit the file.",
+      "characterIds": [
+        "C01"
+      ],
+      "objectIds": [
+        "008",
+        "009"
+      ],
+      "durationSeconds": 120,
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "00000008-0000-4000-8000-000000000008",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "index": 7,
+      "title": "Whole-of-market broker",
+      "description": "The broker sits with the borrower, laptop open, comparing lender criteria. A funnel toward a house icon suggests shopping the market before hard searches—protecting the credit score.",
+      "characterIds": [
+        "C01",
+        "C04"
+      ],
+      "objectIds": [
+        "007",
+        "001"
+      ],
+      "durationSeconds": 60,
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "00000009-0000-4000-8000-000000000009",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "index": 8,
+      "title": "Outro",
+      "description": "The borrower faces camera with a warm sign-off; a checkmark and house icon reinforce takeaway and subscribe. Short, confident close.",
+      "characterIds": [
+        "C01"
+      ],
+      "objectIds": [
+        "001",
+        "009"
+      ],
+      "durationSeconds": 30,
       "createdAt": "2026-04-05T12:00:00.000Z"
     }
   ],
@@ -45,7 +165,11 @@
       "sceneId": "00000001-0000-4000-8000-000000000001",
       "engine": "remotion",
       "status": "complete",
-      "cost": { "amount": 0, "currency": "USD", "breakdown": [] },
+      "cost": {
+        "amount": 0,
+        "currency": "USD",
+        "breakdown": []
+      },
       "createdAt": "2026-04-05T12:00:00.000Z"
     },
     {
@@ -54,7 +178,11 @@
       "sceneId": "00000002-0000-4000-8000-000000000002",
       "engine": "remotion",
       "status": "complete",
-      "cost": { "amount": 0, "currency": "USD", "breakdown": [] },
+      "cost": {
+        "amount": 0,
+        "currency": "USD",
+        "breakdown": []
+      },
       "createdAt": "2026-04-05T12:00:00.000Z"
     },
     {
@@ -63,7 +191,89 @@
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "engine": "remotion",
       "status": "complete",
-      "cost": { "amount": 0, "currency": "USD", "breakdown": [] },
+      "cost": {
+        "amount": 0,
+        "currency": "USD",
+        "breakdown": []
+      },
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "10000004-0000-4000-8000-000000000004",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000004-0000-4000-8000-000000000004",
+      "engine": "remotion",
+      "status": "complete",
+      "cost": {
+        "amount": 0,
+        "currency": "USD",
+        "breakdown": []
+      },
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "10000005-0000-4000-8000-000000000005",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000005-0000-4000-8000-000000000005",
+      "engine": "remotion",
+      "status": "complete",
+      "cost": {
+        "amount": 0,
+        "currency": "USD",
+        "breakdown": []
+      },
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "10000006-0000-4000-8000-000000000006",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000006-0000-4000-8000-000000000006",
+      "engine": "remotion",
+      "status": "complete",
+      "cost": {
+        "amount": 0,
+        "currency": "USD",
+        "breakdown": []
+      },
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "10000007-0000-4000-8000-000000000007",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000007-0000-4000-8000-000000000007",
+      "engine": "remotion",
+      "status": "complete",
+      "cost": {
+        "amount": 0,
+        "currency": "USD",
+        "breakdown": []
+      },
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "10000008-0000-4000-8000-000000000008",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000008-0000-4000-8000-000000000008",
+      "engine": "remotion",
+      "status": "complete",
+      "cost": {
+        "amount": 0,
+        "currency": "USD",
+        "breakdown": []
+      },
+      "createdAt": "2026-04-05T12:00:00.000Z"
+    },
+    {
+      "id": "10000009-0000-4000-8000-000000000009",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000009-0000-4000-8000-000000000009",
+      "engine": "remotion",
+      "status": "complete",
+      "cost": {
+        "amount": 0,
+        "currency": "USD",
+        "breakdown": []
+      },
       "createdAt": "2026-04-05T12:00:00.000Z"
     }
   ],
@@ -103,9 +313,9 @@
     {
       "id": "20000005-0000-4000-8000-000000000005",
       "projectId": "11111111-2222-4333-8444-555555555555",
-      "sceneId": "00000002-0000-4000-8000-000000000002",
-      "renderId": "10000002-0000-4000-8000-000000000002",
-      "index": 2,
+      "sceneId": "00000003-0000-4000-8000-000000000003",
+      "renderId": "10000003-0000-4000-8000-000000000003",
+      "index": 0,
       "src": "/placeholder.png"
     },
     {
@@ -113,14 +323,102 @@
       "projectId": "11111111-2222-4333-8444-555555555555",
       "sceneId": "00000003-0000-4000-8000-000000000003",
       "renderId": "10000003-0000-4000-8000-000000000003",
-      "index": 0,
+      "index": 1,
       "src": "/placeholder.png"
     },
     {
       "id": "20000007-0000-4000-8000-000000000007",
       "projectId": "11111111-2222-4333-8444-555555555555",
-      "sceneId": "00000003-0000-4000-8000-000000000003",
-      "renderId": "10000003-0000-4000-8000-000000000003",
+      "sceneId": "00000004-0000-4000-8000-000000000004",
+      "renderId": "10000004-0000-4000-8000-000000000004",
+      "index": 0,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000008-0000-4000-8000-000000000008",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000004-0000-4000-8000-000000000004",
+      "renderId": "10000004-0000-4000-8000-000000000004",
+      "index": 1,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000009-0000-4000-8000-000000000009",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000005-0000-4000-8000-000000000005",
+      "renderId": "10000005-0000-4000-8000-000000000005",
+      "index": 0,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000010-0000-4000-8000-000000000010",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000005-0000-4000-8000-000000000005",
+      "renderId": "10000005-0000-4000-8000-000000000005",
+      "index": 1,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000011-0000-4000-8000-000000000011",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000006-0000-4000-8000-000000000006",
+      "renderId": "10000006-0000-4000-8000-000000000006",
+      "index": 0,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000012-0000-4000-8000-000000000012",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000006-0000-4000-8000-000000000006",
+      "renderId": "10000006-0000-4000-8000-000000000006",
+      "index": 1,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000013-0000-4000-8000-000000000013",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000007-0000-4000-8000-000000000007",
+      "renderId": "10000007-0000-4000-8000-000000000007",
+      "index": 0,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000014-0000-4000-8000-000000000014",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000007-0000-4000-8000-000000000007",
+      "renderId": "10000007-0000-4000-8000-000000000007",
+      "index": 1,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000015-0000-4000-8000-000000000015",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000008-0000-4000-8000-000000000008",
+      "renderId": "10000008-0000-4000-8000-000000000008",
+      "index": 0,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000016-0000-4000-8000-000000000016",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000008-0000-4000-8000-000000000008",
+      "renderId": "10000008-0000-4000-8000-000000000008",
+      "index": 1,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000017-0000-4000-8000-000000000017",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000009-0000-4000-8000-000000000009",
+      "renderId": "10000009-0000-4000-8000-000000000009",
+      "index": 0,
+      "src": "/placeholder.png"
+    },
+    {
+      "id": "20000018-0000-4000-8000-000000000018",
+      "projectId": "11111111-2222-4333-8444-555555555555",
+      "sceneId": "00000009-0000-4000-8000-000000000009",
+      "renderId": "10000009-0000-4000-8000-000000000009",
       "index": 1,
       "src": "/placeholder.png"
     }

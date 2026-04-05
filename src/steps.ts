@@ -7,18 +7,18 @@ export type Step = {
 
 export const STEPS: readonly Step[] = [
   {
+    slug: "story",
+    label: "Story",
+    title: "Story",
+    body:
+      "Script and scene beats for the film. The story step is where you shape the narrative; style and render build on it.",
+  },
+  {
     slug: "style",
     label: "Style",
     title: "Style",
     body:
       "Visual kit for the film: world and character direction, typography, and transparent PNG assets for the cast. Direction text guides the story model—pixels come from your kit; Remotion composes the animation.",
-  },
-  {
-    slug: "prompt",
-    label: "Prompt",
-    title: "Prompt",
-    body:
-      "The project foundation. Your prompt and notes — everything the system knows before it starts making decisions.",
   },
   {
     slug: "render",

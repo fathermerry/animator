@@ -210,12 +210,28 @@ function reviveFrame(raw: unknown): Frame | null {
   };
 }
 
+function titleFromLegacyAction(legacyAction: string): string {
+  const t = legacyAction.trim();
+  if (!t) return "";
+  const firstLine = t.split(/\n/)[0]!.trim();
+  if (firstLine.length <= 80) return firstLine;
+  return `${firstLine.slice(0, 77)}…`;
+}
+
 function reviveScene(raw: unknown, projectId: string): Scene | null {
   if (!raw || typeof raw !== "object") return null;
-  const s = raw as Partial<Scene>;
+  const s = raw as Partial<Scene> & Record<string, unknown>;
   if (typeof s.id !== "string" || !s.id.trim()) return null;
   const index = typeof s.index === "number" && Number.isFinite(s.index) ? Math.max(0, Math.floor(s.index)) : 0;
-  const action = typeof s.action === "string" ? s.action : "";
+  const legacyAction = typeof s.action === "string" ? s.action : "";
+  let title = typeof s.title === "string" ? s.title.trim() : "";
+  let description = typeof s.description === "string" ? s.description.trim() : "";
+  if (!title && legacyAction) {
+    title = titleFromLegacyAction(legacyAction);
+  }
+  if (!description && legacyAction) {
+    description = legacyAction.trim();
+  }
   const durationSeconds =
     typeof s.durationSeconds === "number" && Number.isFinite(s.durationSeconds) && s.durationSeconds >= 0
       ? s.durationSeconds
@@ -230,7 +246,8 @@ function reviveScene(raw: unknown, projectId: string): Scene | null {
     id: s.id,
     projectId: typeof s.projectId === "string" && s.projectId.trim() ? s.projectId : projectId,
     index,
-    action,
+    title,
+    description,
     characterIds,
     objectIds,
     durationSeconds,

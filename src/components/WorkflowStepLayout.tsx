@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  /** First column: prompt, style kits, layers aside, etc. */
+  /** First column: story script, style kits, layers aside, etc. */
   primary: ReactNode;
   /** Sticky preview block (typically `WorkflowPreviewColumn`). */
   preview: ReactNode;

@@ -10,7 +10,7 @@ import type { Step } from "@/steps";
 
 type Props = { step: Step };
 
-/** Render step: scene/frame breakdown; style preview matches Script/Style. */
+/** Render step: scene/frame breakdown; style preview matches Story/Style. */
 export function RenderPageView({ step: _step }: Props) {
   const style = useStore(useProjectStore, selectResolvedStyle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);

@@ -149,10 +149,10 @@ function FrameDetailPopup({
 
         <div className="border-t border-border/80 px-3 pb-2 pt-2.5">
           <p id="frame-detail-title" className="text-base font-medium leading-snug text-foreground">
-            Scene {scene.index + 1}
+            {scene.title.trim() || `Scene ${scene.index + 1}`}
           </p>
-          {scene.action.trim() ? (
-            <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{scene.action}</p>
+          {scene.description.trim() ? (
+            <p className="mt-0.5 line-clamp-3 text-sm text-muted-foreground">{scene.description}</p>
           ) : null}
           <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
         </div>
@@ -338,8 +338,8 @@ export function RenderSceneLayers({
                           <Folder className="size-4" strokeWidth={1.75} aria-hidden />
                         )}
                       </span>
-                      <span className="min-w-0 flex-1 tabular-nums">
-                        Scene {scene.index + 1}
+                      <span className="min-w-0 flex-1 truncate text-left">
+                        {scene.title.trim() || `Scene ${scene.index + 1}`}
                       </span>
                     </button>
 

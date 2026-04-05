@@ -32,7 +32,10 @@ export type Scene = {
   id: string;
   projectId: string;
   index: number;
-  action: string;
+  /** Short label for lists and chrome (e.g. Story scene row). */
+  title: string;
+  /** Staging / beat copy: who does what with props. */
+  description: string;
   characterIds: string[];
   objectIds: string[];
   durationSeconds: number;

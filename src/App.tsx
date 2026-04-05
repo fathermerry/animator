@@ -7,8 +7,8 @@ import { useHashPath } from "@/hooks/useHashPath";
 import { navigate } from "@/router";
 import { STEPS, stepBySlug } from "@/steps";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
-import { ScriptPageView } from "@/views/ScriptPageView";
 import { RenderPageView } from "@/views/RenderPageView";
+import { StoryPageView } from "@/views/StoryPageView";
 import { StylePageView } from "@/views/StylePageView";
 
 function parseSlug(path: string): string | null {
@@ -36,7 +36,7 @@ export default function App() {
     if (!isHome) return;
     ensureDraft();
     loadDefaultProject();
-    navigate("/style");
+    navigate("/story");
   }, [isHome, ensureDraft, loadDefaultProject]);
 
   useEffect(() => {
@@ -64,8 +64,8 @@ export default function App() {
       <AppHeader path={path} currentSlug={currentSlug} />
       {/* Fixed header: pad so flow starts below it; one document scroll — no nested overflow */}
       <div className="pt-14">
-        {isHome ? null : currentSlug === "prompt" ? (
-          <ScriptPageView step={stepBySlug("prompt")!} />
+        {isHome ? null : currentSlug === "story" ? (
+          <StoryPageView step={stepBySlug("story")!} />
         ) : currentSlug === "style" ? (
           <StylePageView step={stepBySlug("style")!} />
         ) : currentSlug === "render" ? (
