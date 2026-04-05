@@ -178,9 +178,11 @@ function reviveRender(raw: unknown): Render | null {
   if (typeof r.id !== "string" || !r.id.trim()) return null;
   if (typeof r.projectId !== "string" || !r.projectId.trim()) return null;
   if (typeof r.sceneId !== "string" || !r.sceneId.trim()) return null;
-  const engine = r.engine === "three" ? "three" : "remotion";
+  const engine: Render["engine"] =
+    r.engine === "three" ? "three" : r.engine === "openai-image" ? "openai-image" : "remotion";
   const status =
     r.status === "processing" || r.status === "complete" || r.status === "failed" ? r.status : "pending";
+  const model = typeof r.model === "string" && r.model.trim() ? r.model.trim() : undefined;
   return {
     id: r.id,
     projectId: r.projectId,
@@ -189,6 +191,7 @@ function reviveRender(raw: unknown): Render | null {
     status,
     cost: reviveCost(r.cost),
     createdAt: reviveDate(r.createdAt),
+    ...(model ? { model } : {}),
   };
 }
 

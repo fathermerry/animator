@@ -148,8 +148,28 @@ function CenteredAssetLine({
   );
 }
 
+function GeneratedStillBackdrop({ src }: { src: string }) {
+  return (
+    <>
+      <AbsoluteFill style={{ width: W, height: H, zIndex: 0 }}>
+        <Img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </AbsoluteFill>
+      <AbsoluteFill
+        style={{
+          width: W,
+          height: H,
+          zIndex: 1,
+          background:
+            "linear-gradient(180deg, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.12) 42%, rgba(0,0,0,0.62) 100%)",
+        }}
+      />
+    </>
+  );
+}
+
 function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
   const { assetBundle, sceneTitle, frameDescription, characters, objects } = segment;
+  const still = segment.stillSrc?.trim() ?? "";
 
   const titleTs = textStyleForTitle(assetBundle);
   const bodyTs = textStyleForBody(assetBundle);
@@ -189,11 +209,12 @@ function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
 
   return (
     <AbsoluteFill style={{ width: W, height: H }}>
-      <AssetBundlePlate bundle={assetBundle} />
+      {still ? <GeneratedStillBackdrop src={still} /> : <AssetBundlePlate bundle={assetBundle} />}
       <AbsoluteFill
         style={{
           width: W,
           height: H,
+          zIndex: 2,
           boxSizing: "border-box",
           padding: EDGE_PAD,
         }}

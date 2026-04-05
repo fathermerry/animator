@@ -23,6 +23,9 @@ function isFrameRenderingUi(
   renderingFrameIds: Record<string, true>,
 ): boolean {
   if (renderingFrameIds[frame.id]) return true;
+  if (render?.engine === "openai-image") {
+    return false;
+  }
   return render?.status === "pending" || render?.status === "processing";
 }
 

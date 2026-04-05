@@ -19,6 +19,8 @@ type Props = {
   className?: string;
   /** When set, the Remotion player is exposed for seek/play from elsewhere (e.g. frame list hover). */
   filmPlayerRef?: RefObject<PlayerRef | null>;
+  /** Current global film frame (playback, scrub, layer click seeks). */
+  globalFrame: number;
   /** Fired when the current global film frame changes (playback, scrub, seek). */
   onGlobalFrameChange?: (globalFrame: number) => void;
 };
@@ -30,11 +32,11 @@ export function RenderFilmPreview({
   renders,
   className,
   filmPlayerRef,
+  globalFrame,
   onGlobalFrameChange,
 }: Props) {
   const localRef = useRef<PlayerRef>(null);
   const playerRef = filmPlayerRef ?? localRef;
-  const [uiFrame, setUiFrame] = useState(0);
   const [playing, setPlaying] = useState(false);
 
   const { segments, totalFrames } = useMemo(
@@ -42,24 +44,37 @@ export function RenderFilmPreview({
     [scenes, frames, renders, assetBundle],
   );
 
+  /** Remount player when generated still URLs change so new images appear without a full reload. */
+  const stillSignature = useMemo(
+    () => segments.map((s) => (s.stillSrc ? `${s.frameId ?? ""}:${s.stillSrc}` : "")).join("|"),
+    [segments],
+  );
+
   const hasTimeline = totalFrames > 0 && segments.length > 0;
   const maxFrame = Math.max(0, totalFrames - 1);
+  const scrubFrame = Math.min(Math.max(0, globalFrame), maxFrame);
+
+  useEffect(() => {
+    if (!hasTimeline || !onGlobalFrameChange) return;
+    if (globalFrame > maxFrame) onGlobalFrameChange(maxFrame);
+  }, [hasTimeline, maxFrame, globalFrame, onGlobalFrameChange]);
 
   useEffect(() => {
     const p = playerRef.current;
     if (!p || !hasTimeline) return;
 
-    const onFrame = (e: { detail: { frame: number } }) => setUiFrame(e.detail.frame);
+    const emit = (frame: number) => onGlobalFrameChange?.(frame);
+    const onFrame = (e: { detail: { frame: number } }) => emit(e.detail.frame);
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
-    const onSeeked = (e: { detail: { frame: number } }) => setUiFrame(e.detail.frame);
+    const onSeeked = (e: { detail: { frame: number } }) => emit(e.detail.frame);
 
     p.addEventListener("frameupdate", onFrame);
     p.addEventListener("play", onPlay);
     p.addEventListener("pause", onPause);
     p.addEventListener("seeked", onSeeked);
 
-    setUiFrame(p.getCurrentFrame());
+    emit(p.getCurrentFrame());
     setPlaying(p.isPlaying());
 
     return () => {
@@ -68,12 +83,7 @@ export function RenderFilmPreview({
       p.removeEventListener("pause", onPause);
       p.removeEventListener("seeked", onSeeked);
     };
-  }, [hasTimeline, totalFrames]);
-
-  useEffect(() => {
-    if (!hasTimeline || !onGlobalFrameChange) return;
-    onGlobalFrameChange(uiFrame);
-  }, [hasTimeline, uiFrame, onGlobalFrameChange]);
+  }, [hasTimeline, totalFrames, stillSignature, onGlobalFrameChange]);
 
   const togglePlay = useCallback(() => {
     playerRef.current?.toggle();
@@ -83,9 +93,9 @@ export function RenderFilmPreview({
     (next: number) => {
       const f = Math.max(0, Math.min(maxFrame, next));
       playerRef.current?.seekTo(f);
-      setUiFrame(f);
+      onGlobalFrameChange?.(f);
     },
-    [maxFrame],
+    [maxFrame, onGlobalFrameChange],
   );
 
   const bgHex = normalizeHex(assetBundle.background.color);
@@ -120,7 +130,7 @@ export function RenderFilmPreview({
       >
         <Player
           ref={playerRef}
-          key={totalFrames}
+          key={`${totalFrames}-${stillSignature}`}
           component={FilmComposition}
           durationInFrames={totalFrames}
           compositionWidth={COMPOSITION_WIDTH}
@@ -162,12 +172,12 @@ export function RenderFilmPreview({
           min={0}
           max={maxFrame}
           step={1}
-          value={uiFrame}
+          value={scrubFrame}
           onChange={(e) => onScrub(Number(e.target.value))}
           aria-label="Scrub timeline"
           aria-valuemin={0}
           aria-valuemax={maxFrame}
-          aria-valuenow={uiFrame}
+          aria-valuenow={scrubFrame}
         />
       </div>
     </div>

@@ -13,10 +13,12 @@ export type Render = {
   id: string;
   projectId: string;
   sceneId: string;
-  engine: "remotion" | "three";
+  engine: "remotion" | "three" | "openai-image";
   status: "pending" | "processing" | "complete" | "failed";
   cost: Cost;
   createdAt: Date;
+  /** Set when {@link engine} is `openai-image` (which image model produced the still). */
+  model?: string;
 };
 
 export type Frame = {

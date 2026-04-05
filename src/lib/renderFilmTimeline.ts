@@ -12,6 +12,8 @@ export type FilmSegmentInput = {
   sceneId: string;
   /** Project frame id for this segment, or null for scene padding with no frames. */
   frameId: string | null;
+  /** Generated still URL (`frame.src`) when render is complete; drives film preview image layer. */
+  stillSrc?: string | null;
   assetBundle: AssetBundle;
   sceneTitle: string;
   /** Frame staging copy, or scene beat when there is no frame row. */
@@ -81,11 +83,13 @@ export function buildRenderFilmTimeline(
       const durationInFrames = frameDurations[i] ?? 1;
       const generated = isFrameGeneratedForPreview(fr, renders);
       const frameText = (fr.description ?? "").trim();
+      const stillSrc = generated ? fr.src.trim() : null;
       segments.push({
         durationInFrames,
         blank: !generated,
         sceneId: scene.id,
         frameId: fr.id,
+        stillSrc,
         assetBundle,
         sceneTitle: title,
         frameDescription: frameText || sceneBeat,

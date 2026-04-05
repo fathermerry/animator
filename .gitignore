@@ -5,3 +5,6 @@ dist
 .env
 .env.*
 !.env.example
+
+# Generated frame stills (local render API)
+public/renders/**/*.png

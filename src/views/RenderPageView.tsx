@@ -67,6 +67,7 @@ export function RenderPageView({ step: _step }: Props) {
       const idx = getFilmStartFrameIndexForFrame(frameId, scenes, frames, renders, assetBundle);
       if (idx == null) return;
       filmPlayerRef.current?.seekTo(idx);
+      setFilmGlobalFrame(idx);
     },
     [scenes, frames, renders, assetBundle],
   );
@@ -134,6 +135,7 @@ export function RenderPageView({ step: _step }: Props) {
               renders={renders}
               className="w-full shrink-0"
               filmPlayerRef={filmPlayerRef}
+              globalFrame={filmGlobalFrame}
               onGlobalFrameChange={setFilmGlobalFrame}
             />
           </WorkflowPreviewColumn>

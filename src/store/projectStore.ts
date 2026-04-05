@@ -2,9 +2,37 @@ import { createStore } from "zustand/vanilla";
 
 import defaultProjectJson from "../data/default-project.json";
 import defaultAssetsConfigJson from "../data/default-assets-config.json";
+import { buildFrameImagePrompt } from "../lib/buildFrameImagePrompt";
+import { frameHasOutputImage } from "../lib/frameRenderStatus";
+import {
+  DEFAULT_OPENAI_IMAGE_MODEL,
+  type OpenAiImageModelId,
+  isOpenAiImageModelId,
+} from "../lib/imageModels";
 import { projectFromConfigJson } from "../lib/projectHydrate";
+import { requestFrameImageRender } from "../lib/renderFrameApi";
 import type { Frame, Project, Render, Scene } from "../types/project";
 import { createDefaultAssetBundle, type AssetBundle, type AssetsConfig } from "../types/assetsConfig";
+
+const frameRenderAbortControllers = new Map<string, AbortController>();
+
+function takeSignalForFrame(frameId: string): AbortSignal {
+  frameRenderAbortControllers.get(frameId)?.abort();
+  const ac = new AbortController();
+  frameRenderAbortControllers.set(frameId, ac);
+  return ac.signal;
+}
+
+function releaseFrameAbort(frameId: string): void {
+  frameRenderAbortControllers.delete(frameId);
+}
+
+function isAbortError(e: unknown): boolean {
+  return (
+    (e instanceof DOMException && e.name === "AbortError") ||
+    (e instanceof Error && e.name === "AbortError")
+  );
+}
 
 export type ProjectState = {
   project: Project;
@@ -12,20 +40,22 @@ export type ProjectState = {
   scenes: Scene[];
   renders: Render[];
   frames: Frame[];
-  /** Ephemeral UI: frames currently in a render pass (not persisted; engine will drive this later). */
+  /** Ephemeral UI: frames currently in a render pass. */
   renderingFrameIds: Record<string, true>;
+  /** Last error message per frame from the image API (not persisted). */
+  frameRenderErrors: Record<string, string>;
 
   ensureDraftProject: () => string;
   setPromptText: (text: string) => void;
   updateAssets: (recipe: (bundle: AssetBundle) => AssetBundle) => void;
   patchScene: (sceneId: string, patch: Partial<Scene>) => void;
   patchFrame: (frameId: string, patch: Partial<Frame>) => void;
+  patchRender: (renderId: string, patch: Partial<Render>) => void;
+  clearFrameRenderError: (frameId: string) => void;
   loadDefaultProject: () => void;
   removeFrame: (frameId: string) => void;
-  /** Stub: marks the frame as rendering until the real engine wires in. */
-  requestFrameRender: (frameId: string) => void;
-  /** Stub: marks every frame as rendering until the real engine wires in. */
-  requestFullFilmRender: () => void;
+  requestFrameRender: (frameId: string, modelId?: OpenAiImageModelId) => Promise<void>;
+  requestFullFilmRender: (modelId?: OpenAiImageModelId) => Promise<void>;
   cancelFrameRender: (frameId: string) => void;
 };
 
@@ -39,6 +69,8 @@ function initialState(): Omit<
   | "updateAssets"
   | "patchScene"
   | "patchFrame"
+  | "patchRender"
+  | "clearFrameRenderError"
   | "loadDefaultProject"
   | "removeFrame"
   | "requestFrameRender"
@@ -52,117 +84,227 @@ function initialState(): Omit<
     renders: initialBundle.renders,
     frames: initialBundle.frames,
     renderingFrameIds: {},
+    frameRenderErrors: {},
   };
 }
 
-export const useProjectStore = createStore<ProjectState>((set, get) => ({
-  ...initialState(),
+export const useProjectStore = createStore<ProjectState>((set, get) => {
+  const runFrameImageRender = async (
+    frameId: string,
+    options: { clearRenderingFlagWhenDone: boolean },
+    modelId: OpenAiImageModelId,
+  ): Promise<void> => {
+    const frame = get().frames.find((f) => f.id === frameId);
+    if (!frame) return;
+    const scene = get().scenes.find((sc) => sc.id === frame.sceneId);
+    const render = get().renders.find((r) => r.id === frame.renderId);
+    if (!scene || !render) return;
 
-  ensureDraftProject: () => get().project.id,
+    const signal = takeSignalForFrame(frameId);
 
-  loadDefaultProject: () => {
-    const prev = get().project;
-    const fresh = projectFromConfigJson(defaultProjectJson, [bundledAssets]);
-    const projectId = prev.id;
-    set({
-      project: {
-        ...fresh.project,
-        id: projectId,
-        createdAt: prev.createdAt,
-      },
-      assetsConfigs: fresh.assetsConfigs,
-      scenes: fresh.scenes.map((sc) => ({ ...sc, projectId })),
-      renders: fresh.renders.map((r) => ({ ...r, projectId })),
-      frames: fresh.frames.map((f) => ({ ...f, projectId })),
-      renderingFrameIds: {},
+    set((st) => {
+      const frameRenderErrors = { ...st.frameRenderErrors };
+      delete frameRenderErrors[frameId];
+      return {
+        renderingFrameIds: { ...st.renderingFrameIds, [frameId]: true },
+        frameRenderErrors,
+      };
     });
-  },
 
-  setPromptText: (text) => {
-    set((s) => ({
-      project: {
-        ...s.project,
-        prompt: text,
-      },
-    }));
-  },
+    const bundle = selectResolvedAssetBundle(get());
+    const prompt = buildFrameImagePrompt(get().project, scene, frame, bundle);
 
-  updateAssets: (recipe) => {
-    set((s) => {
-      const id = s.project.assetsConfigId;
-      const assetsConfigs = s.assetsConfigs.map((c) =>
-        c.id === id ? { ...c, assets: recipe(c.assets) } : c,
+    get().patchRender(render.id, { status: "processing", engine: "openai-image" });
+
+    try {
+      const data = await requestFrameImageRender(
+        {
+          projectId: get().project.id,
+          frameId: frame.id,
+          prompt,
+          modelId,
+        },
+        signal,
       );
-      return { assetsConfigs };
-    });
-  },
+      get().patchFrame(frameId, { src: data.imageUrl });
+      get().patchRender(render.id, {
+        status: "complete",
+        engine: "openai-image",
+        model: data.model,
+        cost: data.cost,
+      });
+    } catch (e: unknown) {
+      if (isAbortError(e)) {
+        get().patchRender(render.id, { status: "pending" });
+        return;
+      }
+      const msg = e instanceof Error ? e.message : "Render failed";
+      set((st) => ({
+        frameRenderErrors: { ...st.frameRenderErrors, [frameId]: msg },
+      }));
+      get().patchRender(render.id, { status: "failed" });
+    } finally {
+      releaseFrameAbort(frameId);
+      if (options.clearRenderingFlagWhenDone) {
+        set((st) => {
+          const renderingFrameIds = { ...st.renderingFrameIds };
+          delete renderingFrameIds[frameId];
+          return { renderingFrameIds };
+        });
+      }
+    }
+  };
 
-  patchScene: (sceneId, patch) => {
-    set((s) => ({
-      scenes: s.scenes.map((sc) => (sc.id === sceneId ? { ...sc, ...patch } : sc)),
-    }));
-  },
+  return {
+    ...initialState(),
 
-  patchFrame: (frameId, patch) => {
-    set((s) => ({
-      frames: s.frames.map((f) => (f.id === frameId ? { ...f, ...patch } : f)),
-    }));
-  },
+    ensureDraftProject: () => get().project.id,
 
-  removeFrame: (frameId) => {
-    set((s) => {
-      const removed = s.frames.find((f) => f.id === frameId);
-      if (!removed) return s;
-      const sceneId = removed.sceneId;
-      const renderId = removed.renderId;
+    loadDefaultProject: () => {
+      const prev = get().project;
+      const fresh = projectFromConfigJson(defaultProjectJson, [bundledAssets]);
+      const projectId = prev.id;
+      set({
+        project: {
+          ...fresh.project,
+          id: projectId,
+          createdAt: prev.createdAt,
+        },
+        assetsConfigs: fresh.assetsConfigs,
+        scenes: fresh.scenes.map((sc) => ({ ...sc, projectId })),
+        renders: fresh.renders.map((r) => ({ ...r, projectId })),
+        frames: fresh.frames.map((f) => ({ ...f, projectId })),
+        renderingFrameIds: {},
+        frameRenderErrors: {},
+      });
+    },
 
-      const framesWithout = s.frames.filter((f) => f.id !== frameId);
-      const inScene = framesWithout
-        .filter((f) => f.sceneId === sceneId)
-        .sort((a, b) => a.index - b.index);
+    setPromptText: (text) => {
+      set((s) => ({
+        project: {
+          ...s.project,
+          prompt: text,
+        },
+      }));
+    },
 
-      const frames = framesWithout.map((f) => {
-        if (f.sceneId !== sceneId) return f;
-        const idx = inScene.findIndex((x) => x.id === f.id);
-        return idx >= 0 ? { ...f, index: idx } : f;
+    updateAssets: (recipe) => {
+      set((s) => {
+        const id = s.project.assetsConfigId;
+        const assetsConfigs = s.assetsConfigs.map((c) =>
+          c.id === id ? { ...c, assets: recipe(c.assets) } : c,
+        );
+        return { assetsConfigs };
+      });
+    },
+
+    patchScene: (sceneId, patch) => {
+      set((s) => ({
+        scenes: s.scenes.map((sc) => (sc.id === sceneId ? { ...sc, ...patch } : sc)),
+      }));
+    },
+
+    patchFrame: (frameId, patch) => {
+      set((s) => ({
+        frames: s.frames.map((f) => (f.id === frameId ? { ...f, ...patch } : f)),
+      }));
+    },
+
+    patchRender: (renderId, patch) => {
+      set((s) => ({
+        renders: s.renders.map((r) => (r.id === renderId ? { ...r, ...patch } : r)),
+      }));
+    },
+
+    clearFrameRenderError: (frameId) => {
+      set((s) => {
+        const frameRenderErrors = { ...s.frameRenderErrors };
+        delete frameRenderErrors[frameId];
+        return { frameRenderErrors };
+      });
+    },
+
+    removeFrame: (frameId) => {
+      frameRenderAbortControllers.get(frameId)?.abort();
+      frameRenderAbortControllers.delete(frameId);
+      set((s) => {
+        const removed = s.frames.find((f) => f.id === frameId);
+        if (!removed) return s;
+        const sceneId = removed.sceneId;
+        const renderId = removed.renderId;
+
+        const framesWithout = s.frames.filter((f) => f.id !== frameId);
+        const inScene = framesWithout
+          .filter((f) => f.sceneId === sceneId)
+          .sort((a, b) => a.index - b.index);
+
+        const frames = framesWithout.map((f) => {
+          if (f.sceneId !== sceneId) return f;
+          const idx = inScene.findIndex((x) => x.id === f.id);
+          return idx >= 0 ? { ...f, index: idx } : f;
+        });
+
+        let renders = s.renders;
+        if (!frames.some((f) => f.renderId === renderId)) {
+          renders = renders.filter((r) => r.id !== renderId);
+        }
+
+        const renderingFrameIds = { ...s.renderingFrameIds };
+        delete renderingFrameIds[frameId];
+        const frameRenderErrors = { ...s.frameRenderErrors };
+        delete frameRenderErrors[frameId];
+        return { frames, renders, renderingFrameIds, frameRenderErrors };
+      });
+    },
+
+    requestFrameRender: async (frameId, modelIdParam) => {
+      const modelId: OpenAiImageModelId =
+        modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
+      await runFrameImageRender(frameId, { clearRenderingFlagWhenDone: true }, modelId);
+    },
+
+    requestFullFilmRender: async (modelIdParam) => {
+      const modelId: OpenAiImageModelId =
+        modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
+      const targets = get().frames.filter((f) => !frameHasOutputImage(f.src));
+      if (targets.length === 0) return;
+
+      set((st) => {
+        const renderingFrameIds = { ...st.renderingFrameIds };
+        const frameRenderErrors = { ...st.frameRenderErrors };
+        for (const f of targets) {
+          renderingFrameIds[f.id] = true;
+          delete frameRenderErrors[f.id];
+        }
+        return { renderingFrameIds, frameRenderErrors };
       });
 
-      let renders = s.renders;
-      if (!frames.some((f) => f.renderId === renderId)) {
-        renders = renders.filter((r) => r.id !== renderId);
+      for (const f of targets) {
+        await runFrameImageRender(f.id, { clearRenderingFlagWhenDone: false }, modelId);
       }
 
-      const renderingFrameIds = { ...s.renderingFrameIds };
-      delete renderingFrameIds[frameId];
-      return { frames, renders, renderingFrameIds };
-    });
-  },
+      set((st) => {
+        const renderingFrameIds = { ...st.renderingFrameIds };
+        for (const f of targets) delete renderingFrameIds[f.id];
+        return { renderingFrameIds };
+      });
+    },
 
-  requestFrameRender: (frameId) => {
-    set((s) => ({
-      renderingFrameIds: { ...s.renderingFrameIds, [frameId]: true },
-    }));
-    // TODO: invoke standalone render engine for `frameId`; clear flag when the job completes.
-  },
-
-  requestFullFilmRender: () => {
-    set((s) => {
-      const renderingFrameIds = { ...s.renderingFrameIds };
-      for (const f of s.frames) renderingFrameIds[f.id] = true;
-      return { renderingFrameIds };
-    });
-    // TODO: invoke standalone render engine for all frames; clear flags when jobs complete.
-  },
-
-  cancelFrameRender: (frameId) => {
-    set((s) => {
-      const renderingFrameIds = { ...s.renderingFrameIds };
-      delete renderingFrameIds[frameId];
-      return { renderingFrameIds };
-    });
-    // TODO: abort standalone render job for `frameId` when wired.
-  },
-}));
+    cancelFrameRender: (frameId) => {
+      frameRenderAbortControllers.get(frameId)?.abort();
+      set((s) => {
+        const renderingFrameIds = { ...s.renderingFrameIds };
+        delete renderingFrameIds[frameId];
+        return { renderingFrameIds };
+      });
+      const fr = get().frames.find((f) => f.id === frameId);
+      const r = fr ? get().renders.find((x) => x.id === fr.renderId) : undefined;
+      if (r?.status === "processing") {
+        get().patchRender(fr!.renderId, { status: "pending" });
+      }
+    },
+  };
+});
 
 export function selectCurrentProject(s: ProjectState): Project {
   return s.project;
