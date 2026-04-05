@@ -1,7 +1,7 @@
 import { createStore } from "zustand/vanilla";
 
 import defaultProjectJson from "../data/default-project.json";
-import defaultAssetsConfigJson from "../data/default-assets-config.json";
+import defaultStyleConfigJson from "../data/default-style-config.json";
 import { buildFrameImagePrompt } from "../lib/buildFrameImagePrompt";
 import { frameHasOutputImage } from "../lib/frameRenderStatus";
 import {
@@ -18,10 +18,17 @@ import {
 import type { PersistableProjectSlice } from "../lib/projectPersistence";
 import { projectFromConfigJson } from "../lib/projectHydrate";
 import { requestFrameImageRender } from "../lib/renderFrameApi";
-import { navigate } from "../router";
+import { navigate, pathForProjectStep } from "../router";
 import { SAMPLE_PROJECT_ID } from "../lib/sampleProject";
 import type { Frame, Project, Render, Scene } from "../types/project";
-import { createDefaultAssetBundle, type AssetBundle, type AssetsConfig } from "../types/assetsConfig";
+import { createDefaultAssetBundle, type AssetBundle, type StyleConfig } from "../types/styleConfig";
+
+/**
+ * Stable object when no {@link ProjectState.styleConfigs} entry matches {@link Project.styleConfigId}.
+ * `createDefaultAssetBundle()` must not be called per selector invocation — React 19's
+ * `useSyncExternalStore` (used by zustand) requires referentially stable snapshots when state is unchanged.
+ */
+const FALLBACK_RESOLVED_STYLE_BUNDLE = createDefaultAssetBundle();
 
 const frameRenderAbortControllers = new Map<string, AbortController>();
 
@@ -52,7 +59,7 @@ function isAbortError(e: unknown): boolean {
 
 export type ProjectState = {
   project: Project;
-  assetsConfigs: AssetsConfig[];
+  styleConfigs: StyleConfig[];
   scenes: Scene[];
   renders: Render[];
   frames: Frame[];
@@ -63,7 +70,7 @@ export type ProjectState = {
 
   ensureDraftProject: () => string;
   setPromptText: (text: string) => void;
-  updateAssets: (recipe: (bundle: AssetBundle) => AssetBundle) => void;
+  updateStyle: (recipe: (bundle: AssetBundle) => AssetBundle) => void;
   patchScene: (sceneId: string, patch: Partial<Scene>) => void;
   patchFrame: (frameId: string, patch: Partial<Frame>) => void;
   patchRender: (renderId: string, patch: Partial<Render>) => void;
@@ -75,18 +82,20 @@ export type ProjectState = {
   cancelFrameRender: (frameId: string) => void;
 
   openProject: (id: string) => Promise<void>;
+  /** Load a project from storage to match the URL; does not change the hash. */
+  loadProjectById: (id: string) => Promise<boolean>;
   createNewProject: () => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
 };
 
-const bundledAssets = defaultAssetsConfigJson as AssetsConfig;
-const initialBundle = projectFromConfigJson(defaultProjectJson, [bundledAssets]);
+const bundledStyle = defaultStyleConfigJson as StyleConfig;
+const initialBundle = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
 
 function initialState(): Omit<
   ProjectState,
   | "ensureDraftProject"
   | "setPromptText"
-  | "updateAssets"
+  | "updateStyle"
   | "patchScene"
   | "patchFrame"
   | "patchRender"
@@ -97,12 +106,13 @@ function initialState(): Omit<
   | "requestFullFilmRender"
   | "cancelFrameRender"
   | "openProject"
+  | "loadProjectById"
   | "createNewProject"
   | "deleteProject"
 > {
   return {
     project: initialBundle.project,
-    assetsConfigs: initialBundle.assetsConfigs,
+    styleConfigs: initialBundle.styleConfigs,
     scenes: initialBundle.scenes,
     renders: initialBundle.renders,
     frames: initialBundle.frames,
@@ -134,7 +144,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       };
     });
 
-    const bundle = selectResolvedAssetBundle(get());
+    const bundle = selectResolvedStyleBundle(get());
     const prompt = buildFrameImagePrompt(get().project, scene, frame, bundle);
 
     get().patchRender(render.id, { status: "processing", engine: "openai-image" });
@@ -185,7 +195,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
 
     loadDefaultProject: () => {
       const prev = get().project;
-      const fresh = projectFromConfigJson(defaultProjectJson, [bundledAssets]);
+      const fresh = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
       const projectId = prev.id;
       set({
         project: {
@@ -193,7 +203,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
           id: projectId,
           createdAt: prev.createdAt,
         },
-        assetsConfigs: fresh.assetsConfigs,
+        styleConfigs: fresh.styleConfigs,
         scenes: fresh.scenes.map((sc) => ({ ...sc, projectId })),
         renders: fresh.renders.map((r) => ({ ...r, projectId })),
         frames: fresh.frames.map((f) => ({ ...f, projectId })),
@@ -211,13 +221,13 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       }));
     },
 
-    updateAssets: (recipe) => {
+    updateStyle: (recipe) => {
       set((s) => {
-        const id = s.project.assetsConfigId;
-        const assetsConfigs = s.assetsConfigs.map((c) =>
+        const id = s.project.styleConfigId;
+        const styleConfigs = s.styleConfigs.map((c) =>
           c.id === id ? { ...c, assets: recipe(c.assets) } : c,
         );
-        return { assetsConfigs };
+        return { styleConfigs };
       });
     },
 
@@ -327,29 +337,36 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       }
     },
 
-    openProject: async (id) => {
+    loadProjectById: async (id) => {
+      if (get().project.id === id) return true;
       const slice = await getProjectSlice(id);
-      if (!slice) return;
+      if (!slice) return false;
       abortAllFrameRenders();
       await setActiveProjectId(id);
       set({
         project: slice.project,
-        assetsConfigs: slice.assetsConfigs,
+        styleConfigs: slice.styleConfigs,
         scenes: slice.scenes,
         renders: slice.renders,
         frames: slice.frames,
         renderingFrameIds: {},
         frameRenderErrors: {},
       });
-      navigate("/script");
+      return true;
+    },
+
+    openProject: async (id) => {
+      const ok = await get().loadProjectById(id);
+      if (!ok) return;
+      navigate(pathForProjectStep(id, "script"));
     },
 
     createNewProject: async () => {
       abortAllFrameRenders();
-      const bundle = projectFromConfigJson({}, [bundledAssets]);
+      const bundle = projectFromConfigJson({}, [bundledStyle]);
       const slice: PersistableProjectSlice = {
         project: bundle.project,
-        assetsConfigs: bundle.assetsConfigs,
+        styleConfigs: bundle.styleConfigs,
         scenes: bundle.scenes,
         renders: bundle.renders,
         frames: bundle.frames,
@@ -358,14 +375,14 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       await setActiveProjectId(slice.project.id);
       set({
         project: slice.project,
-        assetsConfigs: slice.assetsConfigs,
+        styleConfigs: slice.styleConfigs,
         scenes: slice.scenes,
         renders: slice.renders,
         frames: slice.frames,
         renderingFrameIds: {},
         frameRenderErrors: {},
       });
-      navigate("/script");
+      navigate(pathForProjectStep(slice.project.id, "script"));
     },
 
     deleteProject: async (id) => {
@@ -378,7 +395,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       await setActiveProjectId(SAMPLE_PROJECT_ID);
       set({
         project: sample.project,
-        assetsConfigs: sample.assetsConfigs,
+        styleConfigs: sample.styleConfigs,
         scenes: sample.scenes,
         renders: sample.renders,
         frames: sample.frames,
@@ -393,9 +410,9 @@ export function selectCurrentProject(s: ProjectState): Project {
   return s.project;
 }
 
-export function selectResolvedAssetBundle(s: ProjectState): AssetBundle {
-  const c = s.assetsConfigs.find((x) => x.id === s.project.assetsConfigId);
-  return c?.assets ?? createDefaultAssetBundle();
+export function selectResolvedStyleBundle(s: ProjectState): AssetBundle {
+  const c = s.styleConfigs.find((x) => x.id === s.project.styleConfigId);
+  return c?.assets ?? FALLBACK_RESOLVED_STYLE_BUNDLE;
 }
 
 export function selectScenes(s: ProjectState): Scene[] {

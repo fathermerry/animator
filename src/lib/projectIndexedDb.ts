@@ -1,15 +1,20 @@
 import defaultProjectJson from "@/data/default-project.json";
-import defaultAssetsConfigJson from "@/data/default-assets-config.json";
+import defaultStyleConfigJson from "@/data/default-style-config.json";
 import { idbKvDelete, idbKvGet, idbKvSet, openAnimatorDb, PROJECTS_STORE } from "@/lib/indexedDbKv";
 import { projectFromConfigJson } from "@/lib/projectHydrate";
-import { type PersistableProjectSlice, PROJECT_IDB_KEY } from "@/lib/projectPersistence";
+import {
+  type LegacyPersistableProjectSlice,
+  migratePersistableProjectSlice,
+  type PersistableProjectSlice,
+  PROJECT_IDB_KEY,
+} from "@/lib/projectPersistence";
 import { LEGACY_PLACEHOLDER_PROJECT_ID, SAMPLE_PROJECT_ID } from "@/lib/sampleProject";
-import type { AssetsConfig } from "@/types/assetsConfig";
+import type { StyleConfig } from "@/types/styleConfig";
 import type { Render } from "@/types/project";
 
 const ACTIVE_PROJECT_KEY = "activeProjectId";
 
-const bundledAssets = defaultAssetsConfigJson as AssetsConfig;
+const bundledStyle = defaultStyleConfigJson as StyleConfig;
 
 export type ProjectRecord = {
   id: string;
@@ -31,7 +36,7 @@ function rewriteProjectId(slice: PersistableProjectSlice, newId: string): Persis
   if (oldId === newId) return slice;
   return {
     project: { ...slice.project, id: newId },
-    assetsConfigs: slice.assetsConfigs,
+    styleConfigs: slice.styleConfigs,
     scenes: slice.scenes.map((s) => ({ ...s, projectId: newId })),
     renders: slice.renders.map((r) => ({ ...r, projectId: newId })),
     frames: slice.frames.map((f) => ({ ...f, projectId: newId })),
@@ -140,7 +145,8 @@ export async function listAllRendersAcrossProjects(): Promise<RenderListRow[]> {
 
 export async function getProjectSlice(id: string): Promise<PersistableProjectSlice | null> {
   const row = await projectStoreGet(id);
-  return row?.slice ?? null;
+  if (!row?.slice) return null;
+  return migratePersistableProjectSlice(row.slice as PersistableProjectSlice | LegacyPersistableProjectSlice);
 }
 
 export async function putProjectSlice(slice: PersistableProjectSlice): Promise<void> {
@@ -168,10 +174,10 @@ async function migrateLegacyProjectConfigKv(): Promise<void> {
   let slice: PersistableProjectSlice;
   try {
     const parsed: unknown = JSON.parse(raw);
-    const bundle = projectFromConfigJson(parsed, [bundledAssets]);
+    const bundle = projectFromConfigJson(parsed, [bundledStyle]);
     slice = {
       project: bundle.project,
-      assetsConfigs: bundle.assetsConfigs,
+      styleConfigs: bundle.styleConfigs,
       scenes: bundle.scenes,
       renders: bundle.renders,
       frames: bundle.frames,
@@ -204,10 +210,10 @@ async function ensureSampleProjectSeeded(): Promise<void> {
   const existing = await projectStoreGet(SAMPLE_PROJECT_ID);
   if (existing) return;
 
-  const bundle = projectFromConfigJson(defaultProjectJson, [bundledAssets]);
+  const bundle = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
   const slice: PersistableProjectSlice = {
     project: bundle.project,
-    assetsConfigs: bundle.assetsConfigs,
+    styleConfigs: bundle.styleConfigs,
     scenes: bundle.scenes,
     renders: bundle.renders,
     frames: bundle.frames,
@@ -241,10 +247,10 @@ export async function runProjectDbBootstrap(): Promise<PersistableProjectSlice> 
     slice = await getProjectSlice(SAMPLE_PROJECT_ID);
   }
   if (!slice) {
-    const bundle = projectFromConfigJson(defaultProjectJson, [bundledAssets]);
+    const bundle = projectFromConfigJson(defaultProjectJson, [bundledStyle]);
     return {
       project: bundle.project,
-      assetsConfigs: bundle.assetsConfigs,
+      styleConfigs: bundle.styleConfigs,
       scenes: bundle.scenes,
       renders: bundle.renders,
       frames: bundle.frames,

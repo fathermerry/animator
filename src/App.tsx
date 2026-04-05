@@ -1,52 +1,87 @@
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { AppHeader } from "@/components/AppHeader";
 import { useArrowNavigation } from "@/hooks/useArrowNavigation";
 import { useHashPath } from "@/hooks/useHashPath";
-import { navigate } from "@/router";
+import { canonicalWorkflowPathIfNeeded, navigate, parseRoute, pathForProjectStep } from "@/router";
 import { STEPS, stepBySlug } from "@/steps";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 import { RenderPageView } from "@/views/RenderPageView";
 import { ScriptPageView } from "@/views/ScriptPageView";
-import { AssetsPageView } from "@/views/AssetsPageView";
+import { StylePageView } from "@/views/StylePageView";
 import { HomePageView } from "@/views/HomePageView";
 import { RendersOverviewPageView } from "@/views/RendersOverviewPageView";
 
-function parseSlug(path: string): string | null {
-  const segments = path.split("/").filter(Boolean);
-  if (path === "/" || segments.length === 0) return null;
-  return segments[0] ?? null;
-}
-
 export default function App() {
   const path = useHashPath();
+  const route = parseRoute(path);
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [path]);
-  useArrowNavigation(path);
-
   const project = useStore(useProjectStore, selectCurrentProject);
+  const loadProjectById = useStore(useProjectStore, (s) => s.loadProjectById);
 
-  const slug = parseSlug(path);
-  const isProjectsPage = path === "/" || path === "/projects";
-  const isRendersPage = path === "/renders";
-  const currentSlug = slug && STEPS.some((s) => s.slug === slug) ? slug : null;
+  useArrowNavigation(path, project.id);
+
+  const legacyStepSlug = route.kind === "legacyWorkflow" ? route.stepSlug : null;
+  useLayoutEffect(() => {
+    if (legacyStepSlug === null) return;
+    navigate(pathForProjectStep(project.id, legacyStepSlug));
+  }, [legacyStepSlug, project.id]);
+
+  const canonicalWorkflowPath = canonicalWorkflowPathIfNeeded(path);
+  useLayoutEffect(() => {
+    if (canonicalWorkflowPath === null) return;
+    navigate(canonicalWorkflowPath);
+  }, [canonicalWorkflowPath]);
+
+  const workflowProjectId = route.kind === "workflow" ? route.projectId : null;
+  const [urlProjectError, setUrlProjectError] = useState(false);
+  const needsUrlProjectSync =
+    workflowProjectId !== null && workflowProjectId !== project.id;
+
+  useEffect(() => {
+    if (workflowProjectId === null) {
+      setUrlProjectError(false);
+      return;
+    }
+    if (workflowProjectId === project.id) {
+      setUrlProjectError(false);
+      return;
+    }
+    setUrlProjectError(false);
+    let cancelled = false;
+    void loadProjectById(workflowProjectId).then((ok) => {
+      if (!cancelled && !ok) setUrlProjectError(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [workflowProjectId, project.id, loadProjectById]);
+
+  const currentSlug =
+    route.kind === "workflow" || route.kind === "legacyWorkflow" ? route.stepSlug : null;
+
+  const isProjectsPage = route.kind === "home" || route.kind === "projects";
+  const isRendersPage = route.kind === "renders";
   const mainNav: "projects" | "renders" | null = isProjectsPage
     ? "projects"
     : isRendersPage
       ? "renders"
       : null;
 
-  useLayoutEffect(() => {
-    if (slug === "style") {
-      navigate("/assets");
-    }
-  }, [slug]);
+  const showNotFound =
+    route.kind === "notFound" || (route.kind === "workflow" && urlProjectError);
+  const showUrlProjectLoading = route.kind === "workflow" && needsUrlProjectSync && !urlProjectError;
 
   useEffect(() => {
-    if (!isProjectsPage && !isRendersPage && slug && !currentSlug) {
+    if (showNotFound) {
       document.title = "animator — Not found";
+      return;
+    }
+    if (showUrlProjectLoading) {
+      document.title = "animator — Loading…";
       return;
     }
     const fileTitle = project?.fileLabel?.trim() || project?.name?.trim() || "Untitled";
@@ -62,12 +97,12 @@ export default function App() {
       title = `animator — ${fileTitle}`;
     }
     document.title = title;
-  }, [isProjectsPage, isRendersPage, slug, currentSlug, project?.fileLabel, project?.name]);
+  }, [showNotFound, showUrlProjectLoading, isProjectsPage, isRendersPage, currentSlug, project?.fileLabel, project?.name]);
 
-  if (!isProjectsPage && !isRendersPage && slug && !currentSlug) {
+  if (showNotFound) {
     return (
       <div className="min-h-svh flex flex-col">
-        <AppHeader currentSlug={null} mainNav={null} />
+        <AppHeader currentSlug={null} mainNav="projects" projectId={null} />
         <main className="mx-auto w-full max-w-xl px-6 pb-10 pt-14">
           <p className="text-muted-foreground">Page not found.</p>
         </main>
@@ -75,9 +110,20 @@ export default function App() {
     );
   }
 
+  if (showUrlProjectLoading) {
+    return (
+      <div className="min-h-svh flex flex-col">
+        <AppHeader currentSlug={null} mainNav="projects" projectId={null} />
+        <main className="mx-auto w-full max-w-xl px-6 pb-10 pt-14">
+          <p className="text-muted-foreground">Loading project…</p>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-svh flex flex-col">
-      <AppHeader currentSlug={currentSlug} mainNav={mainNav} />
+      <AppHeader currentSlug={currentSlug} mainNav={mainNav} projectId={mainNav ? null : project.id} />
       {/* Fixed header: pad so flow starts below it; one document scroll — no nested overflow */}
       <div className="pt-14">
         {isProjectsPage ? (
@@ -86,8 +132,8 @@ export default function App() {
           <RendersOverviewPageView />
         ) : currentSlug === "script" ? (
           <ScriptPageView step={stepBySlug("script")!} />
-        ) : currentSlug === "assets" ? (
-          <AssetsPageView step={stepBySlug("assets")!} />
+        ) : currentSlug === "style" ? (
+          <StylePageView step={stepBySlug("style")!} />
         ) : currentSlug === "render" ? (
           <RenderPageView step={stepBySlug("render")!} />
         ) : null}

@@ -1,5 +1,5 @@
 import type { Frame, Project, Scene } from "@/types/project";
-import type { AssetBundle, KitAsset } from "@/types/assetsConfig";
+import type { AssetBundle, KitAsset } from "@/types/styleConfig";
 
 /** OpenAI Images API (`images.generate`) rejects prompts over this length. */
 export const OPENAI_IMAGE_PROMPT_MAX_CHARS = 4000;
@@ -18,6 +18,8 @@ export type FrameImageContext = {
   objects: { id: string; name: string }[];
   backgroundColor: string;
   textStyleHints: string[];
+  /** Overall style direction from the Style step. */
+  styleDescription: string;
   kitNotes: string;
 };
 
@@ -46,6 +48,7 @@ export function buildFrameImageContext(scene: Scene, frame: Frame, bundle: Asset
     objects: objs.map((o) => ({ id: o.id, name: o.name.trim() })),
     backgroundColor: bundle.background.color?.trim() || "#0a0a0a",
     textStyleHints: bundle.textStyles.map((t) => t.instructions.trim()).filter(Boolean),
+    styleDescription: bundle.description.trim(),
     kitNotes: bundle.notes.trim(),
   };
 }
@@ -93,6 +96,7 @@ export function frameImagePromptFromContext(ctx: FrameImageContext): string {
     "",
     "## Look",
     `Background plate color hint: ${ctx.backgroundColor}.`,
+    ctx.styleDescription ? `Overall style direction: ${ctx.styleDescription}` : "",
     ctx.textStyleHints.length
       ? `Typography / caption vibe (for mood only — do not render text): ${ctx.textStyleHints.join("; ")}`
       : "",

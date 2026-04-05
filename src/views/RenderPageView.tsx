@@ -18,14 +18,14 @@ import {
   getPlaybackContextAtFilmGlobalFrame,
 } from "@/lib/renderFilmTimeline";
 import { cn } from "@/lib/utils";
-import { selectResolvedAssetBundle, useProjectStore } from "@/store/projectStore";
+import { selectResolvedStyleBundle, useProjectStore } from "@/store/projectStore";
 import type { Step } from "@/steps";
 
 type Props = { step: Step };
 
-/** Render step: scene/frame breakdown; preview matches Script/Assets. */
+/** Render step: scene/frame breakdown; preview matches Script/Style. */
 export function RenderPageView({ step: _step }: Props) {
-  const assetBundle = useStore(useProjectStore, selectResolvedAssetBundle);
+  const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const frames = useStore(useProjectStore, (s) => s.frames);
   const renders = useStore(useProjectStore, (s) => s.renders);

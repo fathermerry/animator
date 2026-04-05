@@ -14,7 +14,7 @@ import { buildRenderFilmTimeline, FILM_FPS } from "@/lib/renderFilmTimeline";
 import { cn } from "@/lib/utils";
 import { FilmComposition } from "@/remotion/FilmComposition";
 import type { Frame, Render, Scene } from "@/types/project";
-import type { AssetBundle } from "@/types/assetsConfig";
+import type { AssetBundle } from "@/types/styleConfig";
 
 const COMPOSITION_WIDTH = 1920;
 const COMPOSITION_HEIGHT = 1080;

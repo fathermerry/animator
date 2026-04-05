@@ -14,7 +14,7 @@ import { getFilmTimingByProjectFrameId } from "@/lib/renderFilmTimeline";
 import { framesForSceneSorted } from "@/lib/sceneFrames";
 import { useProjectStore } from "@/store/projectStore";
 import { cn } from "@/lib/utils";
-import type { AssetBundle } from "@/types/assetsConfig";
+import type { AssetBundle } from "@/types/styleConfig";
 import type { Frame, Render, Scene } from "@/types/project";
 
 function isFrameRenderingUi(

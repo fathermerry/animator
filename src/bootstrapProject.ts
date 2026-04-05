@@ -7,7 +7,7 @@ export async function hydrateProjectFromStorage(): Promise<void> {
     const slice = await getDefaultProjectStorage().bootstrap();
     useProjectStore.setState({
       project: slice.project,
-      assetsConfigs: slice.assetsConfigs,
+      styleConfigs: slice.styleConfigs,
       scenes: slice.scenes,
       renders: slice.renders,
       frames: slice.frames,

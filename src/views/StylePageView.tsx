@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
-import { AssetsPreview, type AssetsPreviewKitHover } from "@/components/AssetsPreview";
+import { StylePreview, type StylePreviewKitHover } from "@/components/StylePreview";
 import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepLayout } from "@/components/WorkflowStepLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { PLACEHOLDER_PNG } from "@/lib/placeholderImage";
 import {
   renumberCharacterKitIds,
@@ -14,9 +15,9 @@ import {
 import { normalizeHex } from "@/lib/color";
 import { validateBackgroundImageFile, validateTransparentKitPng } from "@/lib/kitAssetPng";
 import { cn } from "@/lib/utils";
-import { selectResolvedAssetBundle, useProjectStore } from "@/store/projectStore";
+import { selectResolvedStyleBundle, useProjectStore } from "@/store/projectStore";
 import type { Step } from "@/steps";
-import { createDefaultAssetBundle, type AssetBundle, type KitAsset } from "@/types/assetsConfig";
+import { createDefaultAssetBundle, type AssetBundle, type KitAsset } from "@/types/styleConfig";
 import { ImagePlus, Trash2 } from "lucide-react";
 
 type Props = { step: Step };
@@ -42,10 +43,10 @@ function normalizeObjectIds(list: KitAsset[]): KitAsset[] {
   return renumberObjectKitIds(list);
 }
 
-export function AssetsPageView({ step: _step }: Props) {
+export function StylePageView({ step: _step }: Props) {
   const ensureDraft = useStore(useProjectStore, (s) => s.ensureDraftProject);
-  const updateAssets = useStore(useProjectStore, (s) => s.updateAssets);
-  const assetBundle = useStore(useProjectStore, selectResolvedAssetBundle);
+  const updateStyle = useStore(useProjectStore, (s) => s.updateStyle);
+  const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
 
   const [pngError, setPngError] = useState<string | null>(null);
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
@@ -55,7 +56,7 @@ export function AssetsPageView({ step: _step }: Props) {
 
   useEffect(() => {
     ensureDraft();
-    updateAssets((s) => {
+    updateStyle((s) => {
       const next = ensureTwoTextStyles(s);
       return {
         ...next,
@@ -63,7 +64,7 @@ export function AssetsPageView({ step: _step }: Props) {
         objects: normalizeObjectIds(next.objects),
       };
     });
-  }, [ensureDraft, updateAssets]);
+  }, [ensureDraft, updateStyle]);
 
   useEffect(() => {
     setKitSelection((prev) => {
@@ -86,7 +87,7 @@ export function AssetsPageView({ step: _step }: Props) {
   const pickKitTargetRef = useRef<{ kind: KitKey; id: string } | null>(null);
 
   const patchKitAsset = (kind: KitKey, id: string, patch: Partial<KitAsset>) => {
-    updateAssets((s) => {
+    updateStyle((s) => {
       const list = s[kind];
       const idx = list.findIndex((a) => a.id === id);
       if (idx === -1) return s;
@@ -105,7 +106,7 @@ export function AssetsPageView({ step: _step }: Props) {
 
   const removeKitAsset = (kind: KitKey, id: string) => {
     setKitSelection((sel) => (sel?.kind === kind && sel.id === id ? null : sel));
-    updateAssets((s) => {
+    updateStyle((s) => {
       const filtered = s[kind].filter((a) => a.id !== id);
       const next =
         kind === "characters" ? normalizeCharacterIds(filtered) : normalizeObjectIds(filtered);
@@ -125,7 +126,7 @@ export function AssetsPageView({ step: _step }: Props) {
   };
 
   const addKitPlaceholder = (kind: KitKey) => {
-    updateAssets((s) => {
+    updateStyle((s) => {
       const list = s[kind];
       const row: KitAsset =
         kind === "characters"
@@ -155,7 +156,7 @@ export function AssetsPageView({ step: _step }: Props) {
       return;
     }
     setBackgroundError(null);
-    updateAssets((s) => ({
+    updateStyle((s) => ({
       ...s,
       background: { ...s.background, src: result.dataUrl },
     }));
@@ -163,7 +164,7 @@ export function AssetsPageView({ step: _step }: Props) {
 
   const clearBackgroundImage = () => {
     setBackgroundError(null);
-    updateAssets((s) => ({
+    updateStyle((s) => ({
       ...s,
       background: { color: s.background.color },
     }));
@@ -189,7 +190,7 @@ export function AssetsPageView({ step: _step }: Props) {
     });
   };
 
-  const kitHoverDetail = useMemo((): AssetsPreviewKitHover | null => {
+  const kitHoverDetail = useMemo((): StylePreviewKitHover | null => {
     if (!kitSelection) return null;
     const list = assetBundle[kitSelection.kind];
     const asset = list.find((a) => a.id === kitSelection.id);
@@ -209,7 +210,7 @@ export function AssetsPageView({ step: _step }: Props) {
   const commitBackgroundHex = (raw: string) => {
     const t = raw.trim();
     if (/^#[0-9A-Fa-f]{6}$/i.test(t)) {
-      updateAssets((s) => ({
+      updateStyle((s) => ({
         ...s,
         background: { ...s.background, color: t.toLowerCase() },
       }));
@@ -218,7 +219,7 @@ export function AssetsPageView({ step: _step }: Props) {
     }
     if (/^#[0-9A-Fa-f]{3}$/i.test(t)) {
       const n = normalizeHex(t);
-      updateAssets((s) => ({
+      updateStyle((s) => ({
         ...s,
         background: { ...s.background, color: n },
       }));
@@ -245,7 +246,7 @@ export function AssetsPageView({ step: _step }: Props) {
             )}
             value={backgroundColorHex}
             onChange={(e) =>
-              updateAssets((s) => ({
+              updateStyle((s) => ({
                 ...s,
                 background: { ...s.background, color: e.target.value },
               }))
@@ -328,6 +329,21 @@ export function AssetsPageView({ step: _step }: Props) {
               onChange={onKitFileChange}
             />
 
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium uppercase text-muted-foreground">Description</p>
+              <label htmlFor="style-description" className="sr-only">
+                Style description
+              </label>
+              <Textarea
+                id="style-description"
+                className="archive-text min-h-[4.5rem] resize-y text-base leading-snug"
+                placeholder="Overall look, tone, and constraints for this film…"
+                value={assetBundle.description}
+                onChange={(e) => updateStyle((s) => ({ ...s, description: e.target.value }))}
+                rows={4}
+              />
+            </div>
+
             <KitSection
               kind="characters"
               label="Characters"
@@ -360,7 +376,7 @@ export function AssetsPageView({ step: _step }: Props) {
       }
       preview={
         <WorkflowPreviewColumn>
-          <AssetsPreview
+          <StylePreview
             assetBundle={assetBundle}
             kitHoverDetail={kitHoverDetail}
             onPatchKitDetail={

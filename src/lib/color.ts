@@ -1,6 +1,8 @@
 /** Normalize to #rrggbb for `<input type="color">` */
-export function normalizeHex(c: string): string {
+export function normalizeHex(c: string | undefined | null): string {
+  if (c == null || typeof c !== "string") return "#000000";
   const t = c.trim();
+  if (t === "") return "#000000";
   if (/^#[0-9A-Fa-f]{6}$/.test(t)) return t;
   if (/^#[0-9A-Fa-f]{3}$/.test(t)) {
     const r = t[1]!;
@@ -29,7 +31,7 @@ export function isLightBackground(hex: string): boolean {
   return relativeLuminance(hex) > 0.5;
 }
 
-/** Tailwind classes for the assets preview kit id badge (flat border + text only). */
+/** Tailwind classes for the style preview kit id badge (flat border + text only). */
 export function kitSelectionOverlayClasses(bgHex: string): string {
   return isLightBackground(bgHex)
     ? "border-2 border-black text-black"

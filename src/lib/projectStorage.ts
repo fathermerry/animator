@@ -76,7 +76,7 @@ export function attachProjectStorageToStore(
   store.subscribe((state) => {
     storage.schedulePersist(() => ({
       project: state.project,
-      assetsConfigs: state.assetsConfigs,
+      styleConfigs: state.styleConfigs,
       scenes: state.scenes,
       renders: state.renders,
       frames: state.frames,

@@ -3,17 +3,17 @@ import { normalizeProjectConfigSeed } from "./projectConfig";
 import type { Cost, CostItem, Frame, Project, Render, Scene } from "../types/project";
 import {
   createDefaultAssetBundle,
-  createDefaultAssetsConfig,
+  createDefaultStyleConfig,
   type AssetBundle,
-  type AssetsConfig,
+  type StyleConfig,
   type Background,
   type KitAsset,
   type TextStyle,
-} from "../types/assetsConfig";
+} from "../types/styleConfig";
 
 export type HydratedProjectBundle = {
   project: Project;
-  assetsConfigs: AssetsConfig[];
+  styleConfigs: StyleConfig[];
   scenes: Scene[];
   renders: Render[];
   frames: Frame[];
@@ -131,6 +131,7 @@ function reviveAssetBundle(raw: unknown): AssetBundle {
   return {
     id: typeof s.id === "string" && s.id.trim() ? s.id : crypto.randomUUID(),
     name: typeof s.name === "string" ? s.name : d.name,
+    description: typeof s.description === "string" ? s.description : d.description,
     notes: typeof s.notes === "string" ? s.notes : d.notes,
     background: bg,
     textStyles,
@@ -139,14 +140,14 @@ function reviveAssetBundle(raw: unknown): AssetBundle {
   };
 }
 
-function reviveAssetsConfig(raw: unknown): AssetsConfig | null {
+export function reviveStyleConfig(raw: unknown): StyleConfig | null {
   if (!raw || typeof raw !== "object") return null;
-  const s = raw as Partial<AssetsConfig> & { style?: unknown };
+  const s = raw as Partial<StyleConfig> & { style?: unknown };
   const bundleRaw = s.assets ?? s.style;
   const assets = reviveAssetBundle(bundleRaw ?? {});
   return {
     id: typeof s.id === "string" && s.id.trim() ? s.id : crypto.randomUUID(),
-    name: typeof s.name === "string" ? s.name : "Assets",
+    name: typeof s.name === "string" ? s.name : "Style kit",
     assets,
   };
 }
@@ -261,43 +262,43 @@ function reviveScene(raw: unknown, projectId: string): Scene | null {
   };
 }
 
-function dedupeAssetsConfigs(configs: AssetsConfig[]): AssetsConfig[] {
-  const byId = new Map<string, AssetsConfig>();
+function dedupeStyleConfigs(configs: StyleConfig[]): StyleConfig[] {
+  const byId = new Map<string, StyleConfig>();
   for (const c of configs) {
     if (!byId.has(c.id)) byId.set(c.id, c);
   }
   return [...byId.values()];
 }
 
-/** Hydrates from parsed JSON. Pass `extraAssetsConfigs` for file-split defaults (e.g. bundled assets JSON). */
-export function projectFromConfigJson(raw: unknown, extraAssetsConfigs: AssetsConfig[] = []): HydratedProjectBundle {
+/** Hydrates from parsed JSON. Pass `extraStyleConfigs` for file-split defaults (e.g. bundled style JSON). */
+export function projectFromConfigJson(raw: unknown, extraStyleConfigs: StyleConfig[] = []): HydratedProjectBundle {
   const seed = normalizeProjectConfigSeed(raw);
   const o = seed;
   const projectId = typeof o.id === "string" && o.id.trim() ? o.id : crypto.randomUUID();
 
-  const fromFile = Array.isArray(o.assetsConfigs)
-    ? o.assetsConfigs.map(reviveAssetsConfig).filter((x): x is AssetsConfig => x !== null)
+  const fromFile = Array.isArray(o.styleConfigs)
+    ? o.styleConfigs.map(reviveStyleConfig).filter((x): x is StyleConfig => x !== null)
     : [];
-  const extra = extraAssetsConfigs.map(reviveAssetsConfig).filter((x): x is AssetsConfig => x !== null);
-  let assetsConfigs = dedupeAssetsConfigs([...extra, ...fromFile]);
+  const extra = extraStyleConfigs.map(reviveStyleConfig).filter((x): x is StyleConfig => x !== null);
+  let styleConfigs = dedupeStyleConfigs([...extra, ...fromFile]);
 
-  if (assetsConfigs.length === 0) {
-    const fallback = createDefaultAssetsConfig();
-    assetsConfigs = [fallback];
+  if (styleConfigs.length === 0) {
+    const fallback = createDefaultStyleConfig();
+    styleConfigs = [fallback];
   }
 
-  const renumbered = assetsConfigs.map((c) => {
+  const renumbered = styleConfigs.map((c) => {
     const r = renumberKitAssetsWithMaps(c.assets);
     return { config: { ...c, assets: r.assets }, maps: r };
   });
-  assetsConfigs = renumbered.map((x) => x.config);
+  styleConfigs = renumbered.map((x) => x.config);
 
-  let assetsConfigId = typeof o.assetsConfigId === "string" ? o.assetsConfigId.trim() : "";
-  if (!assetsConfigId || !assetsConfigs.some((c) => c.id === assetsConfigId)) {
-    assetsConfigId = assetsConfigs[0]!.id;
+  let styleConfigId = typeof o.styleConfigId === "string" ? o.styleConfigId.trim() : "";
+  if (!styleConfigId || !styleConfigs.some((c) => c.id === styleConfigId)) {
+    styleConfigId = styleConfigs[0]!.id;
   }
 
-  const activeRenumber = renumbered.find((x) => x.config.id === assetsConfigId) ?? renumbered[0]!;
+  const activeRenumber = renumbered.find((x) => x.config.id === styleConfigId) ?? renumbered[0]!;
   const { characterIdMap, objectIdMap } = activeRenumber.maps;
 
   const scenesRaw = Array.isArray(o.scenes) ? o.scenes : [];
@@ -325,9 +326,9 @@ export function projectFromConfigJson(raw: unknown, extraAssetsConfigs: AssetsCo
     name: typeof o.name === "string" ? o.name : "Untitled",
     createdAt: reviveDate(o.createdAt),
     prompt: typeof o.prompt === "string" ? o.prompt : "",
-    assetsConfigId,
+    styleConfigId,
     ...(fileLabel ? { fileLabel } : {}),
   };
 
-  return { project, assetsConfigs, scenes, renders, frames };
+  return { project, styleConfigs, scenes, renders, frames };
 }

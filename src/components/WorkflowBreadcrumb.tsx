@@ -3,9 +3,10 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   currentSlug: string | null;
+  projectId: string;
 };
 
-export function WorkflowBreadcrumb({ currentSlug }: Props) {
+export function WorkflowBreadcrumb({ currentSlug, projectId }: Props) {
   return (
     <nav className="flex flex-wrap items-center gap-x-2 gap-y-1" aria-label="Workflow">
       {STEPS.map((step, i) => (
@@ -15,7 +16,7 @@ export function WorkflowBreadcrumb({ currentSlug }: Props) {
             <span className="text-foreground">{step.label}</span>
           ) : (
             <a
-              href={`#/${step.slug}`}
+              href={`#/${projectId}/${step.slug}`}
               className={cn(
                 "text-muted-foreground transition-colors hover:text-foreground",
                 "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

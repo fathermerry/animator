@@ -1,7 +1,7 @@
 import { isFrameGeneratedForPreview } from "@/lib/frameRenderStatus";
 import { framesForSceneSorted } from "@/lib/sceneFrames";
 import type { Frame, Render, Scene } from "@/types/project";
-import type { AssetBundle, KitAsset } from "@/types/assetsConfig";
+import type { AssetBundle, KitAsset } from "@/types/styleConfig";
 
 export const FILM_FPS = 30;
 

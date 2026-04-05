@@ -3,7 +3,7 @@ import { AbsoluteFill, Img, Series } from "remotion";
 
 import { normalizeHex } from "@/lib/color";
 import type { FilmSegmentInput } from "@/lib/renderFilmTimeline";
-import type { AssetBundle, KitAsset, TextStyle } from "@/types/assetsConfig";
+import type { AssetBundle, KitAsset, TextStyle } from "@/types/styleConfig";
 
 const W = 1920;
 const H = 1080;

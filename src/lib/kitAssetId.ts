@@ -1,4 +1,4 @@
-import type { AssetBundle, KitAsset } from "@/types/assetsConfig";
+import type { AssetBundle, KitAsset } from "@/types/styleConfig";
 
 /** Three-character character id: C + two-digit index (1-based), e.g. C01. */
 export function formatCharacterKitId(index: number): string {

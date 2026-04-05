@@ -10,7 +10,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
-export function useArrowNavigation(path: string): void {
+export function useArrowNavigation(path: string, projectId: string): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
@@ -24,14 +24,14 @@ export function useArrowNavigation(path: string): void {
       if (e.key === "ArrowRight") {
         if (idx >= FLOW_MAX) return;
         e.preventDefault();
-        navigate(pathForFlowIndex(idx + 1));
+        navigate(pathForFlowIndex(idx + 1, projectId));
       } else {
         if (idx <= 1) return;
         e.preventDefault();
-        navigate(pathForFlowIndex(idx - 1));
+        navigate(pathForFlowIndex(idx - 1, projectId));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [path]);
+  }, [path, projectId]);
 }

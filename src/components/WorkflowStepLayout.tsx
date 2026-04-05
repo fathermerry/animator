@@ -14,7 +14,7 @@ type Props = {
   middleClassName?: string;
   /** Sticky preview block (typically `WorkflowPreviewColumn`). */
   preview: ReactNode;
-  /** Optional content below the preview in the right column (e.g. Background on Assets). */
+  /** Optional content below the preview in the right column (e.g. Background on Style). */
   previewFooter?: ReactNode;
   /** Extra classes on `<main>`. */
   className?: string;
@@ -23,7 +23,7 @@ type Props = {
 };
 
 /**
- * Shared shell for Script, Assets, and Render (two columns by default; optional middle on Render).
+ * Shared shell for Script, Style, and Render (two columns by default; optional middle on Render).
  * The page uses a single document scroll. On `lg+`, the preview column must stretch to the same
  * height as the primary column (`items-stretch`), otherwise the column is only as tall as the
  * preview and scrolls away — `position: sticky` on the preview would never engage.

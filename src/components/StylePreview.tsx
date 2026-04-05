@@ -3,11 +3,11 @@ import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { isLightBackground, normalizeHex } from "@/lib/color";
-import type { AssetBundle } from "@/types/assetsConfig";
+import type { AssetBundle } from "@/types/styleConfig";
 import { cn } from "@/lib/utils";
 
-/** Selected kit copy shown in the Assets step preview while that row is selected. */
-export type AssetsPreviewKitHover = {
+/** Selected kit copy shown in the Style step preview while that row is selected. */
+export type StylePreviewKitHover = {
   id: string;
   name: string;
   description?: string;
@@ -18,7 +18,7 @@ type Props = {
   assetBundle: AssetBundle;
   className?: string;
   /** When set (asset selected), id, name, and description show on the preview. */
-  kitHoverDetail?: AssetsPreviewKitHover | null;
+  kitHoverDetail?: StylePreviewKitHover | null;
   /** Update name / description while editing the overlay (characters include description). */
   onPatchKitDetail?: (patch: { name?: string; description?: string }) => void;
   /** Background color/image controls; rendered below the frame. */
@@ -33,7 +33,7 @@ function overlayTextColors(bgHex: string): { primary: string; muted: string } {
     : { primary: "#ffffff", muted: "rgba(255,255,255,0.55)" };
 }
 
-export function AssetsPreview({
+export function StylePreview({
   assetBundle,
   className,
   kitHoverDetail = null,
@@ -81,11 +81,11 @@ export function AssetsPreview({
               >
                 {kitHoverDetail.id}
               </p>
-              <label htmlFor={`assets-preview-kit-name-${kitHoverDetail.id}`} className="sr-only">
+              <label htmlFor={`style-preview-kit-name-${kitHoverDetail.id}`} className="sr-only">
                 {kitHoverDetail.kind === "characters" ? "Character" : "Object"} name
               </label>
               <Input
-                id={`assets-preview-kit-name-${kitHoverDetail.id}`}
+                id={`style-preview-kit-name-${kitHoverDetail.id}`}
                 className={cn(
                   "archive-text mt-1 h-auto min-h-0 border-0 bg-transparent px-0 py-0 text-base leading-snug shadow-none",
                   "dark:bg-transparent",
@@ -101,13 +101,13 @@ export function AssetsPreview({
               {kitHoverDetail.kind === "characters" ? (
                 <>
                   <label
-                    htmlFor={`assets-preview-kit-desc-${kitHoverDetail.id}`}
+                    htmlFor={`style-preview-kit-desc-${kitHoverDetail.id}`}
                     className="sr-only"
                   >
                     Character description
                   </label>
                   <Textarea
-                    id={`assets-preview-kit-desc-${kitHoverDetail.id}`}
+                    id={`style-preview-kit-desc-${kitHoverDetail.id}`}
                     className={cn(
                       "archive-text mt-2 min-h-12 resize-none border-0 bg-transparent px-0 py-0 text-sm leading-snug shadow-none [overflow-wrap:anywhere]",
                       "dark:bg-transparent",

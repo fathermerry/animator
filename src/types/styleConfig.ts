@@ -20,10 +20,12 @@ export type KitAsset = {
   height?: number;
 };
 
-/** Visual kit (plate, type, characters, objects). Referenced by `Project.assetsConfigId`. */
+/** Visual kit: plate, type, characters, objects. Referenced by {@link Project.styleConfigId}. */
 export type AssetBundle = {
   id: string;
   name: string;
+  /** Overall style direction for the film (tone, palette, constraints). */
+  description: string;
   background: Background;
   textStyles: TextStyle[];
   characters: KitAsset[];
@@ -31,7 +33,8 @@ export type AssetBundle = {
   notes: string;
 };
 
-export type AssetsConfig = {
+/** One named style document: metadata plus the editable kit (`assets`). */
+export type StyleConfig = {
   id: string;
   name: string;
   assets: AssetBundle;
@@ -90,7 +93,8 @@ function cloneDefaultKitAssets(list: KitAsset[]): KitAsset[] {
 export function createDefaultAssetBundle(): AssetBundle {
   return {
     id: crypto.randomUUID(),
-    name: "Default assets",
+    name: "Default style",
+    description: "",
     notes: "",
     background: { color: "#0a0a0a" },
     textStyles: [
@@ -112,10 +116,10 @@ export function createDefaultAssetBundle(): AssetBundle {
   };
 }
 
-export function createDefaultAssetsConfig(): AssetsConfig {
+export function createDefaultStyleConfig(): StyleConfig {
   return {
     id: crypto.randomUUID(),
-    name: "Default assets",
+    name: "Default style",
     assets: createDefaultAssetBundle(),
   };
 }

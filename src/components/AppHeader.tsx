@@ -1,4 +1,4 @@
-import { FolderOpen } from "lucide-react";
+import { Home } from "lucide-react";
 import { useCallback } from "react";
 import { useStore } from "zustand/react";
 
@@ -6,7 +6,8 @@ import { MainAppNav } from "@/components/MainAppNav";
 import { Button } from "@/components/ui/button";
 import { WorkflowBreadcrumb } from "@/components/WorkflowBreadcrumb";
 import { downloadPersistableProjectSlice } from "@/lib/projectPersistence";
-import { navigate } from "@/router";
+import { navigate, pathForProjectStep } from "@/router";
+import { STEPS } from "@/steps";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 
 type Props = {
@@ -14,12 +15,14 @@ type Props = {
   currentSlug: string | null;
   /** Top-level app: Projects vs Renders; `null` = in-project workflow */
   mainNav: "projects" | "renders" | null;
+  /** Current project id for workflow links; omit on top-level or error states */
+  projectId: string | null;
 };
 
-export function AppHeader({ currentSlug, mainNav }: Props) {
+export function AppHeader({ currentSlug, mainNav, projectId }: Props) {
   const project = useStore(useProjectStore, selectCurrentProject);
   const createNewProject = useStore(useProjectStore, (s) => s.createNewProject);
-  const assetsConfigs = useStore(useProjectStore, (s) => s.assetsConfigs);
+  const styleConfigs = useStore(useProjectStore, (s) => s.styleConfigs);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const renders = useStore(useProjectStore, (s) => s.renders);
   const frames = useStore(useProjectStore, (s) => s.frames);
@@ -28,12 +31,21 @@ export function AppHeader({ currentSlug, mainNav }: Props) {
   const exportProject = useCallback(() => {
     downloadPersistableProjectSlice({
       project,
-      assetsConfigs,
+      styleConfigs,
       scenes,
       renders,
       frames,
     });
-  }, [project, assetsConfigs, scenes, renders, frames]);
+  }, [project, styleConfigs, scenes, renders, frames]);
+
+  const workflowNextStep =
+    projectId && currentSlug
+      ? (() => {
+          const i = STEPS.findIndex((s) => s.slug === currentSlug);
+          if (i < 0 || i >= STEPS.length - 1) return null;
+          return STEPS[i + 1]!;
+        })()
+      : null;
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 grid min-h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-border bg-background px-6 py-3">
@@ -45,10 +57,13 @@ export function AppHeader({ currentSlug, mainNav }: Props) {
             <Button
               type="button"
               variant="ghost"
-              className="shrink-0 px-2 text-muted-foreground hover:text-foreground"
+              size="icon-sm"
+              className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+              aria-label="Home"
+              title="Home"
               onClick={() => navigate("/projects")}
             >
-              Home
+              <Home className="size-4" aria-hidden />
             </Button>
             <span className="text-border select-none" aria-hidden>
               /
@@ -56,31 +71,41 @@ export function AppHeader({ currentSlug, mainNav }: Props) {
             <span className="min-w-0 truncate text-base font-medium text-foreground" title={fileLabel}>
               {fileLabel}
             </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="shrink-0 text-muted-foreground hover:text-foreground"
-              aria-label="All projects"
-              title="All projects"
-              onClick={() => navigate("/projects")}
-            >
-              <FolderOpen className="size-4" aria-hidden />
-            </Button>
           </>
         )}
       </div>
 
       <div className="flex justify-center justify-self-center">
-        {mainNav ? <MainAppNav active={mainNav} /> : <WorkflowBreadcrumb currentSlug={currentSlug} />}
+        {mainNav ? (
+          <MainAppNav active={mainNav} />
+        ) : projectId ? (
+          <WorkflowBreadcrumb currentSlug={currentSlug} projectId={projectId} />
+        ) : null}
       </div>
 
       <div className="flex justify-end justify-self-end">
         {mainNav === "projects" ? (
-          <Button type="button" onClick={() => void createNewProject()}>
+          <Button
+            type="button"
+            variant="secondary"
+            className="cursor-pointer disabled:cursor-not-allowed"
+            disabled
+            title="New project is temporarily unavailable"
+            onClick={() => void createNewProject()}
+          >
             New project
           </Button>
-        ) : mainNav === "renders" ? null : (
+        ) : mainNav === "renders" ? null : workflowNextStep && projectId ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="cursor-pointer"
+            title={`Next: ${workflowNextStep.label}`}
+            onClick={() => navigate(pathForProjectStep(projectId, workflowNextStep.slug))}
+          >
+            Next
+          </Button>
+        ) : (
           <Button type="button" variant="outline" className="cursor-pointer" onClick={exportProject}>
             Export
           </Button>

@@ -1,6 +1,6 @@
 import { normalizeHex } from "@/lib/color";
 import type { Scene } from "@/types/project";
-import type { AssetBundle } from "@/types/assetsConfig";
+import type { AssetBundle } from "@/types/styleConfig";
 import { cn } from "@/lib/utils";
 
 type Props = {

@@ -9,7 +9,7 @@ import { formatDurationMmSs } from "@/lib/filmTime";
 import { cn } from "@/lib/utils";
 import {
   selectCurrentProject,
-  selectResolvedAssetBundle,
+  selectResolvedStyleBundle,
   useProjectStore,
 } from "@/store/projectStore";
 import type { Step } from "@/steps";
@@ -19,7 +19,7 @@ type Props = { step: Step };
 
 export function ScriptPageView({ step: _step }: Props) {
   const project = useStore(useProjectStore, selectCurrentProject);
-  const assetBundle = useStore(useProjectStore, selectResolvedAssetBundle);
+  const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const ensureDraft = useStore(useProjectStore, (s) => s.ensureDraftProject);
   const setPromptText = useStore(useProjectStore, (s) => s.setPromptText);
