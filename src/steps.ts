@@ -13,7 +13,7 @@ export const STEPS: readonly Step[] = [
     label: "Script",
     title: "Script",
     body:
-      "Script and scene beats for the film. The script step is where you shape the narrative; style and render build on it.",
+      "Script and scene beats for the film. The script step is where you shape the narrative; style and compose build on it.",
   },
   {
     slug: "style",
@@ -23,9 +23,9 @@ export const STEPS: readonly Step[] = [
       "Visual direction and kit for the film: overall style description, world and character direction, typography, and transparent PNGs for the cast. Direction text guides the narrative model—pixels come from your kit; Remotion composes the animation.",
   },
   {
-    slug: "render",
-    label: "Render",
-    title: "Render",
+    slug: "compose",
+    label: "Compose",
+    title: "Compose",
     body:
       "The construction layer. Takes project content and style kit and produces frames and sequences. Starts with text and geometry, grows toward richer elements over time.",
   },
@@ -35,7 +35,7 @@ export function stepBySlug(slug: string): Step | undefined {
   return STEPS.find((s) => s.slug === slug);
 }
 
-/** True when `path` is Script, Style, or Render (in-project workflow), not top-level Projects/Renders. */
+/** True when `path` is Script, Style, or Compose (in-project workflow), not top-level Projects/Renders. */
 export function isWorkflowStepPath(path: string): boolean {
   const r = parseRoute(path);
   return r.kind === "workflow" || r.kind === "legacyWorkflow";

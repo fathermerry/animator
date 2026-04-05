@@ -7,7 +7,7 @@ import { useHashPath } from "@/hooks/useHashPath";
 import { canonicalWorkflowPathIfNeeded, navigate, parseRoute, pathForProjectStep } from "@/router";
 import { STEPS, stepBySlug } from "@/steps";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
-import { RenderPageView } from "@/views/RenderPageView";
+import { ComposePageView } from "@/views/ComposePageView";
 import { ScriptPageView } from "@/views/ScriptPageView";
 import { StylePageView } from "@/views/StylePageView";
 import { HomePageView } from "@/views/HomePageView";
@@ -134,8 +134,8 @@ export default function App() {
           <ScriptPageView step={stepBySlug("script")!} />
         ) : currentSlug === "style" ? (
           <StylePageView step={stepBySlug("style")!} />
-        ) : currentSlug === "render" ? (
-          <RenderPageView step={stepBySlug("render")!} />
+        ) : currentSlug === "compose" ? (
+          <ComposePageView step={stepBySlug("compose")!} />
         ) : null}
       </div>
     </div>

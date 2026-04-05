@@ -6,7 +6,7 @@ type Props = {
   /** First column: script editor, asset kits, layers aside, etc. */
   primary: ReactNode;
   /**
-   * Optional middle column (e.g. Render step scene/frame details). Shown between primary and
+   * Optional middle column (e.g. Compose step scene/frame details). Shown between primary and
    * preview on `lg+` only; omitted when not passed.
    */
   middle?: ReactNode;
@@ -23,7 +23,7 @@ type Props = {
 };
 
 /**
- * Shared shell for Script, Style, and Render (two columns by default; optional middle on Render).
+ * Shared shell for Script, Style, and Compose (two columns by default; optional middle on Compose).
  * The page uses a single document scroll. On `lg+`, the preview column must stretch to the same
  * height as the primary column (`items-stretch`), otherwise the column is only as tall as the
  * preview and scrolls away — `position: sticky` on the preview would never engage.
@@ -37,7 +37,7 @@ export function WorkflowStepLayout({
   className,
   primaryClassName,
 }: Props) {
-  /** Same top inset on all three columns so section headings line up (Render step). */
+  /** Same top inset on all three columns so section headings line up (Compose step). */
   const threeColumnShellTop = middle != null ? "lg:pt-1" : undefined;
   /** Layers + Scene share an edge; gutter and divider sit before Preview. */
   const threeColumnPrimaryNarrow = middle != null ? "lg:w-auto lg:max-w-none lg:flex-none lg:pr-0" : undefined;

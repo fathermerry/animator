@@ -39,7 +39,13 @@ export function migratePersistableProjectSlice(
   const styleConfigs = rawStyleConfigs
     .map((c) => reviveStyleConfig(c))
     .filter((x): x is StyleConfig => x !== null);
-  return { project, styleConfigs, scenes: slice.scenes, renders: slice.renders, frames: slice.frames };
+  const renders = slice.renders.map(
+    (r): Render => ({
+      ...r,
+      type: r.type === "asset" ? "asset" : "frame",
+    }),
+  );
+  return { project, styleConfigs, scenes: slice.scenes, renders, frames: slice.frames };
 }
 
 /** Shape compatible with {@link projectFromConfigJson} / default project JSON files. */

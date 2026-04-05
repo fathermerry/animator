@@ -9,10 +9,14 @@ export type Cost = {
   breakdown: CostItem[];
 };
 
+/** Film frame still vs style-kit character/object still. */
+export type RenderTargetType = "frame" | "asset";
+
 export type Render = {
   id: string;
   projectId: string;
   sceneId: string;
+  type: RenderTargetType;
   engine: "remotion" | "three" | "openai-image";
   status: "pending" | "processing" | "complete" | "failed";
   cost: Cost;

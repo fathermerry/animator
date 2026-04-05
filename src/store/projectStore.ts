@@ -130,7 +130,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     const frame = get().frames.find((f) => f.id === frameId);
     if (!frame) return;
     const scene = get().scenes.find((sc) => sc.id === frame.sceneId);
-    const render = get().renders.find((r) => r.id === frame.renderId);
+    const render = get().renders.find((r) => r.id === frame.renderId && r.type === "frame");
     if (!scene || !render) return;
 
     const signal = takeSignalForFrame(frameId);
@@ -331,7 +331,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         return { renderingFrameIds };
       });
       const fr = get().frames.find((f) => f.id === frameId);
-      const r = fr ? get().renders.find((x) => x.id === fr.renderId) : undefined;
+      const r = fr ? get().renders.find((x) => x.id === fr.renderId && x.type === "frame") : undefined;
       if (r?.status === "processing") {
         get().patchRender(fr!.renderId, { status: "pending" });
       }

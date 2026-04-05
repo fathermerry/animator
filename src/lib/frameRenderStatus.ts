@@ -1,7 +1,7 @@
 import type { Frame, Render } from "@/types/project";
 
 export function findRender(renders: Render[], frame: Frame): Render | undefined {
-  return renders.find((r) => r.id === frame.renderId);
+  return renders.find((r) => r.id === frame.renderId && r.type === "frame");
 }
 
 export function isPlaceholderFrameSrc(src: string): boolean {

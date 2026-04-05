@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
+import { RenderActivityFloatingDock } from "@/components/RenderActivityFloatingDock";
 import { StylePreview, type StylePreviewKitHover } from "@/components/StylePreview";
 import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepLayout } from "@/components/WorkflowStepLayout";
@@ -47,6 +48,9 @@ export function StylePageView({ step: _step }: Props) {
   const ensureDraft = useStore(useProjectStore, (s) => s.ensureDraftProject);
   const updateStyle = useStore(useProjectStore, (s) => s.updateStyle);
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
+  const renders = useStore(useProjectStore, (s) => s.renders);
+  const scenes = useStore(useProjectStore, (s) => s.scenes);
+  const frames = useStore(useProjectStore, (s) => s.frames);
 
   const [pngError, setPngError] = useState<string | null>(null);
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
@@ -375,19 +379,34 @@ export function StylePageView({ step: _step }: Props) {
         </div>
       }
       preview={
-        <WorkflowPreviewColumn>
-          <StylePreview
-            assetBundle={assetBundle}
-            kitHoverDetail={kitHoverDetail}
-            onPatchKitDetail={
-              kitSelection
-                ? (patch) => patchKitAsset(kitSelection.kind, kitSelection.id, patch)
-                : undefined
-            }
-            backgroundEditor={backgroundEditor}
-            className="w-full"
+        <>
+          <WorkflowPreviewColumn>
+            <StylePreview
+              assetBundle={assetBundle}
+              kitHoverDetail={kitHoverDetail}
+              onPatchKitDetail={
+                kitSelection
+                  ? (patch) => patchKitAsset(kitSelection.kind, kitSelection.id, patch)
+                  : undefined
+              }
+              backgroundEditor={backgroundEditor}
+              className="w-full"
+            />
+          </WorkflowPreviewColumn>
+          <RenderActivityFloatingDock
+            primary={{
+              label: "Generate assets",
+              onClick: () => {},
+              disabled: true,
+              ariaLabel: "Generate assets",
+            }}
+            renders={renders}
+            renderScope="asset"
+            scenes={scenes}
+            frames={frames}
+            title="Renders"
           />
-        </WorkflowPreviewColumn>
+        </>
       }
     />
   );

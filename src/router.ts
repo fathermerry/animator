@@ -1,5 +1,5 @@
 /** Must stay aligned with {@link STEPS} slugs in `steps.ts`. */
-const WORKFLOW_STEP_SLUGS = new Set(["script", "style", "render"]);
+const WORKFLOW_STEP_SLUGS = new Set(["script", "style", "compose"]);
 
 function isUuidLike(s: string): boolean {
   return /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(s);
@@ -23,12 +23,13 @@ export function parseRoute(path: string): ParsedRoute {
 
   if (segments.length === 1) {
     if (a === "assets") return { kind: "legacyWorkflow", stepSlug: "style" };
+    if (a === "render") return { kind: "legacyWorkflow", stepSlug: "compose" };
     if (WORKFLOW_STEP_SLUGS.has(a)) return { kind: "legacyWorkflow", stepSlug: a };
   }
 
   if (segments.length >= 2 && isUuidLike(a)) {
     const step = segments[1]!;
-    const normalized = step === "assets" ? "style" : step;
+    const normalized = step === "assets" ? "style" : step === "render" ? "compose" : step;
     if (WORKFLOW_STEP_SLUGS.has(normalized)) {
       return { kind: "workflow", projectId: a, stepSlug: normalized };
     }
@@ -41,11 +42,13 @@ export function pathForProjectStep(projectId: string, stepSlug: string): string 
   return `/${projectId}/${stepSlug}`;
 }
 
-/** When the hash still uses the legacy `/assets` step, rewrite to `/style`. */
+/** When the hash still uses a legacy step slug, rewrite to the canonical one. */
 export function canonicalWorkflowPathIfNeeded(path: string): string | null {
   const segments = path.split("/").filter(Boolean);
-  if (segments.length >= 2 && isUuidLike(segments[0]!) && segments[1] === "assets") {
-    return pathForProjectStep(segments[0]!, "style");
+  if (segments.length >= 2 && isUuidLike(segments[0]!)) {
+    const projectId = segments[0]!;
+    if (segments[1] === "assets") return pathForProjectStep(projectId, "style");
+    if (segments[1] === "render") return pathForProjectStep(projectId, "compose");
   }
   return null;
 }

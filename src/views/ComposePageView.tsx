@@ -1,9 +1,8 @@
 import type { PlayerRef } from "@remotion/player";
-import { Clapperboard } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
-import { Button } from "@/components/ui/button";
+import { RenderActivityFloatingDock } from "@/components/RenderActivityFloatingDock";
 import { RenderFilmPreview } from "@/components/RenderFilmPreview";
 import { RenderSceneFrameDetails } from "@/components/RenderSceneFrameDetails";
 import { RenderSceneLayers } from "@/components/RenderSceneLayers";
@@ -23,8 +22,8 @@ import type { Step } from "@/steps";
 
 type Props = { step: Step };
 
-/** Render step: scene/frame breakdown; preview matches Script/Style. */
-export function RenderPageView({ step: _step }: Props) {
+/** Compose step: scene/frame breakdown; preview matches Script/Style. */
+export function ComposePageView({ step: _step }: Props) {
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const frames = useStore(useProjectStore, (s) => s.frames);
@@ -139,18 +138,17 @@ export function RenderPageView({ step: _step }: Props) {
               onGlobalFrameChange={setFilmGlobalFrame}
             />
           </WorkflowPreviewColumn>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="fixed bottom-6 right-6 z-30 gap-1.5 shadow-md"
-            disabled={frames.length === 0 || allFramesRendering}
-            aria-label="Render all frames at once"
-            onClick={() => requestFullFilmRender()}
-          >
-            <Clapperboard className="size-4" strokeWidth={2} aria-hidden />
-            Render all
-          </Button>
+          <RenderActivityFloatingDock
+            primary={{
+              label: "Render all",
+              onClick: () => void requestFullFilmRender(),
+              disabled: frames.length === 0 || allFramesRendering,
+              ariaLabel: "Render all frames at once",
+            }}
+            renders={renders}
+            scenes={scenes}
+            frames={frames}
+          />
         </>
       }
     />

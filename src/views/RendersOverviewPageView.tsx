@@ -7,29 +7,16 @@ import {
   listAllRendersAcrossProjects,
   type RenderListRow,
 } from "@/lib/projectIndexedDb";
-import type { Render } from "@/types/project";
+import {
+  formatCost,
+  renderCostTotalAmount,
+  formatEngine,
+  formatRenderListTimestamp,
+  formatRenderStatus,
+} from "@/lib/renderDisplay";
 
 /** Flip to `false` after design sign-off to show only IndexedDB rows (empty when none). */
 const USE_RENDER_TABLE_DESIGN_SAMPLES = true;
-
-function formatCost(amount: number, currency: string): string {
-  const cur = currency.trim() || "USD";
-  try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: cur }).format(amount);
-  } catch {
-    return `${amount.toFixed(2)} ${cur}`;
-  }
-}
-
-function formatEngine(engine: Render["engine"]): string {
-  if (engine === "openai-image") return "OpenAI image";
-  if (engine === "three") return "Three";
-  return "Remotion";
-}
-
-function formatStatus(status: Render["status"]): string {
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
 
 /** Temporary rows to validate table layout; remove `USE_RENDER_TABLE_DESIGN_SAMPLES` when done. */
 const DESIGN_SAMPLE_ROWS: RenderListRow[] = [
@@ -41,6 +28,7 @@ const DESIGN_SAMPLE_ROWS: RenderListRow[] = [
       id: "sample-render-1",
       projectId: "00000000-0000-0000-0000-000000000001",
       sceneId: "sample-scene-a",
+      type: "frame",
       engine: "openai-image",
       status: "complete",
       model: "gpt-image-1",
@@ -60,6 +48,7 @@ const DESIGN_SAMPLE_ROWS: RenderListRow[] = [
       id: "sample-render-2",
       projectId: "00000000-0000-0000-0000-000000000002",
       sceneId: "sample-scene-b",
+      type: "frame",
       engine: "remotion",
       status: "complete",
       cost: {
@@ -78,6 +67,7 @@ const DESIGN_SAMPLE_ROWS: RenderListRow[] = [
       id: "sample-render-3",
       projectId: "00000000-0000-0000-0000-000000000003",
       sceneId: "sample-scene-c",
+      type: "frame",
       engine: "openai-image",
       status: "failed",
       model: "gpt-image-1",
@@ -208,19 +198,16 @@ export function RendersOverviewPageView() {
                         {formatEngine(render.engine)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 align-top text-foreground">
-                        {formatStatus(render.status)}
+                        {formatRenderStatus(render.status)}
                       </td>
                       <td className="max-w-[8rem] px-3 py-2 align-top text-muted-foreground">
                         {render.model?.trim() ? render.model : "—"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 align-top text-right text-foreground">
-                        {formatCost(render.cost.amount, render.cost.currency)}
+                        {formatCost(renderCostTotalAmount(render.cost), render.cost.currency)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
-                        {render.createdAt.toLocaleString(undefined, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
+                        {formatRenderListTimestamp(render.createdAt)}
                       </td>
                     </tr>
                   );

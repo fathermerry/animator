@@ -117,7 +117,8 @@ function coerceRenderCreatedAt(render: Render): Render {
     render.createdAt instanceof Date
       ? render.createdAt
       : new Date(String(render.createdAt));
-  return { ...render, createdAt };
+  const type = render.type === "asset" ? "asset" : "frame";
+  return { ...render, createdAt, type };
 }
 
 /** All renders from every project in IndexedDB, newest first. */

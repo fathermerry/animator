@@ -178,7 +178,9 @@ function reviveRender(raw: unknown): Render | null {
   const r = raw as Partial<Render>;
   if (typeof r.id !== "string" || !r.id.trim()) return null;
   if (typeof r.projectId !== "string" || !r.projectId.trim()) return null;
-  if (typeof r.sceneId !== "string" || !r.sceneId.trim()) return null;
+  const renderType: Render["type"] = r.type === "asset" ? "asset" : "frame";
+  const sceneIdRaw = typeof r.sceneId === "string" ? r.sceneId : "";
+  if (renderType === "frame" && !sceneIdRaw.trim()) return null;
   const engine: Render["engine"] =
     r.engine === "three" ? "three" : r.engine === "openai-image" ? "openai-image" : "remotion";
   const status =
@@ -187,7 +189,8 @@ function reviveRender(raw: unknown): Render | null {
   return {
     id: r.id,
     projectId: r.projectId,
-    sceneId: r.sceneId,
+    sceneId: sceneIdRaw,
+    type: renderType,
     engine,
     status,
     cost: reviveCost(r.cost),
