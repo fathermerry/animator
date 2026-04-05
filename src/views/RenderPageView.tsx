@@ -1,9 +1,12 @@
+import type { PlayerRef } from "@remotion/player";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
+import { RenderFilmPreview } from "@/components/RenderFilmPreview";
 import { RenderSceneLayers } from "@/components/RenderSceneLayers";
-import { StylePreview } from "@/components/StylePreview";
 import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepLayout } from "@/components/WorkflowStepLayout";
+import { getFilmStartFrameIndexForFrame, getFrameIdAtFilmGlobalFrame } from "@/lib/renderFilmTimeline";
 import { cn } from "@/lib/utils";
 import { selectResolvedStyle, useProjectStore } from "@/store/projectStore";
 import type { Step } from "@/steps";
@@ -16,6 +19,22 @@ export function RenderPageView({ step: _step }: Props) {
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const frames = useStore(useProjectStore, (s) => s.frames);
   const renders = useStore(useProjectStore, (s) => s.renders);
+
+  const filmPlayerRef = useRef<PlayerRef>(null);
+  const [filmGlobalFrame, setFilmGlobalFrame] = useState(0);
+  const playbackActiveFrameId = useMemo(
+    () => getFrameIdAtFilmGlobalFrame(filmGlobalFrame, scenes, frames, renders, style),
+    [filmGlobalFrame, scenes, frames, renders, style],
+  );
+
+  const seekFilmToFrame = useCallback(
+    (frameId: string) => {
+      const idx = getFilmStartFrameIndexForFrame(frameId, scenes, frames, renders, style);
+      if (idx == null) return;
+      filmPlayerRef.current?.seekTo(idx);
+    },
+    [scenes, frames, renders, style],
+  );
 
   return (
     <WorkflowStepLayout
@@ -36,6 +55,8 @@ export function RenderPageView({ step: _step }: Props) {
               frames={frames}
               renders={renders}
               className="w-full min-w-0"
+              playbackActiveFrameId={playbackActiveFrameId}
+              onFrameSeek={seekFilmToFrame}
             />
           </aside>
           <div className="min-h-0 min-w-0 flex-1" aria-hidden />
@@ -43,7 +64,15 @@ export function RenderPageView({ step: _step }: Props) {
       }
       preview={
         <WorkflowPreviewColumn>
-          <StylePreview style={style} className="w-full shrink-0" />
+          <RenderFilmPreview
+            style={style}
+            scenes={scenes}
+            frames={frames}
+            renders={renders}
+            className="w-full shrink-0"
+            filmPlayerRef={filmPlayerRef}
+            onGlobalFrameChange={setFilmGlobalFrame}
+          />
         </WorkflowPreviewColumn>
       }
     />
