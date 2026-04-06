@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
+import { FloatingSurface } from "@/components/FloatingDock";
 import {
   formatCost,
   formatEngine,
@@ -21,18 +22,21 @@ function coerceDate(d: Date | string): Date {
   return d instanceof Date ? d : new Date(String(d));
 }
 
-export type RenderActivityFloatingDockProps = {
-  /** In-memory project renders (from store); kept in sync with persistence. */
+/** `all` = frame + style-kit / scene-reference image work in one list (cost rows may grow to include audio, etc.). */
+export type CostActivityScope = RenderTargetType | "all";
+
+export type CostActivityFloatingDockProps = {
+  /** In-memory billable generation rows (from store); kept in sync with persistence. */
   renders: readonly Render[];
-  /** List only frame (film) or asset (style kit) renders. Default `frame`. */
-  renderScope?: RenderTargetType;
+  /** List frame only, asset only, or both. Default `all`. */
+  renderScope?: CostActivityScope;
   scenes: readonly Scene[];
   /** Optional: override row title (e.g. kit step). Default: `Frame {index}` or kit label for assets. */
   renderRowLabel?: (render: Render) => string;
   frames?: readonly Frame[];
   collapsible?: boolean;
   title?: string;
-  /** Shown when {@link renders} has no rows for {@link renderScope}. */
+  /** Shown when {@link renders} has no rows for the current scope. */
   emptyListMessage?: string;
   className?: string;
 };
@@ -96,28 +100,32 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
   );
 }
 
-export function RenderActivityFloatingDock({
+export function CostActivityFloatingDock({
   renders,
-  renderScope = "frame",
+  renderScope = "all",
   scenes,
   frames = [],
   renderRowLabel,
   collapsible = true,
-  title = "Renders",
+  title = "Cost",
   emptyListMessage,
   className,
-}: RenderActivityFloatingDockProps) {
+}: CostActivityFloatingDockProps) {
   const defaultEmptyMessage =
     renderScope === "asset"
-      ? "No character or object renders yet."
-      : "No renders in this project yet.";
+      ? "No character or object costs yet."
+      : renderScope === "frame"
+        ? "No frame costs in this project yet."
+        : "No costs in this project yet.";
   const emptyCopy = emptyListMessage ?? defaultEmptyMessage;
 
   const scopedRenders = useMemo(
     () =>
-      renders.filter(
-        (r) => r.type === renderScope && !isStructuralFrameShellRender(r),
-      ),
+      renders.filter((r) => {
+        if (isStructuralFrameShellRender(r)) return false;
+        if (renderScope === "all") return true;
+        return r.type === renderScope;
+      }),
     [renders, renderScope],
   );
 
@@ -136,6 +144,10 @@ export function RenderActivityFloatingDock({
 
   const orderedRenders = useMemo(() => {
     const list = [...scopedRenders];
+    if (renderScope === "all") {
+      list.sort((a, b) => coerceDate(b.createdAt).getTime() - coerceDate(a.createdAt).getTime());
+      return list;
+    }
     if (frames.length > 0) {
       list.sort((a, b) => {
         const oa = globalFrameOrdinal(scenes, frames, a);
@@ -149,7 +161,7 @@ export function RenderActivityFloatingDock({
       list.sort((a, b) => coerceDate(b.createdAt).getTime() - coerceDate(a.createdAt).getTime());
     }
     return list;
-  }, [scopedRenders, scenes, frames]);
+  }, [scopedRenders, renderScope, scenes, frames]);
 
   const displayedRenders = useMemo(
     () => orderedRenders.slice(0, RECENT_RENDER_CAP),
@@ -275,9 +287,6 @@ export function RenderActivityFloatingDock({
       </ul>
     );
 
-  const innerSurface =
-    "rounded-2xl bg-background/92 shadow-sm ring-1 ring-border/50 backdrop-blur-xl dark:bg-background/88";
-
   const headerRowToggleClass = cn(
     "flex w-full cursor-pointer items-center gap-1 rounded-md px-0.5 py-0 text-left",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
@@ -285,57 +294,44 @@ export function RenderActivityFloatingDock({
 
   if (collapsible && collapsed) {
     return (
-      <div
-        className={cn(
-          "fixed bottom-6 right-6 z-30 w-[min(20rem,calc(100vw-2rem))] max-w-[min(20rem,calc(100vw-2rem))]",
-          className,
-        )}
-      >
-        <div className={cn("px-3 py-2 text-sm", innerSurface)}>
-          <button
-            type="button"
-            className={headerRowToggleClass}
-            onClick={() => setCollapsed(false)}
-            aria-label="Expand render activity"
-          >
-            <span className="flex size-8 shrink-0 items-center justify-center text-muted-foreground">
-              <ChevronUp className="size-4" aria-hidden />
-            </span>
-            <span className="min-w-0 flex-1 truncate font-normal leading-snug text-foreground">
-              {title}
-            </span>
-            <span className="shrink-0 text-right tabular-nums">
-              {collapsedTotalCost != null ? (
-                <span className="text-foreground">{collapsedTotalCost}</span>
-              ) : (
-                <span className="text-muted-foreground">—</span>
-              )}
-            </span>
-          </button>
-        </div>
-      </div>
+      <FloatingSurface className={cn("px-3 py-2 text-sm", className)}>
+        <button
+          type="button"
+          className={headerRowToggleClass}
+          onClick={() => setCollapsed(false)}
+          aria-label="Expand cost"
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center text-muted-foreground">
+            <ChevronUp className="size-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 truncate font-normal leading-snug text-foreground">
+            {title}
+          </span>
+          <span className="shrink-0 text-right tabular-nums">
+            {collapsedTotalCost != null ? (
+              <span className="text-foreground">{collapsedTotalCost}</span>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </span>
+        </button>
+      </FloatingSurface>
     );
   }
 
   return (
-    <div
+    <FloatingSurface
       className={cn(
-        "fixed bottom-6 right-6 z-30 w-[min(20rem,calc(100vw-2rem))] max-h-[min(28rem,calc(100svh-5rem))]",
+        "flex max-h-[min(28rem,calc(100svh-5rem))] min-h-0 flex-col gap-2 px-3 pt-2 pb-3 text-sm",
         className,
       )}
     >
-      <div
-        className={cn(
-          "flex max-h-[min(28rem,calc(100svh-5rem))] min-h-0 flex-col gap-2 px-3 pt-2 pb-3 text-sm",
-          innerSurface,
-        )}
-      >
         {collapsible ? (
           <button
             type="button"
             className={cn(headerRowToggleClass, "shrink-0")}
             onClick={() => setCollapsed(true)}
-            aria-label="Collapse render activity"
+            aria-label="Collapse cost"
           >
             <span className="flex size-8 shrink-0 items-center justify-center text-muted-foreground">
               <ChevronDown className="size-4" aria-hidden />
@@ -365,17 +361,16 @@ export function RenderActivityFloatingDock({
             </div>
           </div>
         )}
-        <div
-          className={cn(
-            "min-h-0 flex-1 overflow-hidden rounded-xl ring-1 ring-border/40",
-            "bg-background/92 backdrop-blur-xl dark:bg-background/88",
-          )}
-        >
-          <div className="max-h-[min(18rem,52svh)] min-h-0 overflow-y-auto overscroll-contain px-2 py-2">
-            {listBody}
-          </div>
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-hidden rounded-xl border border-border/60",
+          "bg-background/92 backdrop-blur-xl dark:bg-background/88",
+        )}
+      >
+        <div className="max-h-[min(18rem,52svh)] min-h-0 overflow-y-auto overscroll-contain px-2 py-2">
+          {listBody}
         </div>
       </div>
-    </div>
+    </FloatingSurface>
   );
 }

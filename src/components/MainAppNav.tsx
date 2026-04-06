@@ -26,7 +26,7 @@ export function MainAppNav({ active }: Props) {
           "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         )}
       >
-        Renders
+        Cost
       </a>
     </nav>
   );

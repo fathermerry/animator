@@ -25,18 +25,13 @@ export function StoryPageView({ step: _step }: Props) {
     [scenes],
   );
 
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selectedSceneId && !orderedScenes.some((s) => s.id === selectedSceneId)) {
-      setSelectedSceneId(null);
+    if (expandedSceneId && !orderedScenes.some((s) => s.id === expandedSceneId)) {
+      setExpandedSceneId(null);
     }
-  }, [orderedScenes, selectedSceneId]);
-
-  const selectedScene = useMemo(
-    () => (selectedSceneId ? orderedScenes.find((s) => s.id === selectedSceneId) ?? null : null),
-    [orderedScenes, selectedSceneId],
-  );
+  }, [orderedScenes, expandedSceneId]);
 
   const firstPanelRef = useRef<HTMLDivElement>(null);
 
@@ -46,20 +41,22 @@ export function StoryPageView({ step: _step }: Props) {
 
   const text = project?.prompt ?? "";
 
-  const [generatingAll, setGeneratingAll] = useState(false);
   const [generatingSceneId, setGeneratingSceneId] = useState<string | null>(null);
-  const [narrationError, setNarrationError] = useState<string | null>(null);
+  const [narrationErrorBySceneId, setNarrationErrorBySceneId] = useState<
+    Record<string, string>
+  >({});
 
   const generateNarrationForScene = useCallback(
     async (sc: Scene) => {
       const projectId = project?.id;
       if (!projectId) return;
       const vo = sc.voiceoverText?.trim();
-      if (!vo) {
-        setNarrationError("Add transcript text for this scene first.");
-        return;
-      }
-      setNarrationError(null);
+      if (!vo) return;
+      setNarrationErrorBySceneId((prev) => {
+        const next = { ...prev };
+        delete next[sc.id];
+        return next;
+      });
       setGeneratingSceneId(sc.id);
       try {
         const { audioUrl } = await requestSceneNarration({
@@ -69,7 +66,8 @@ export function StoryPageView({ step: _step }: Props) {
         });
         patchScene(sc.id, { narrationAudioSrc: audioUrl });
       } catch (e: unknown) {
-        setNarrationError(e instanceof Error ? e.message : "Narration failed");
+        const msg = e instanceof Error ? e.message : "Narration failed";
+        setNarrationErrorBySceneId((prev) => ({ ...prev, [sc.id]: msg }));
       } finally {
         setGeneratingSceneId(null);
       }
@@ -77,75 +75,54 @@ export function StoryPageView({ step: _step }: Props) {
     [project?.id, patchScene],
   );
 
-  const generateAllNarration = useCallback(async () => {
-    const projectId = project?.id;
-    if (!projectId) return;
-    setNarrationError(null);
-    setGeneratingAll(true);
-    try {
-      for (const sc of orderedScenes) {
-        const vo = sc.voiceoverText?.trim();
-        if (!vo) continue;
-        const { audioUrl } = await requestSceneNarration({
-          projectId,
-          sceneId: sc.id,
-          text: vo,
-        });
-        patchScene(sc.id, { narrationAudioSrc: audioUrl });
-      }
-    } catch (e: unknown) {
-      setNarrationError(e instanceof Error ? e.message : "Narration failed");
-    } finally {
-      setGeneratingAll(false);
-    }
-  }, [orderedScenes, project?.id, patchScene]);
-
-  const onGenerateThis = useCallback(() => {
-    if (selectedScene) void generateNarrationForScene(selectedScene);
-  }, [selectedScene, generateNarrationForScene]);
-
   return (
-    <WorkflowStepPage
-      firstPanelRef={firstPanelRef}
-      primaryClassName="md:pr-0 lg:pr-0"
-      panels={[
-        <textarea
-          key="script"
-          value={text}
-          onChange={(e) => setPromptText(e.target.value)}
-          autoComplete="off"
-          spellCheck
-          placeholder="Start typing or paste a full script"
-          className={cn(
-            "min-h-[min(28rem,55svh)] w-full min-w-0 resize-none bg-transparent",
-            "[field-sizing:content]",
-            "border-0 p-0 text-left shadow-none outline-none ring-0 md:pr-8 lg:pr-6",
-            "focus-visible:ring-0",
-            "placeholder:text-muted-foreground/35",
-            "leading-relaxed text-foreground",
-            "[mask-image:linear-gradient(to_bottom,transparent,black_1.125rem,black_calc(100%-1.125rem),transparent)] [-webkit-mask-image:linear-gradient(to_bottom,transparent,black_1.125rem,black_calc(100%-1.125rem),transparent)] [mask-size:100%_100%] [-webkit-mask-size:100%_100%]",
-          )}
-          aria-label="Script"
-        />,
+    <>
+      <WorkflowStepPage
+        firstPanelRef={firstPanelRef}
+        primaryClassName="md:pr-0 lg:pr-0"
+        panels={[
+          <textarea
+            key="script"
+            value={text}
+            onChange={(e) => setPromptText(e.target.value)}
+            autoComplete="off"
+            spellCheck
+            placeholder="Start typing or paste a full script"
+            className={cn(
+              "min-h-[min(28rem,55svh)] w-full min-w-0 resize-none bg-transparent",
+              "[field-sizing:content]",
+              "border-0 p-0 text-left shadow-none outline-none ring-0 md:pr-8 lg:pr-6",
+              "focus-visible:ring-0",
+              "placeholder:text-muted-foreground/35",
+              "leading-relaxed text-foreground",
+              "[mask-image:linear-gradient(to_bottom,transparent,black_1.125rem,black_calc(100%-1.125rem),transparent)] [-webkit-mask-image:linear-gradient(to_bottom,transparent,black_1.125rem,black_calc(100%-1.125rem),transparent)] [mask-size:100%_100%] [-webkit-mask-size:100%_100%]",
+            )}
+            aria-label="Script"
+          />,
         <div key="story-right" className="flex w-full min-w-0 flex-col gap-6">
           <div className="flex w-full min-w-0 flex-col gap-2.5" aria-label="Scenes">
             <p className={panelHeadingAfterBlockClass}>Scenes</p>
             <ul className="flex min-w-0 flex-col gap-1">
               {orderedScenes.map((sc, i) => {
                 const title = sc.title.trim() || `Scene ${sc.index + 1}`;
-                const isSelected = selectedSceneId === sc.id;
+                const isExpanded = expandedSceneId === sc.id;
+                const panelId = `story-scene-config-${sc.id}`;
                 return (
                   <li key={sc.id} className="min-w-0">
                     <button
                       type="button"
-                      onClick={() => setSelectedSceneId(sc.id)}
+                      id={`${panelId}-trigger`}
+                      onClick={() =>
+                        setExpandedSceneId((prev) => (prev === sc.id ? null : sc.id))
+                      }
                       className={cn(
-                        "flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-left text-base leading-none transition-colors",
-                        isSelected
+                        "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-base leading-none transition-colors",
+                        isExpanded
                           ? "bg-muted/80 text-foreground"
                           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                       )}
-                      aria-pressed={isSelected}
+                      aria-expanded={isExpanded}
+                      aria-controls={panelId}
                     >
                       <span className="w-6 shrink-0 text-center text-[13px] tabular-nums text-muted-foreground">
                         {i + 1}
@@ -155,25 +132,37 @@ export function StoryPageView({ step: _step }: Props) {
                         {formatDurationMmSs(sc.durationSeconds)}
                       </span>
                     </button>
+                    {isExpanded ? (
+                      <div
+                        id={panelId}
+                        role="region"
+                        aria-labelledby={`${panelId}-trigger`}
+                        className="mt-1 mb-2 rounded-md border border-border/80 px-3 py-4"
+                      >
+                        <SceneEdit
+                          variant="inline"
+                          scene={sc}
+                          disabled={!project?.id}
+                          onVoiceoverChange={(value) => {
+                            patchScene(sc.id, { voiceoverText: value });
+                          }}
+                          onDurationChange={(durationSeconds) => {
+                            patchScene(sc.id, { durationSeconds });
+                          }}
+                          onGenerateAudio={() => void generateNarrationForScene(sc)}
+                          generatingAudio={generatingSceneId === sc.id}
+                          narrationError={narrationErrorBySceneId[sc.id] ?? null}
+                        />
+                      </div>
+                    ) : null}
                   </li>
                 );
               })}
             </ul>
           </div>
-          <SceneEdit
-            scene={selectedScene}
-            disabled={!project?.id}
-            generatingAll={generatingAll}
-            generatingThis={generatingSceneId === selectedScene?.id}
-            narrationError={narrationError}
-            onVoiceoverChange={(value) => {
-              if (selectedScene) patchScene(selectedScene.id, { voiceoverText: value });
-            }}
-            onGenerateThis={onGenerateThis}
-            onGenerateAll={() => void generateAllNarration()}
-          />
         </div>,
-      ]}
-    />
+        ]}
+      />
+    </>
   );
 }

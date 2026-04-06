@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { AppHeader } from "@/components/AppHeader";
+import { FloatingDockStack } from "@/components/FloatingDock";
+import { CostActivityFloatingDock } from "@/components/CostActivityFloatingDock";
 import { useArrowNavigation } from "@/hooks/useArrowNavigation";
 import { useHashPath } from "@/hooks/useHashPath";
 import { canonicalWorkflowPathIfNeeded, navigate, parseRoute, pathForProjectStep } from "@/router";
@@ -11,7 +13,7 @@ import { ComposePageView } from "@/views/ComposePageView";
 import { StoryPageView } from "@/views/StoryPageView";
 import { StylePageView } from "@/views/StylePageView";
 import { HomePageView } from "@/views/HomePageView";
-import { RendersOverviewPageView } from "@/views/RendersOverviewPageView";
+import { CostOverviewPageView } from "@/views/CostOverviewPageView";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -21,6 +23,9 @@ export default function App() {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [path]);
   const project = useStore(useProjectStore, selectCurrentProject);
+  const scenes = useStore(useProjectStore, (s) => s.scenes);
+  const frames = useStore(useProjectStore, (s) => s.frames);
+  const renders = useStore(useProjectStore, (s) => s.renders);
   const loadProjectById = useStore(useProjectStore, (s) => s.loadProjectById);
 
   useArrowNavigation(path, project.id);
@@ -95,7 +100,7 @@ export default function App() {
     if (isProjectsPage) {
       title = "animator — Projects";
     } else if (isRendersPage) {
-      title = "animator — Renders";
+      title = "animator — Cost";
     } else if (currentSlug) {
       const stepLabel = STEPS.find((s) => s.slug === currentSlug)?.label ?? "Step";
       title = `animator — ${stepLabel} — ${fileTitle}`;
@@ -141,7 +146,7 @@ export default function App() {
           {isProjectsPage ? (
             <HomePageView />
           ) : isRendersPage ? (
-            <RendersOverviewPageView />
+            <CostOverviewPageView />
           ) : currentSlug === "story" ? (
             <StoryPageView step={stepBySlug("story")!} />
           ) : currentSlug === "style" ? (
@@ -151,6 +156,16 @@ export default function App() {
           ) : null}
         </div>
       </div>
+      {isWorkflowStepPage ? (
+        <FloatingDockStack>
+          <CostActivityFloatingDock
+            renders={renders}
+            scenes={scenes}
+            frames={frames}
+            renderScope="all"
+          />
+        </FloatingDockStack>
+      ) : null}
     </div>
   );
 }

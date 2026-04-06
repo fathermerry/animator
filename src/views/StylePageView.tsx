@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
-import { RenderActivityFloatingDock } from "@/components/RenderActivityFloatingDock";
 import { StyleSceneReferencePreview } from "@/components/StyleSceneReferencePreview";
 import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepPage } from "@/components/WorkflowStepPage";
@@ -67,7 +66,6 @@ export function StylePageView({ step: _step }: Props) {
   const requestKitAssetRender = useStore(useProjectStore, (s) => s.requestKitAssetRender);
   const kitAssetGeneratingKeys = useStore(useProjectStore, (s) => s.kitAssetGeneratingKeys);
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
-  const renders = useStore(useProjectStore, (s) => s.renders);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const frames = useStore(useProjectStore, (s) => s.frames);
 
@@ -327,11 +325,12 @@ export function StylePageView({ step: _step }: Props) {
   );
 
   return (
-    <WorkflowStepPage
-      equalWidthColumns
-      primaryClassName="gap-6"
-      middleClassName="gap-4 bg-background lg:pb-3"
-      panels={[
+    <>
+      <WorkflowStepPage
+        equalWidthColumns
+        primaryClassName="gap-6"
+        middleClassName="gap-4 bg-background lg:pb-3"
+        panels={[
         <>
           <div className="flex flex-col gap-2">
             <p className={panelHeadingClass}>Description</p>
@@ -420,11 +419,7 @@ export function StylePageView({ step: _step }: Props) {
 
           <div className="flex min-h-0 flex-col gap-2">
             <p className={panelHeadingAfterBlockClass}>Scene references</p>
-            <div
-              className={cn(
-                "flex max-h-[min(50vh,22rem)] min-h-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-muted/25 shadow-sm ring-1 ring-foreground/[0.06]",
-              )}
-            >
+            <div className="flex max-h-[min(50vh,22rem)] min-h-0 flex-col overflow-hidden rounded-lg border border-border/80">
               <ul className="flex min-h-0 list-none flex-col gap-0 overflow-y-auto p-1" role="list">
                 {sortedScenes.map((sc) => {
                   const title = sc.title.trim() || `Scene ${sc.index + 1}`;
@@ -580,14 +575,12 @@ export function StylePageView({ step: _step }: Props) {
             </div>
           </div>
         </>,
-        <>
-          <WorkflowPreviewColumn>
-            <StyleSceneReferencePreview scene={selectedScene} className="w-full shrink-0" />
-          </WorkflowPreviewColumn>
-          <RenderActivityFloatingDock renders={renders} scenes={scenes} frames={frames} />
-        </>,
+        <WorkflowPreviewColumn>
+          <StyleSceneReferencePreview scene={selectedScene} className="w-full shrink-0" />
+        </WorkflowPreviewColumn>,
       ]}
-    />
+      />
+    </>
   );
 }
 

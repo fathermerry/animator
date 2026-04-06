@@ -8,6 +8,33 @@ export function formatDurationMmSs(totalSeconds: number): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
+const DURATION_INPUT_MAX_SEC = 24 * 60 * 60;
+
+/**
+ * Parse scene length from `m:ss` (seconds 0–59) or a plain seconds integer.
+ * Returns `null` if the string cannot be interpreted.
+ */
+export function parseDurationMmSsInput(raw: string): number | null {
+  const t = raw.trim();
+  if (t === "") return 0;
+  const parts = t.split(":");
+  if (parts.length === 2) {
+    const mStr = parts[0]!.trim();
+    const sStr = parts[1]!.trim();
+    if (!/^\d+$/.test(mStr) || !/^\d+$/.test(sStr)) return null;
+    const m = parseInt(mStr, 10);
+    let sec = parseInt(sStr, 10);
+    if (sec > 59) sec = 59;
+    const total = m * 60 + sec;
+    return Math.min(Math.max(0, total), DURATION_INPUT_MAX_SEC);
+  }
+  if (parts.length === 1 && /^\d+$/.test(t)) {
+    const n = parseInt(t, 10);
+    return Math.min(Math.max(0, n), DURATION_INPUT_MAX_SEC);
+  }
+  return null;
+}
+
 /** Format seconds as fixed two-decimal film time (e.g. `0.00`, `12.50`). */
 export function formatFilmTime(seconds: number): string {
   if (!Number.isFinite(seconds)) return "0.00";

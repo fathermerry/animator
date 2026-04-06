@@ -35,7 +35,7 @@ export function stepBySlug(slug: string): Step | undefined {
   return STEPS.find((s) => s.slug === slug);
 }
 
-/** True when `path` is Story, Style, or Compose (in-project workflow), not top-level Projects/Renders. */
+/** True when `path` is Story, Style, or Compose (in-project workflow), not top-level Projects/Cost. */
 export function isWorkflowStepPath(path: string): boolean {
   const r = parseRoute(path);
   return r.kind === "workflow" || r.kind === "legacyWorkflow";

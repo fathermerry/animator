@@ -15,7 +15,7 @@ import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 type Props = {
   /** Active workflow slug when in a project step */
   currentSlug: string | null;
-  /** Top-level app: Projects vs Renders; `null` = in-project workflow */
+  /** Top-level app: Projects vs Cost; `null` = in-project workflow */
   mainNav: "projects" | "renders" | null;
   /** Current project id for workflow links; omit on top-level or error states */
   projectId: string | null;

@@ -158,7 +158,7 @@ export function RenderSceneLayers({
                       type="button"
                       onClick={() => toggleScene(scene.id)}
                       className={cn(
-                        "flex h-7 w-full min-w-0 items-center gap-0.5 rounded-sm px-1 text-left text-base leading-none",
+                        "flex h-7 w-full min-w-0 cursor-pointer items-center gap-0.5 rounded-sm px-1 text-left text-base leading-none",
                         "text-foreground hover:bg-foreground/[0.06]",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                       )}

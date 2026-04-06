@@ -90,7 +90,7 @@ const DESIGN_SAMPLE_ROWS: RenderListRow[] = [
   },
 ];
 
-export function RendersOverviewPageView() {
+export function CostOverviewPageView() {
   const [dbRows, setDbRows] = useState<RenderListRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -98,7 +98,7 @@ export function RendersOverviewPageView() {
     void listAllRendersAcrossProjects()
       .then(setDbRows)
       .catch((e: unknown) => {
-        setLoadError(e instanceof Error ? e.message : "Could not load renders");
+        setLoadError(e instanceof Error ? e.message : "Could not load cost data");
       });
   }, []);
 
@@ -119,11 +119,11 @@ export function RendersOverviewPageView() {
         </p>
       ) : null}
 
-      <p className={cn(panelHeadingClass, "mb-3")}>Renders</p>
+      <p className={cn(panelHeadingClass, "mb-3")}>Cost</p>
 
       {!USE_RENDER_TABLE_DESIGN_SAMPLES && rows.length === 0 ? (
         <div className="rounded-lg border border-border px-4 py-10">
-          <p className="text-center text-base text-muted-foreground">No renders yet.</p>
+          <p className="text-center text-base text-muted-foreground">No costs yet.</p>
         </div>
       ) : (
         <>
@@ -135,14 +135,14 @@ export function RendersOverviewPageView() {
                   aria-hidden
                 />
                 <Input
-                  id="renders-search"
+                  id="cost-search"
                   type="search"
-                  placeholder="Search renders…"
+                  placeholder="Search…"
                   className="pl-9"
                   disabled
                   title="Search is not available yet"
                   autoComplete="off"
-                  aria-label="Search renders"
+                  aria-label="Search cost history"
                 />
               </div>
               <div className="flex flex-wrap items-center gap-3">

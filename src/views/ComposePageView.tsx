@@ -2,7 +2,6 @@ import type { PlayerRef } from "@remotion/player";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
-import { RenderActivityFloatingDock } from "@/components/RenderActivityFloatingDock";
 import { RenderFilmPreview } from "@/components/RenderFilmPreview";
 import { RenderSceneFrameDetails } from "@/components/RenderSceneFrameDetails";
 import { RenderSceneLayers } from "@/components/RenderSceneLayers";
@@ -126,8 +125,9 @@ export function ComposePageView({ step: _step }: Props) {
   );
 
   return (
-    <WorkflowStepPage
-      panels={[
+    <>
+      <WorkflowStepPage
+        panels={[
         <aside
           key="layers"
           className={cn(
@@ -156,43 +156,37 @@ export function ComposePageView({ step: _step }: Props) {
           onPatchFrame={patchFrame}
           className="gap-4"
         />,
-        <>
-          <WorkflowPreviewColumn
-            headerRight={
-              totalFrames > 0 ? (
-                <>
-                  {formatDurationMmSs(filmGlobalFrame / FILM_FPS)}
-                  <span className="text-muted-foreground/70"> / </span>
-                  {formatDurationMmSs(totalFrames / FILM_FPS)}
-                </>
-              ) : null
-            }
-          >
-            <RenderFilmPreview
-              assetBundle={assetBundle}
-              scenes={scenes}
-              frames={frames}
-              renders={renders}
-              className="w-full shrink-0"
-              filmPlayerRef={filmPlayerRef}
-              globalFrame={filmGlobalFrame}
-              onGlobalFrameChange={setFilmGlobalFrame}
-              onPlayingChange={setFilmPlaying}
-            />
-            <p className="mt-2 min-w-0 text-sm leading-relaxed text-muted-foreground">
-              {editScene?.voiceoverText?.trim()
-                ? editScene.voiceoverText.trim()
-                : "No voiceover for this scene."}
-            </p>
-            <audio ref={narrationAudioRef} className="hidden" preload="auto" aria-hidden />
-          </WorkflowPreviewColumn>
-          <RenderActivityFloatingDock
-            renders={renders}
+        <WorkflowPreviewColumn
+          headerRight={
+            totalFrames > 0 ? (
+              <>
+                {formatDurationMmSs(filmGlobalFrame / FILM_FPS)}
+                <span className="text-muted-foreground/70"> / </span>
+                {formatDurationMmSs(totalFrames / FILM_FPS)}
+              </>
+            ) : null
+          }
+        >
+          <RenderFilmPreview
+            assetBundle={assetBundle}
             scenes={scenes}
             frames={frames}
+            renders={renders}
+            className="w-full shrink-0"
+            filmPlayerRef={filmPlayerRef}
+            globalFrame={filmGlobalFrame}
+            onGlobalFrameChange={setFilmGlobalFrame}
+            onPlayingChange={setFilmPlaying}
           />
-        </>,
-      ]}
-    />
+          <p className="mt-2 min-w-0 text-sm leading-relaxed text-muted-foreground">
+            {editScene?.voiceoverText?.trim()
+              ? editScene.voiceoverText.trim()
+              : "No voiceover for this scene."}
+          </p>
+          <audio ref={narrationAudioRef} className="hidden" preload="auto" aria-hidden />
+        </WorkflowPreviewColumn>,
+        ]}
+      />
+    </>
   );
 }
