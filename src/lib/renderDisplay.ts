@@ -1,6 +1,11 @@
 import { OPENAI_IMAGE_MODEL_OPTIONS } from "@/lib/imageModels";
 import type { Cost, Render } from "@/types/project";
 
+/** Seed/bundled scene shell rows — not OpenAI generations; omit from activity and cross-project lists. */
+export function isStructuralFrameShellRender(r: Render): boolean {
+  return r.type === "frame" && r.engine === "remotion";
+}
+
 function sumCostBreakdown(cost: Cost): number {
   return cost.breakdown.reduce(
     (acc, item) => acc + (Number.isFinite(item.amount) ? item.amount : 0),

@@ -1,5 +1,6 @@
 import defaultProjectJson from "@/data/default-project.json";
 import { idbKvDelete, idbKvGet, idbKvSet, openAnimatorDb, PROJECTS_STORE } from "@/lib/indexedDbKv";
+import { isStructuralFrameShellRender } from "@/lib/renderDisplay";
 import { projectFromConfigJson } from "@/lib/projectHydrate";
 import {
   type LegacyPersistableProjectSlice,
@@ -127,6 +128,7 @@ export async function listAllRendersAcrossProjects(): Promise<RenderListRow[]> {
     const scenes = row.slice.scenes;
     for (const raw of row.slice.renders) {
       const render = coerceRenderCreatedAt(raw);
+      if (isStructuralFrameShellRender(render)) continue;
       const scene = scenes.find((s) => s.id === render.sceneId);
       out.push({
         render,

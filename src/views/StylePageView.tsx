@@ -448,7 +448,7 @@ function KitThumbnailTile({
         <button
           type="button"
           className={cn(
-            "relative z-0 flex min-h-0 w-full flex-1 cursor-pointer items-center justify-center p-1 transition-colors duration-300",
+            "relative z-0 flex min-h-0 w-full flex-1 cursor-pointer overflow-hidden p-0 transition-colors duration-300",
             isGenerating ? "kit-tile-generating-bg" : "bg-muted/30",
           )}
           onClick={() => onToggleSelect(kind, asset.id)}
@@ -461,7 +461,7 @@ function KitThumbnailTile({
               key={`${kind}-${asset.id}-${raw ? String(raw.length) : "0"}`}
               src={displaySrc}
               alt=""
-              className="max-h-full max-w-full object-contain"
+              className="absolute inset-0 h-full w-full object-cover"
               onError={() => {
                 if (raw) setBroken(true);
               }}

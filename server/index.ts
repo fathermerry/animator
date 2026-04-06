@@ -2,11 +2,13 @@ import "dotenv/config";
 
 import cors from "cors";
 import express from "express";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import OpenAI from "openai";
+
+import { SAMPLE_PROJECT_ID } from "../src/lib/sampleProject.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -125,6 +127,24 @@ app.post("/api/render-frame", async (req, res) => {
   } catch (e: unknown) {
     console.error(e);
     const message = e instanceof Error ? e.message : "Render failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+/** Remove `public/renders/{projectId}/` for the bundled sample project only (no arbitrary deletes). */
+app.delete("/api/project-renders/:projectId", async (req, res) => {
+  const projectId = typeof req.params.projectId === "string" ? req.params.projectId.trim() : "";
+  if (projectId !== SAMPLE_PROJECT_ID) {
+    res.status(403).json({ error: "Only the sample project renders folder can be cleared" });
+    return;
+  }
+  try {
+    const dir = path.join(publicRenders, safeSegment(projectId));
+    await rm(dir, { recursive: true, force: true });
+    res.status(204).end();
+  } catch (e: unknown) {
+    console.error(e);
+    const message = e instanceof Error ? e.message : "Failed to remove renders folder";
     res.status(500).json({ error: message });
   }
 });

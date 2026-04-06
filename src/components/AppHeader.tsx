@@ -1,11 +1,13 @@
-import { Home } from "lucide-react";
-import { useCallback } from "react";
+import { Home, RefreshCw } from "lucide-react";
+import { useCallback, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { MainAppNav } from "@/components/MainAppNav";
 import { Button } from "@/components/ui/button";
 import { WorkflowBreadcrumb } from "@/components/WorkflowBreadcrumb";
 import { downloadPersistableProjectSlice } from "@/lib/projectPersistence";
+import { SAMPLE_PROJECT_ID } from "@/lib/sampleProject";
+import { cn } from "@/lib/utils";
 import { navigate, pathForProjectStep } from "@/router";
 import { STEPS } from "@/steps";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
@@ -22,11 +24,14 @@ type Props = {
 export function AppHeader({ currentSlug, mainNav, projectId }: Props) {
   const project = useStore(useProjectStore, selectCurrentProject);
   const createNewProject = useStore(useProjectStore, (s) => s.createNewProject);
+  const resetSampleProject = useStore(useProjectStore, (s) => s.resetSampleProject);
+  const [resettingSample, setResettingSample] = useState(false);
   const styleConfigs = useStore(useProjectStore, (s) => s.styleConfigs);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const renders = useStore(useProjectStore, (s) => s.renders);
   const frames = useStore(useProjectStore, (s) => s.frames);
   const fileLabel = project?.fileLabel?.trim() || project?.name?.trim() || "Untitled";
+  const isSampleProject = project.id === SAMPLE_PROJECT_ID;
 
   const exportProject = useCallback(() => {
     downloadPersistableProjectSlice({
@@ -71,6 +76,23 @@ export function AppHeader({ currentSlug, mainNav, projectId }: Props) {
             <span className="min-w-0 truncate text-base font-medium text-foreground" title={fileLabel}>
               {fileLabel}
             </span>
+            {isSampleProject ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground disabled:cursor-not-allowed"
+                aria-label="Reset sample project"
+                title="Reset sample project to bundled seed and clear generated renders on disk"
+                disabled={resettingSample}
+                onClick={() => {
+                  setResettingSample(true);
+                  void resetSampleProject().finally(() => setResettingSample(false));
+                }}
+              >
+                <RefreshCw className={cn("size-4", resettingSample && "animate-spin")} aria-hidden />
+              </Button>
+            ) : null}
           </>
         )}
       </div>

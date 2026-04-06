@@ -97,6 +97,8 @@ export type ProjectState = {
   patchRender: (renderId: string, patch: Partial<Render>) => void;
   clearFrameRenderError: (frameId: string) => void;
   loadDefaultProject: () => void;
+  /** Restore bundled seed for the sample project, clear its `public/renders` folder via API, persist to IDB. */
+  resetSampleProject: () => Promise<void>;
   removeFrame: (frameId: string) => void;
   requestFrameRender: (frameId: string, modelId?: OpenAiImageModelId) => Promise<void>;
   requestFullFilmRender: (modelId?: OpenAiImageModelId) => Promise<void>;
@@ -128,6 +130,7 @@ function initialState(): Omit<
   | "patchRender"
   | "clearFrameRenderError"
   | "loadDefaultProject"
+  | "resetSampleProject"
   | "removeFrame"
   | "requestFrameRender"
   | "requestFullFilmRender"
@@ -307,6 +310,41 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       const prev = get().project;
       const fresh = projectFromConfigJson(defaultProjectJson);
       const projectId = prev.id;
+      set({
+        project: {
+          ...fresh.project,
+          id: projectId,
+          createdAt: prev.createdAt,
+        },
+        styleConfigs: fresh.styleConfigs,
+        scenes: fresh.scenes.map((sc) => ({ ...sc, projectId })),
+        renders: fresh.renders.map((r) => ({ ...r, projectId })),
+        frames: fresh.frames.map((f) => ({ ...f, projectId })),
+        renderingFrameIds: {},
+        frameRenderErrors: {},
+        generatingKitAssets: false,
+        kitAssetGeneratingKeys: {},
+        kitAssetRenderErrors: {},
+      });
+    },
+
+    resetSampleProject: async () => {
+      if (get().project.id !== SAMPLE_PROJECT_ID) return;
+      try {
+        const res = await fetch(
+          `/api/project-renders/${encodeURIComponent(SAMPLE_PROJECT_ID)}`,
+          { method: "DELETE" },
+        );
+        if (!res.ok) {
+          console.warn("resetSampleProject: failed to clear renders folder", res.status);
+        }
+      } catch (e: unknown) {
+        console.warn("resetSampleProject: render API unreachable", e);
+      }
+      abortAllFrameRenders();
+      const prev = get().project;
+      const fresh = projectFromConfigJson(defaultProjectJson);
+      const projectId = SAMPLE_PROJECT_ID;
       set({
         project: {
           ...fresh.project,

@@ -7,6 +7,7 @@ import {
   formatEngine,
   formatRenderListTimestamp,
   formatRenderStatus,
+  isStructuralFrameShellRender,
   modelDisplayLabel,
   renderCostTotalAmount,
   sumRenderCosts,
@@ -122,7 +123,10 @@ export function RenderActivityFloatingDock({
   const emptyCopy = emptyListMessage ?? defaultEmptyMessage;
 
   const scopedRenders = useMemo(
-    () => renders.filter((r) => r.type === renderScope),
+    () =>
+      renders.filter(
+        (r) => r.type === renderScope && !isStructuralFrameShellRender(r),
+      ),
     [renders, renderScope],
   );
 
