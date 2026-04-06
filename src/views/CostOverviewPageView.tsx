@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -18,78 +18,6 @@ import {
 import { panelHeadingClass } from "@/lib/panelHeading";
 import { cn } from "@/lib/utils";
 
-/** Flip to `false` after design sign-off to show only IndexedDB rows (empty when none). */
-const USE_RENDER_TABLE_DESIGN_SAMPLES = true;
-
-/** Temporary rows to validate table layout; remove `USE_RENDER_TABLE_DESIGN_SAMPLES` when done. */
-const DESIGN_SAMPLE_ROWS: RenderListRow[] = [
-  {
-    projectId: "00000000-0000-0000-0000-000000000001",
-    projectLabel: "North quarter review",
-    sceneTitle: "Boardroom",
-    render: {
-      id: "sample-render-1",
-      projectId: "00000000-0000-0000-0000-000000000001",
-      sceneId: "sample-scene-a",
-      type: "frame",
-      engine: "openai-image",
-      status: "complete",
-      model: "gpt-image-1.5",
-      cost: {
-        amount: 0.47,
-        currency: "USD",
-        breakdown: [{ label: "Image API", amount: 0.47 }],
-      },
-      createdAt: new Date("2026-04-04T09:12:00"),
-      startedAt: new Date("2026-04-04T09:12:00"),
-      endedAt: new Date("2026-04-04T09:12:14"),
-    },
-  },
-  {
-    projectId: "00000000-0000-0000-0000-000000000002",
-    projectLabel: "Product launch film",
-    sceneTitle: "Hero wide",
-    render: {
-      id: "sample-render-2",
-      projectId: "00000000-0000-0000-0000-000000000002",
-      sceneId: "sample-scene-b",
-      type: "frame",
-      engine: "remotion",
-      status: "complete",
-      cost: {
-        amount: 0,
-        currency: "USD",
-        breakdown: [{ label: "Local", amount: 0 }],
-      },
-      createdAt: new Date("2026-04-03T16:40:00"),
-      startedAt: new Date("2026-04-03T16:40:00"),
-      endedAt: new Date("2026-04-03T16:40:02"),
-    },
-  },
-  {
-    projectId: "00000000-0000-0000-0000-000000000003",
-    projectLabel: "Internal test",
-    sceneTitle: "Overlay pass",
-    render: {
-      id: "sample-render-3",
-      projectId: "00000000-0000-0000-0000-000000000003",
-      sceneId: "sample-scene-c",
-      type: "frame",
-      engine: "openai-image",
-      status: "failed",
-      model: "gpt-image-1.5",
-      cost: {
-        amount: 0.12,
-        currency: "USD",
-        breakdown: [{ label: "Image API (failed run)", amount: 0.12 }],
-      },
-      createdAt: new Date("2026-04-02T11:05:00"),
-      startedAt: new Date("2026-04-02T11:05:00"),
-      endedAt: new Date("2026-04-02T11:05:48"),
-    },
-  },
-];
-
 export function CostOverviewPageView() {
   const [dbRows, setDbRows] = useState<RenderListRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -106,10 +34,7 @@ export function CostOverviewPageView() {
     refresh();
   }, [refresh]);
 
-  const rows = useMemo(
-    () => (USE_RENDER_TABLE_DESIGN_SAMPLES ? DESIGN_SAMPLE_ROWS : dbRows),
-    [dbRows],
-  );
+  const rows = dbRows;
 
   return (
     <main className="w-full px-6 pb-10 pt-6">
@@ -121,9 +46,11 @@ export function CostOverviewPageView() {
 
       <p className={cn(panelHeadingClass, "mb-3")}>Cost</p>
 
-      {!USE_RENDER_TABLE_DESIGN_SAMPLES && rows.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="rounded-lg border border-border px-4 py-10">
-          <p className="text-center text-base text-muted-foreground">No costs yet.</p>
+          <p className="text-center text-base text-muted-foreground">
+            No costs yet. OpenAI image runs in your projects are listed here after you generate frames.
+          </p>
         </div>
       ) : (
         <>

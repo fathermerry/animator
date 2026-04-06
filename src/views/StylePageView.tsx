@@ -749,7 +749,7 @@ function KitSection({
         {assets.length === 0 ? (
           <p className="archive-text-muted py-4 text-center">{emptyMessage}</p>
         ) : (
-          <ul className="grid list-none grid-cols-3 gap-3 p-0 sm:gap-4">
+          <ul className="grid list-none grid-cols-4 gap-2 p-0 sm:gap-3">
             {assets.map((asset, index) => {
               const isSelected = selection?.id === asset.id;
               const isGenerating = Boolean(

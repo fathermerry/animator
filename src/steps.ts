@@ -13,7 +13,7 @@ export const STEPS: readonly Step[] = [
     label: "Story",
     title: "Story",
     body:
-      "Compose your film from scenes: add them manually or paste a full script. Set length, transcript, and narration per scene before style and compose.",
+      "Compose your film from scenes: add them manually or paste a full script. Set length, voiceover, and narration per scene before style and compose.",
   },
   {
     slug: "style",

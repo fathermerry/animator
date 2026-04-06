@@ -14,13 +14,13 @@ type Props = {
   disabled?: boolean;
   onVoiceoverChange: (value: string) => void;
   onDurationChange: (durationSeconds: number) => void;
-  /** Generate narration from transcript (e.g. POST /api/narration). */
+  /** Generate narration from voiceover text (e.g. POST /api/narration). */
   onGenerateAudio?: () => void;
   generatingAudio?: boolean;
   narrationError?: string | null;
 };
 
-/** Scene length, transcript, and narration audio for the Story step. */
+/** Scene length, voiceover copy, and narration audio for the Story step. */
 export function SceneEdit({
   scene,
   variant = "panel",
@@ -42,6 +42,8 @@ export function SceneEdit({
   }, [audioSrc]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const onDurationChangeRef = useRef(onDurationChange);
+  onDurationChangeRef.current = onDurationChange;
   const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
@@ -51,6 +53,22 @@ export function SceneEdit({
     el.currentTime = 0;
     setPlaying(false);
   }, [resolvedAudio]);
+
+  /** Keep scene length aligned with the narration file (same source as the hidden audio element). */
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el || !resolvedAudio) return;
+    const apply = () => {
+      const d = el.duration;
+      if (!Number.isFinite(d) || d <= 0) return;
+      onDurationChangeRef.current(Math.ceil(d));
+    };
+    el.addEventListener("loadedmetadata", apply);
+    if (el.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      apply();
+    }
+    return () => el.removeEventListener("loadedmetadata", apply);
+  }, [resolvedAudio, scene?.id]);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -72,7 +90,7 @@ export function SceneEdit({
     return (
       <div className="min-w-0 px-4 py-4">
         <p className="text-sm text-muted-foreground" role="status">
-          Select a scene to edit length and transcript.
+          Select a scene to edit length and voiceover.
         </p>
       </div>
     );
@@ -80,7 +98,8 @@ export function SceneEdit({
 
   const title = scene.title.trim() || `Scene ${scene.index + 1}`;
   const isInline = variant === "inline";
-  const hasTranscript = Boolean(scene.voiceoverText?.trim());
+  const hasVoiceover = Boolean(scene.voiceoverText?.trim());
+  const durationLockedByAudio = Boolean(resolvedAudio);
 
   const totalSec = Number.isFinite(scene.durationSeconds)
     ? Math.max(0, Math.floor(scene.durationSeconds))
@@ -93,11 +112,12 @@ export function SceneEdit({
     onDurationChange(t);
   }
 
+  const durationInputsDisabled = disabled || durationLockedByAudio;
   const inputClass = cn(
     "w-16 shrink-0 rounded-md border border-border/80 bg-background px-2 py-1.5 text-base tabular-nums text-foreground shadow-none outline-none ring-0",
     "focus-visible:ring-2 focus-visible:ring-ring",
     "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
-    disabled && "cursor-not-allowed opacity-60",
+    durationInputsDisabled && "cursor-not-allowed opacity-60",
   );
 
   const controlBtnClass = cn(
@@ -131,11 +151,67 @@ export function SceneEdit({
           isInline ? "px-0 py-0" : "px-4 pb-4 pt-4",
         )}
       >
+        <div className="flex min-w-0 flex-col gap-2">
+          <p className={panelHeadingAfterBlockClass}>Voiceover</p>
+          <textarea
+            value={scene.voiceoverText ?? ""}
+            onChange={(e) => onVoiceoverChange(e.target.value)}
+            disabled={disabled}
+            placeholder="No voiceover"
+            spellCheck
+            rows={6}
+            className={cn(
+              "min-h-0 w-full min-w-0 resize-y bg-background text-sm leading-relaxed text-muted-foreground",
+              "border border-border/80 rounded-md px-3 py-2 shadow-none outline-none ring-0",
+              "focus-visible:ring-2 focus-visible:ring-ring",
+              "placeholder:text-muted-foreground/50",
+              disabled && "cursor-not-allowed opacity-60",
+            )}
+            aria-label={`Voiceover, ${title}`}
+          />
+        </div>
+
         <div
           className="flex w-full min-w-0 flex-wrap items-end gap-x-4 gap-y-2"
           role="group"
-          aria-label={`Duration ${formatDurationMmSs(totalSec)}, audio`}
+          aria-label={`Audio, duration ${formatDurationMmSs(totalSec)}`}
         >
+          <div className="flex min-w-0 shrink-0 flex-col gap-1">
+            <span className="text-sm text-muted-foreground">Audio</span>
+            {resolvedAudio ? (
+              <>
+                <audio ref={audioRef} preload="metadata" src={resolvedAudio} className="hidden" />
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={togglePlayback}
+                  className={controlBtnClass}
+                  aria-pressed={playing}
+                >
+                  {playing ? "Stop" : "Play"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={
+                  disabled ||
+                  generatingAudio ||
+                  !hasVoiceover ||
+                  !onGenerateAudio
+                }
+                onClick={() => onGenerateAudio?.()}
+                className={controlBtnClass}
+              >
+                {generatingAudio ? "Generating…" : "Generate"}
+              </button>
+            )}
+            {narrationError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {narrationError}
+              </p>
+            ) : null}
+          </div>
           <div className="flex shrink-0 flex-col gap-1">
             <label
               htmlFor={`scene-length-min-${scene.id}`}
@@ -149,7 +225,7 @@ export function SceneEdit({
               min={0}
               max={Math.floor(MAX_DURATION_SEC / 60)}
               step={1}
-              disabled={disabled}
+              disabled={durationInputsDisabled}
               value={minutes}
               onChange={(e) => {
                 const raw = e.target.value;
@@ -175,7 +251,7 @@ export function SceneEdit({
               min={0}
               max={59}
               step={1}
-              disabled={disabled}
+              disabled={durationInputsDisabled}
               value={seconds}
               onChange={(e) => {
                 const raw = e.target.value;
@@ -188,62 +264,6 @@ export function SceneEdit({
               className={inputClass}
             />
           </div>
-          <div className="flex min-w-0 flex-1 basis-0 flex-col gap-1">
-            <span className="text-sm text-muted-foreground">Audio</span>
-            {resolvedAudio ? (
-              <>
-                <audio ref={audioRef} preload="metadata" src={resolvedAudio} className="hidden" />
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={togglePlayback}
-                  className={controlBtnClass}
-                  aria-pressed={playing}
-                >
-                  {playing ? "Stop" : "Play"}
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                disabled={
-                  disabled ||
-                  generatingAudio ||
-                  !hasTranscript ||
-                  !onGenerateAudio
-                }
-                onClick={() => onGenerateAudio?.()}
-                className={controlBtnClass}
-              >
-                {generatingAudio ? "Generating…" : "Generate"}
-              </button>
-            )}
-            {narrationError ? (
-              <p className="text-sm text-destructive" role="alert">
-                {narrationError}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-2">
-          <p className={panelHeadingAfterBlockClass}>Transcript</p>
-          <textarea
-            value={scene.voiceoverText ?? ""}
-            onChange={(e) => onVoiceoverChange(e.target.value)}
-            disabled={disabled}
-            placeholder="No transcript"
-            spellCheck
-            rows={6}
-            className={cn(
-              "min-h-0 w-full min-w-0 resize-y bg-background text-sm leading-relaxed text-muted-foreground",
-              "border border-border/80 rounded-md px-3 py-2 shadow-none outline-none ring-0",
-              "focus-visible:ring-2 focus-visible:ring-ring",
-              "placeholder:text-muted-foreground/50",
-              disabled && "cursor-not-allowed opacity-60",
-            )}
-            aria-label={`Transcript, ${title}`}
-          />
         </div>
       </div>
     </div>

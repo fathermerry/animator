@@ -69,3 +69,46 @@ export function sceneStartSeconds(scenes: Scene[], sceneId: string): number {
 export function filmDurationSeconds(scenes: Scene[]): number {
   return scenes.reduce((acc, s) => acc + (Number.isFinite(s.durationSeconds) ? s.durationSeconds : 0), 0);
 }
+
+/**
+ * Map cumulative story time (sum of prior scene lengths, same order as film) to the active scene
+ * and narration clip for combined audio preview.
+ */
+export function getStoryNarrationPlaybackAtGlobalSeconds(
+  globalSec: number,
+  scenes: Scene[],
+): {
+  sceneId: string;
+  elapsedInSceneSeconds: number;
+  sceneDurationSeconds: number;
+  narrationSrc: string | null;
+} | null {
+  const ordered = [...scenes].sort((a, b) => a.index - b.index);
+  if (ordered.length === 0) return null;
+  const total = filmDurationSeconds(scenes);
+  if (total <= 0) return null;
+  const g = Math.max(0, Math.min(globalSec, total));
+  let start = 0;
+  for (const scene of ordered) {
+    const dur = Number.isFinite(scene.durationSeconds) ? Math.max(0, scene.durationSeconds) : 0;
+    const end = start + dur;
+    if (g >= start && g < end) {
+      const src = scene.narrationAudioSrc?.trim() || null;
+      return {
+        sceneId: scene.id,
+        elapsedInSceneSeconds: g - start,
+        sceneDurationSeconds: dur,
+        narrationSrc: src,
+      };
+    }
+    start = end;
+  }
+  const last = ordered[ordered.length - 1]!;
+  const dur = Number.isFinite(last.durationSeconds) ? Math.max(0, last.durationSeconds) : 0;
+  return {
+    sceneId: last.id,
+    elapsedInSceneSeconds: dur,
+    sceneDurationSeconds: dur,
+    narrationSrc: last.narrationAudioSrc?.trim() || null,
+  };
+}

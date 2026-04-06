@@ -7,4 +7,4 @@ dist
 !.env.example
 
 # Generated frame stills (local render API)
-public/renders/**/*.png
+public/renders/

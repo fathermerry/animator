@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   type OpenAiImageModelId,
   isOpenAiImageModelId,
 } from "@/lib/imageModels";
+import { useNarrationAudioDuration } from "@/lib/useNarrationAudioDuration";
 import { panelHeadingClass } from "@/lib/panelHeading";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/store/projectStore";
@@ -37,6 +38,21 @@ export function RenderSceneFrameDetails({
   const cancelFrameRender = useStore(useProjectStore, (s) => s.cancelFrameRender);
 
   const [imageModel, setImageModel] = useState<OpenAiImageModelId>(DEFAULT_OPENAI_IMAGE_MODEL);
+
+  const narrationSrc = scene?.narrationAudioSrc?.trim() ?? "";
+  const narrationAudioDur = useNarrationAudioDuration(narrationSrc || undefined);
+  const onPatchSceneRef = useRef(onPatchScene);
+  onPatchSceneRef.current = onPatchScene;
+
+  useEffect(() => {
+    if (!scene) return;
+    if (!narrationSrc || narrationAudioDur == null || !Number.isFinite(narrationAudioDur) || narrationAudioDur <= 0) {
+      return;
+    }
+    const next = Math.ceil(narrationAudioDur);
+    if (scene.durationSeconds === next) return;
+    onPatchSceneRef.current(scene.id, { durationSeconds: next });
+  }, [scene, narrationSrc, narrationAudioDur]);
 
   if (!scene) {
     return (
@@ -109,6 +125,7 @@ export function RenderSceneFrameDetails({
             type="number"
             min={0}
             step={0.1}
+            disabled={Boolean(narrationSrc)}
             value={Number.isFinite(scene.durationSeconds) ? scene.durationSeconds : 0}
             onChange={(e) => {
               const v = parseFloat(e.target.value);

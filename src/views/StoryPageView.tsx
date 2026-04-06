@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
+import { CombinedNarrationPreview } from "@/components/CombinedNarrationPreview";
 import { SceneEdit } from "@/components/SceneEdit";
 import { WorkflowStepPage } from "@/components/WorkflowStepPage";
 import { formatDurationMmSs } from "@/lib/filmTime";
+import { loadAudioDurationSeconds } from "@/lib/useNarrationAudioDuration";
 import { requestSceneNarration } from "@/lib/narrationApi";
 import { panelHeadingAfterBlockClass } from "@/lib/panelHeading";
 import { cn } from "@/lib/utils";
@@ -28,10 +30,12 @@ export function StoryPageView({ step: _step }: Props) {
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (expandedSceneId && !orderedScenes.some((s) => s.id === expandedSceneId)) {
-      setExpandedSceneId(null);
-    }
-  }, [orderedScenes, expandedSceneId]);
+    setExpandedSceneId((prev) => {
+      if (orderedScenes.length === 0) return null;
+      if (prev && orderedScenes.some((s) => s.id === prev)) return prev;
+      return orderedScenes[0]!.id;
+    });
+  }, [orderedScenes]);
 
   const firstPanelRef = useRef<HTMLDivElement>(null);
 
@@ -65,6 +69,9 @@ export function StoryPageView({ step: _step }: Props) {
           text: vo,
         });
         patchScene(sc.id, { narrationAudioSrc: audioUrl });
+        void loadAudioDurationSeconds(audioUrl).then((d) => {
+          if (d != null) patchScene(sc.id, { durationSeconds: Math.ceil(d) });
+        });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Narration failed";
         setNarrationErrorBySceneId((prev) => ({ ...prev, [sc.id]: msg }));
@@ -100,6 +107,10 @@ export function StoryPageView({ step: _step }: Props) {
             aria-label="Script"
           />,
         <div key="story-right" className="flex w-full min-w-0 flex-col gap-6">
+          <div className="flex w-full min-w-0 flex-col gap-2" aria-label="Audio preview">
+            <p className={panelHeadingAfterBlockClass}>Audio preview</p>
+            <CombinedNarrationPreview scenes={orderedScenes} />
+          </div>
           <div className="flex w-full min-w-0 flex-col gap-2.5" aria-label="Scenes">
             <p className={panelHeadingAfterBlockClass}>Scenes</p>
             <ul className="flex min-w-0 flex-col gap-1">
@@ -112,9 +123,7 @@ export function StoryPageView({ step: _step }: Props) {
                     <button
                       type="button"
                       id={`${panelId}-trigger`}
-                      onClick={() =>
-                        setExpandedSceneId((prev) => (prev === sc.id ? null : sc.id))
-                      }
+                      onClick={() => setExpandedSceneId(sc.id)}
                       className={cn(
                         "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-base leading-none transition-colors",
                         isExpanded
@@ -137,7 +146,7 @@ export function StoryPageView({ step: _step }: Props) {
                         id={panelId}
                         role="region"
                         aria-labelledby={`${panelId}-trigger`}
-                        className="mt-1 mb-2 rounded-md border border-border/80 px-3 py-4"
+                        className="mt-1 mb-2 px-3 pb-4"
                       >
                         <SceneEdit
                           variant="inline"

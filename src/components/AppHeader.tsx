@@ -54,7 +54,7 @@ export function AppHeader({ currentSlug, mainNav, projectId }: Props) {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 grid min-h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-border bg-background px-6 py-3">
-      <div className="flex min-w-0 items-center gap-1 justify-self-start">
+      <div className="flex min-w-0 items-center gap-3 justify-self-start">
         {mainNav ? (
           <span className="min-w-0 truncate text-base font-medium text-foreground">animator</span>
         ) : (

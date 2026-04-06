@@ -51,15 +51,50 @@ function sizeForModel(model: ImageModel): "1024x1024" | "512x512" | "256x256" {
   return "1024x1024";
 }
 
-function costPlaceholder(model: ImageModel): {
+/** Approximate list-price USD per image for the exact params we send to `images.generate`. OpenAI does not return dollars on this response. */
+function estimatedUsdForImageGeneration(
+  model: ImageModel,
+  size: "1024x1024" | "512x512" | "256x256",
+): number {
+  if (model === "dall-e-2") {
+    if (size === "256x256") return 0.016;
+    if (size === "512x512") return 0.018;
+    return 0.02;
+  }
+  if (model === "dall-e-3") {
+    // We only request `quality: "standard"` for DALL·E 3 today.
+    return 0.04;
+  }
+  if (model === "gpt-image-1-mini") {
+    // GPT Image mini, medium quality, 1024×1024 — ballpark from OpenAI pricing.
+    return 0.02;
+  }
+  // gpt-image-1.5, medium quality, 1024×1024
+  return 0.034;
+}
+
+function costForImageGeneration(args: {
+  model: ImageModel;
+  size: "1024x1024" | "512x512" | "256x256";
+  usage?: { total_tokens?: number };
+}): {
   amount: number;
   currency: string;
   breakdown: { label: string; amount: number }[];
 } {
+  const amount = estimatedUsdForImageGeneration(args.model, args.size);
+  const tokens = args.usage?.total_tokens;
+  const tokenSuffix =
+    typeof tokens === "number" && Number.isFinite(tokens) ? ` · ${tokens} tokens` : "";
   return {
-    amount: 0,
+    amount,
     currency: "USD",
-    breakdown: [{ label: `openai:${model}`, amount: 0 }],
+    breakdown: [
+      {
+        label: `OpenAI image (${args.model}${tokenSuffix}, estimate)`,
+        amount,
+      },
+    ],
   };
 }
 
@@ -135,7 +170,11 @@ app.post("/api/render-frame", async (req, res) => {
     const imageUrl = `/renders/${safeSegment(projectId)}/${fileName}`;
     /** Same bytes as on disk — lets the client show the still without a follow-up GET to `/renders/...`. */
     const imageDataUrl = `data:image/png;base64,${b64}`;
-    const cost = costPlaceholder(model);
+    const cost = costForImageGeneration({
+      model,
+      size,
+      usage: response.usage,
+    });
 
     res.json({
       imageUrl,
