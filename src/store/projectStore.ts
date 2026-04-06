@@ -182,7 +182,13 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     const bundle = selectResolvedStyleBundle(get());
     const prompt = buildFrameImagePrompt(get().project, scene, frame, bundle);
 
-    get().patchRender(render.id, { status: "processing", engine: "openai-image" });
+    const runStarted = new Date();
+    get().patchRender(render.id, {
+      status: "processing",
+      engine: "openai-image",
+      startedAt: runStarted,
+      endedAt: undefined,
+    });
 
     try {
       const data = await requestFrameImageRender(
@@ -200,17 +206,22 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         engine: "openai-image",
         model: data.model,
         cost: data.cost,
+        endedAt: new Date(),
       });
     } catch (e: unknown) {
       if (isAbortError(e)) {
-        get().patchRender(render.id, { status: "pending" });
+        get().patchRender(render.id, {
+          status: "pending",
+          startedAt: undefined,
+          endedAt: undefined,
+        });
         return;
       }
       const msg = e instanceof Error ? e.message : "Render failed";
       set((st) => ({
         frameRenderErrors: { ...st.frameRenderErrors, [frameId]: msg },
       }));
-      get().patchRender(render.id, { status: "failed" });
+      get().patchRender(render.id, { status: "failed", endedAt: new Date() });
     } finally {
       releaseFrameAbort(frameId);
       if (options.clearRenderingFlagWhenDone) {
@@ -234,6 +245,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     const frameId = kitAssetRenderFrameId(kind, asset.id);
     const renderId = crypto.randomUUID();
     const zeroCost: Render["cost"] = { amount: 0, currency: "USD", breakdown: [] };
+    const kitStarted = new Date();
     const newRender: Render = {
       id: renderId,
       projectId: project.id,
@@ -242,7 +254,8 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       engine: "openai-image",
       status: "processing",
       cost: zeroCost,
-      createdAt: new Date(),
+      createdAt: kitStarted,
+      startedAt: kitStarted,
       kitTarget: { kind, assetId: asset.id },
     };
     set((s) => ({ renders: [...s.renders, newRender] }));
@@ -284,13 +297,14 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         engine: "openai-image",
         model: data.model,
         cost: data.cost,
+        endedAt: new Date(),
       });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Render failed";
       set((st) => ({
         kitAssetRenderErrors: { ...st.kitAssetRenderErrors, [renderId]: msg },
       }));
-      get().patchRender(renderId, { status: "failed" });
+      get().patchRender(renderId, { status: "failed", endedAt: new Date() });
     } finally {
       const gk = kitAssetGeneratingKey(kind, asset.id);
       set((st) => {
@@ -537,7 +551,11 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       const fr = get().frames.find((f) => f.id === frameId);
       const r = fr ? get().renders.find((x) => x.id === fr.renderId && x.type === "frame") : undefined;
       if (r?.status === "processing") {
-        get().patchRender(fr!.renderId, { status: "pending" });
+        get().patchRender(fr!.renderId, {
+          status: "pending",
+          startedAt: undefined,
+          endedAt: undefined,
+        });
       }
     },
 

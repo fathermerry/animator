@@ -1,6 +1,6 @@
 import type { Cost } from "@/types/project";
 
-export const DEFAULT_IMAGE_MODEL_ID = "dall-e-3";
+export const DEFAULT_IMAGE_MODEL_ID = "gpt-image-1.5";
 
 export type RenderFrameRequestBody = {
   projectId: string;

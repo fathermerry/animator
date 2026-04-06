@@ -57,3 +57,24 @@ export function formatRenderListTimestamp(createdAt: Date): string {
     timeStyle: "short",
   });
 }
+
+function coerceRenderDate(d: Date | string | undefined | null): Date | undefined {
+  if (d == null) return undefined;
+  const t = d instanceof Date ? d : new Date(String(d));
+  return Number.isNaN(t.getTime()) ? undefined : t;
+}
+
+/** Human-readable duration when {@link Render.startedAt} and {@link Render.endedAt} are set. */
+export function formatRenderDuration(r: Pick<Render, "startedAt" | "endedAt">): string {
+  const start = coerceRenderDate(r.startedAt);
+  const end = coerceRenderDate(r.endedAt);
+  if (!start || !end) return "—";
+  const ms = end.getTime() - start.getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  const sec = ms / 1000;
+  if (sec < 60) return `${sec < 10 ? sec.toFixed(1) : Math.round(sec)} s`;
+  const min = Math.floor(sec / 60);
+  const s = Math.round(sec - min * 60);
+  return `${min}m ${s}s`;
+}

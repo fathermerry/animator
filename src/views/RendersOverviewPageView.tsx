@@ -11,6 +11,7 @@ import {
   formatCost,
   renderCostTotalAmount,
   formatEngine,
+  formatRenderDuration,
   formatRenderListTimestamp,
   formatRenderStatus,
 } from "@/lib/renderDisplay";
@@ -31,13 +32,15 @@ const DESIGN_SAMPLE_ROWS: RenderListRow[] = [
       type: "frame",
       engine: "openai-image",
       status: "complete",
-      model: "gpt-image-1",
+      model: "gpt-image-1.5",
       cost: {
         amount: 0.47,
         currency: "USD",
         breakdown: [{ label: "Image API", amount: 0.47 }],
       },
       createdAt: new Date("2026-04-04T09:12:00"),
+      startedAt: new Date("2026-04-04T09:12:00"),
+      endedAt: new Date("2026-04-04T09:12:14"),
     },
   },
   {
@@ -57,6 +60,8 @@ const DESIGN_SAMPLE_ROWS: RenderListRow[] = [
         breakdown: [{ label: "Local", amount: 0 }],
       },
       createdAt: new Date("2026-04-03T16:40:00"),
+      startedAt: new Date("2026-04-03T16:40:00"),
+      endedAt: new Date("2026-04-03T16:40:02"),
     },
   },
   {
@@ -70,13 +75,15 @@ const DESIGN_SAMPLE_ROWS: RenderListRow[] = [
       type: "frame",
       engine: "openai-image",
       status: "failed",
-      model: "gpt-image-1",
+      model: "gpt-image-1.5",
       cost: {
         amount: 0.12,
         currency: "USD",
         breakdown: [{ label: "Image API (failed run)", amount: 0.12 }],
       },
       createdAt: new Date("2026-04-02T11:05:00"),
+      startedAt: new Date("2026-04-02T11:05:00"),
+      endedAt: new Date("2026-04-02T11:05:48"),
     },
   },
 ];
@@ -178,6 +185,7 @@ export function RendersOverviewPageView() {
                   <th className="px-3 py-2 text-left font-medium text-foreground">Status</th>
                   <th className="px-3 py-2 text-left font-medium text-foreground">Model</th>
                   <th className="px-3 py-2 text-right font-medium text-foreground">Cost</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground">Duration</th>
                   <th className="px-3 py-2 text-left font-medium text-foreground">Created</th>
                 </tr>
               </thead>
@@ -205,6 +213,9 @@ export function RendersOverviewPageView() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 align-top text-right text-foreground">
                         {formatCost(renderCostTotalAmount(render.cost), render.cost.currency)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+                        {formatRenderDuration(render)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
                         {formatRenderListTimestamp(render.createdAt)}

@@ -25,11 +25,22 @@ function clampPromptForOpenAiImages(prompt: string): string {
   return prompt.slice(0, Math.max(0, OPENAI_IMAGE_PROMPT_MAX_CHARS - note.length)) + note;
 }
 
-type ImageModel = "dall-e-3" | "dall-e-2";
+type ImageModel =
+  | "gpt-image-1.5"
+  | "gpt-image-1-mini"
+  | "dall-e-3"
+  | "dall-e-2";
+
+function isGptImageModel(m: ImageModel): boolean {
+  return m === "gpt-image-1.5" || m === "gpt-image-1-mini";
+}
 
 function resolveModel(modelId: unknown): ImageModel {
+  if (modelId === "gpt-image-1-mini") return "gpt-image-1-mini";
   if (modelId === "dall-e-2") return "dall-e-2";
-  return "dall-e-3";
+  if (modelId === "dall-e-3") return "dall-e-3";
+  if (modelId === "gpt-image-1.5") return "gpt-image-1.5";
+  return "gpt-image-1.5";
 }
 
 function sizeForModel(model: ImageModel): "1024x1024" | "512x512" | "256x256" {
@@ -92,13 +103,18 @@ app.post("/api/render-frame", async (req, res) => {
     const openai = new OpenAI({ apiKey });
     const size = sizeForModel(model);
 
+    // GPT Image models always return `b64_json`; `response_format` is DALL·E-only (400 if sent).
     const response = await openai.images.generate({
       model,
       prompt,
       n: 1,
       size,
-      response_format: "b64_json",
-      ...(model === "dall-e-3" ? { quality: "standard" as const } : {}),
+      ...(isGptImageModel(model)
+        ? { quality: "medium" as const }
+        : {
+            response_format: "b64_json" as const,
+            ...(model === "dall-e-3" ? { quality: "standard" as const } : {}),
+          }),
     });
 
     const b64 = response.data?.[0]?.b64_json;

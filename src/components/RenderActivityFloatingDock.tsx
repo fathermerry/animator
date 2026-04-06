@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   formatCost,
   formatEngine,
+  formatRenderDuration,
   formatRenderListTimestamp,
   formatRenderStatus,
   isStructuralFrameShellRender,
@@ -223,6 +224,7 @@ export function RenderActivityFloatingDock({
         <DetailRow label="Cost">
           {formatCost(renderCostTotalAmount(r.cost), r.cost.currency)}
         </DetailRow>
+        <DetailRow label="Duration">{formatRenderDuration(r)}</DetailRow>
         <DetailRow label="Date">{formatRenderListTimestamp(coerceDate(r.createdAt))}</DetailRow>
       </div>
     );

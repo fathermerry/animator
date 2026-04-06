@@ -28,6 +28,16 @@ function reviveDate(raw: unknown): Date {
   return new Date();
 }
 
+function reviveOptionalDate(raw: unknown): Date | undefined {
+  if (raw == null) return undefined;
+  if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? undefined : raw;
+  if (typeof raw === "string" && raw.trim()) {
+    const d = new Date(raw);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return undefined;
+}
+
 function reviveTextStyle(raw: unknown, fallback: TextStyle): TextStyle {
   if (!raw || typeof raw !== "object") return { ...fallback };
   const t = raw as Partial<TextStyle>;
@@ -196,6 +206,8 @@ function reviveRender(raw: unknown): Render | null {
   ) {
     kitTarget = { kind: ktRaw.kind, assetId: ktRaw.assetId.trim() };
   }
+  const startedAt = reviveOptionalDate(r.startedAt);
+  const endedAt = reviveOptionalDate(r.endedAt);
   return {
     id: r.id,
     projectId: r.projectId,
@@ -205,6 +217,8 @@ function reviveRender(raw: unknown): Render | null {
     status,
     cost: reviveCost(r.cost),
     createdAt: reviveDate(r.createdAt),
+    ...(startedAt ? { startedAt } : {}),
+    ...(endedAt ? { endedAt } : {}),
     ...(model ? { model } : {}),
     ...(kitTarget ? { kitTarget } : {}),
   };

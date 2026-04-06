@@ -109,13 +109,28 @@ export type RenderListRow = {
   sceneTitle: string | null;
 };
 
+function coerceOptionalRenderDate(raw: Date | string | undefined): Date | undefined {
+  if (raw == null) return undefined;
+  const d = raw instanceof Date ? raw : new Date(String(raw));
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 function coerceRenderCreatedAt(render: Render): Render {
   const createdAt =
     render.createdAt instanceof Date
       ? render.createdAt
       : new Date(String(render.createdAt));
   const type = render.type === "asset" ? "asset" : "frame";
-  return { ...render, createdAt, type };
+  const { startedAt: _st, endedAt: _en, ...rest } = render;
+  const startedAt = coerceOptionalRenderDate(render.startedAt);
+  const endedAt = coerceOptionalRenderDate(render.endedAt);
+  return {
+    ...rest,
+    createdAt,
+    type,
+    ...(startedAt ? { startedAt } : {}),
+    ...(endedAt ? { endedAt } : {}),
+  };
 }
 
 /** All renders from every project in IndexedDB, newest first. */

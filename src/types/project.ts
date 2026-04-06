@@ -27,6 +27,10 @@ export type Render = {
   status: "pending" | "processing" | "complete" | "failed";
   cost: Cost;
   createdAt: Date;
+  /** When this render entered `processing` (work started). */
+  startedAt?: Date;
+  /** When this render finished (`complete` or `failed`). */
+  endedAt?: Date;
   /** Set when {@link engine} is `openai-image` (which image model produced the still). */
   model?: string;
   /** Present for style-kit asset image generations. */
