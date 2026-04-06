@@ -32,6 +32,8 @@ type Props = {
   globalFrame: number;
   /** Fired when the current global film frame changes (playback, scrub, seek). */
   onGlobalFrameChange?: (globalFrame: number) => void;
+  /** Fired when Remotion play/pause state changes. */
+  onPlayingChange?: (playing: boolean) => void;
 };
 
 export function RenderFilmPreview({
@@ -43,6 +45,7 @@ export function RenderFilmPreview({
   filmPlayerRef,
   globalFrame,
   onGlobalFrameChange,
+  onPlayingChange,
 }: Props) {
   const localRef = useRef<PlayerRef>(null);
   const playerRef = filmPlayerRef ?? localRef;
@@ -82,6 +85,10 @@ export function RenderFilmPreview({
     if (!hasTimeline || !onGlobalFrameChange) return;
     if (globalFrame > maxFrame) onGlobalFrameChange(maxFrame);
   }, [hasTimeline, maxFrame, globalFrame, onGlobalFrameChange]);
+
+  useEffect(() => {
+    onPlayingChange?.(playing);
+  }, [playing, onPlayingChange]);
 
   useEffect(() => {
     const p = playerRef.current;

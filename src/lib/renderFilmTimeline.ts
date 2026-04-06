@@ -176,6 +176,51 @@ export function getPlaybackContextAtFilmGlobalFrame(
   return { sceneId: last.sceneId, frameId: last.frameId };
 }
 
+/** Elapsed time within the current scene’s film span and total scene span on the film timeline (for narration sync). */
+export function getFilmPlaybackWithinScene(
+  globalFrame: number,
+  scenes: Scene[],
+  frames: Frame[],
+  renders: Render[],
+  assetBundle: AssetBundle,
+): {
+  sceneId: string;
+  frameId: string | null;
+  elapsedInSceneSeconds: number;
+  sceneFilmDurationSeconds: number;
+} | null {
+  const { segments, totalFrames } = buildRenderFilmTimeline(scenes, frames, renders, assetBundle);
+  if (segments.length === 0 || totalFrames <= 0) return null;
+  const f = Math.max(0, Math.min(Math.floor(globalFrame), totalFrames - 1));
+  let t = 0;
+  for (const seg of segments) {
+    const end = t + seg.durationInFrames;
+    if (f >= t && f < end) {
+      let sceneStart = 0;
+      for (const s of segments) {
+        if (s.sceneId === seg.sceneId) break;
+        sceneStart += s.durationInFrames;
+      }
+      let sceneFrames = 0;
+      let seen = false;
+      for (const s of segments) {
+        if (s.sceneId === seg.sceneId) {
+          seen = true;
+          sceneFrames += s.durationInFrames;
+        } else if (seen) break;
+      }
+      return {
+        sceneId: seg.sceneId,
+        frameId: seg.frameId,
+        elapsedInSceneSeconds: (f - sceneStart) / FILM_FPS,
+        sceneFilmDurationSeconds: sceneFrames / FILM_FPS,
+      };
+    }
+    t = end;
+  }
+  return null;
+}
+
 /** Global Remotion frame index at the start of a project frame’s segment (matches {@link buildRenderFilmTimeline}). */
 export function getFilmStartFrameIndexForFrame(
   targetFrameId: string,

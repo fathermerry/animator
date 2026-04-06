@@ -2,72 +2,61 @@ import type { ReactNode, Ref } from "react";
 
 import { cn } from "@/lib/utils";
 
-type Props = {
-  /** First column: script editor, asset kits, layers aside, etc. */
-  primary: ReactNode;
-  /**
-   * Optional middle column (e.g. Compose step scene/frame details). Shown between primary and
-   * preview on `lg+` only; omitted when not passed.
-   */
-  middle?: ReactNode;
-  /** Extra classes on the middle column wrapper (when `middle` is set). */
+export type WorkflowStepLayoutProps = {
+  /** Ordered column content: length 2 (two panels) or 3 (three panels). Index 0 = left, 1 = middle (three only), last = right. */
+  panels: [ReactNode, ReactNode] | [ReactNode, ReactNode, ReactNode];
+  /** Ref on the first panel’s scroll shell. */
+  firstPanelRef?: Ref<HTMLDivElement>;
+  /** Extra classes on the first panel wrapper. */
+  primaryClassName?: string;
+  /** Extra classes on the middle panel wrapper (three panels only). */
   middleClassName?: string;
-  /** Right column (typically `WorkflowPreviewColumn` + related UI). */
-  preview: ReactNode;
-  /** Optional content below the preview in the right column (e.g. Background on Style). */
-  previewFooter?: ReactNode;
   /** Extra classes on `<main>`. */
   className?: string;
-  /** Extra classes on the primary column wrapper (padding, etc.). */
-  primaryClassName?: string;
-  /** Ref on the scrollable primary column shell (e.g. Script step ties `useDocumentScrollScene` here). */
-  primaryColumnRef?: Ref<HTMLDivElement>;
   /**
-   * When set with `middle`, primary / middle / preview each take one third of the row on `lg+`
-   * (`flex-1 basis-0`). Compose keeps the default narrow primary + fixed middle rail unless this is set.
+   * When three panels: primary / middle / last each take one third on `lg+` (`flex-1 basis-0`).
+   * Compose uses narrow first rail unless combined with other options.
    */
   equalWidthColumns?: boolean;
   /**
-   * When set with `middle`, middle column is wider than left and right (Style step frame preview).
+   * When three panels: middle column wider than first and last (Style step frame preview).
    * Mutually exclusive with `equalWidthColumns` in practice.
    */
   middleColumnWide?: boolean;
 };
 
 /**
- * Shared shell for Script, Style, and Compose (two columns by default; optional middle on Compose).
- * Primary and preview columns scroll independently (`overflow-y-auto`); the outer `<main>` is
- * `overflow-hidden` so height is bounded. On narrow viewports the columns stack and share the
- * viewport height (`flex-1 min-h-0`); the app shell does not scroll on workflow routes.
+ * Workflow shell: **panels** and **count** only (2 or 3). Steps supply content per panel; no fixed
+ * “preview” semantics. Primary and trailing columns scroll independently on `lg+`; outer `<main>` is
+ * `overflow-hidden`. On narrow viewports panels stack.
  */
 export function WorkflowStepLayout({
-  primary,
-  middle,
-  middleClassName,
-  preview,
-  previewFooter,
-  className,
+  panels,
+  firstPanelRef,
   primaryClassName,
-  primaryColumnRef,
+  middleClassName,
+  className,
   equalWidthColumns = false,
   middleColumnWide = false,
-}: Props) {
-  const threeColumn = middle != null;
-  /** Bottom inset on `lg+` (top alignment comes from flex justify-start + filled shell, not extra pt). */
+}: WorkflowStepLayoutProps) {
+  const threeColumn = panels.length === 3;
+  const primary = panels[0];
+  const middle = threeColumn ? panels[1] : null;
+  const lastPanel = threeColumn ? panels[2]! : panels[1]!;
+
+  /** Bottom inset on `lg+`. */
   const columnContentPad = "lg:pb-4";
-  const threeColWide = Boolean(middle != null && middleColumnWide);
-  const threeColEqual = Boolean(middle != null && equalWidthColumns && !threeColWide);
-  /** Layers + Scene share an edge; gutter and divider sit before Preview. */
-  const threeColumnPrimaryNarrow = middle != null
+  const threeColWide = Boolean(threeColumn && middleColumnWide);
+  const threeColEqual = Boolean(threeColumn && equalWidthColumns && !threeColWide);
+  const threeColumnPrimaryNarrow = threeColumn
     ? threeColWide
       ? "lg:flex-[0.92] lg:basis-0 lg:min-w-0 lg:max-w-[min(100%,22rem)] lg:shrink-0 lg:pr-0"
       : threeColEqual
         ? "lg:flex-1 lg:basis-0 lg:min-w-0 lg:max-w-none lg:pr-0"
         : "lg:w-auto lg:max-w-none lg:flex-none lg:pr-0"
     : undefined;
-  /** Extra inset before preview when columns are not equal (Compose). Equal Style columns use symmetric `lg:px-4` only. */
-  const threeColumnPreviewGutter = middle != null && !threeColEqual && !threeColWide ? "lg:pl-8" : undefined;
-  const threeColumnPreviewGrow = middle != null
+  const threeColumnLastGutter = threeColumn && !threeColEqual && !threeColWide ? "lg:pl-8" : undefined;
+  const threeColumnLastGrow = threeColumn
     ? threeColWide
       ? "lg:flex-[0.92] lg:basis-0 lg:min-w-0 lg:max-w-none"
       : threeColEqual
@@ -84,13 +73,12 @@ export function WorkflowStepLayout({
       )}
     >
       <div
-        ref={primaryColumnRef}
+        ref={firstPanelRef}
         className={cn(
           "flex min-h-0 min-w-0 w-full flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-4 md:px-8 lg:h-full lg:min-h-0 lg:pl-10 lg:pr-6",
           columnContentPad,
           threeColumnPrimaryNarrow,
           (threeColEqual || threeColWide) && "lg:px-4",
-          /** After narrow shell so steps can override (e.g. Style left rail `max-w`). */
           primaryClassName,
         )}
       >
@@ -121,12 +109,11 @@ export function WorkflowStepLayout({
             ? "lg:max-w-none lg:px-4"
             : "lg:max-w-none lg:px-0 lg:pl-6 lg:pr-10",
           columnContentPad,
-          threeColumnPreviewGutter,
-          threeColumnPreviewGrow,
+          threeColumnLastGutter,
+          threeColumnLastGrow,
         )}
       >
-        {preview}
-        {previewFooter}
+        {lastPanel}
       </div>
     </main>
   );

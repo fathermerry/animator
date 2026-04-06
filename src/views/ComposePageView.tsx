@@ -1,5 +1,5 @@
 import type { PlayerRef } from "@remotion/player";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { RenderActivityFloatingDock } from "@/components/RenderActivityFloatingDock";
@@ -13,6 +13,7 @@ import { panelHeadingClass } from "@/lib/panelHeading";
 import {
   buildRenderFilmTimeline,
   FILM_FPS,
+  getFilmPlaybackWithinScene,
   getFilmStartFrameIndexForFrame,
   getFrameIdAtFilmGlobalFrame,
   getPlaybackContextAtFilmGlobalFrame,
@@ -23,7 +24,7 @@ import type { Step } from "@/steps";
 
 type Props = { step: Step };
 
-/** Compose step: scene/frame breakdown; preview matches Script/Style. */
+/** Compose step: scene/frame breakdown; preview matches Story/Style. */
 export function ComposePageView({ step: _step }: Props) {
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
@@ -34,6 +35,8 @@ export function ComposePageView({ step: _step }: Props) {
 
   const filmPlayerRef = useRef<PlayerRef>(null);
   const [filmGlobalFrame, setFilmGlobalFrame] = useState(0);
+  const [filmPlaying, setFilmPlaying] = useState(false);
+  const narrationAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const playbackActiveFrameId = useMemo(
     () => getFrameIdAtFilmGlobalFrame(filmGlobalFrame, scenes, frames, renders, assetBundle),
@@ -60,6 +63,58 @@ export function ComposePageView({ step: _step }: Props) {
     [scenes, frames, renders, assetBundle],
   );
 
+  const playbackWithin = useMemo(
+    () => getFilmPlaybackWithinScene(filmGlobalFrame, scenes, frames, renders, assetBundle),
+    [filmGlobalFrame, scenes, frames, renders, assetBundle],
+  );
+
+  const narrationSrc = editScene?.narrationAudioSrc?.trim() ?? "";
+
+  useEffect(() => {
+    const audio = narrationAudioRef.current;
+    if (!audio) return;
+    if (!narrationSrc) {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      return;
+    }
+    const resolved = new URL(narrationSrc, window.location.origin).href;
+    if (audio.src !== resolved) {
+      audio.src = narrationSrc;
+      audio.load();
+    }
+  }, [narrationSrc]);
+
+  useEffect(() => {
+    const audio = narrationAudioRef.current;
+    if (!audio || !narrationSrc || !playbackWithin) return;
+    const ratio =
+      playbackWithin.sceneFilmDurationSeconds > 0
+        ? Math.min(
+            1,
+            Math.max(0, playbackWithin.elapsedInSceneSeconds / playbackWithin.sceneFilmDurationSeconds),
+          )
+        : 0;
+    const apply = () => {
+      if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+      const target = ratio * audio.duration;
+      if (Math.abs(audio.currentTime - target) > 0.12) {
+        audio.currentTime = target;
+      }
+      if (filmPlaying) {
+        void audio.play().catch(() => {});
+      } else {
+        audio.pause();
+      }
+    };
+    if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      apply();
+    } else {
+      audio.addEventListener("loadeddata", apply, { once: true });
+    }
+  }, [filmGlobalFrame, narrationSrc, playbackWithin, filmPlaying]);
+
   const seekFilmToFrame = useCallback(
     (frameId: string) => {
       const idx = getFilmStartFrameIndexForFrame(frameId, scenes, frames, renders, assetBundle);
@@ -72,17 +127,9 @@ export function ComposePageView({ step: _step }: Props) {
 
   return (
     <WorkflowStepPage
-      middle={
-        <RenderSceneFrameDetails
-          scene={editScene}
-          frame={editFrame}
-          onPatchScene={patchScene}
-          onPatchFrame={patchFrame}
-          className="gap-4"
-        />
-      }
-      primary={
+      panels={[
         <aside
+          key="layers"
           className={cn(
             "flex w-full min-w-0 flex-col pb-4 lg:pb-0",
             "lg:w-[16rem] lg:shrink-0 lg:pr-4",
@@ -100,9 +147,15 @@ export function ComposePageView({ step: _step }: Props) {
             playbackActiveFrameId={playbackActiveFrameId}
             onFrameSeek={seekFilmToFrame}
           />
-        </aside>
-      }
-      preview={
+        </aside>,
+        <RenderSceneFrameDetails
+          key="details"
+          scene={editScene}
+          frame={editFrame}
+          onPatchScene={patchScene}
+          onPatchFrame={patchFrame}
+          className="gap-4"
+        />,
         <>
           <WorkflowPreviewColumn
             headerRight={
@@ -124,15 +177,22 @@ export function ComposePageView({ step: _step }: Props) {
               filmPlayerRef={filmPlayerRef}
               globalFrame={filmGlobalFrame}
               onGlobalFrameChange={setFilmGlobalFrame}
+              onPlayingChange={setFilmPlaying}
             />
+            <p className="mt-2 min-w-0 text-sm leading-relaxed text-muted-foreground">
+              {editScene?.voiceoverText?.trim()
+                ? editScene.voiceoverText.trim()
+                : "No voiceover for this scene."}
+            </p>
+            <audio ref={narrationAudioRef} className="hidden" preload="auto" aria-hidden />
           </WorkflowPreviewColumn>
           <RenderActivityFloatingDock
             renders={renders}
             scenes={scenes}
             frames={frames}
           />
-        </>
-      }
-      />
+        </>,
+      ]}
+    />
   );
 }

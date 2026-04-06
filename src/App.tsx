@@ -8,7 +8,7 @@ import { canonicalWorkflowPathIfNeeded, navigate, parseRoute, pathForProjectStep
 import { STEPS, stepBySlug } from "@/steps";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 import { ComposePageView } from "@/views/ComposePageView";
-import { ScriptPageView } from "@/views/ScriptPageView";
+import { StoryPageView } from "@/views/StoryPageView";
 import { StylePageView } from "@/views/StylePageView";
 import { HomePageView } from "@/views/HomePageView";
 import { RendersOverviewPageView } from "@/views/RendersOverviewPageView";
@@ -65,7 +65,7 @@ export default function App() {
     route.kind === "workflow" || route.kind === "legacyWorkflow" ? route.stepSlug : null;
 
   const isWorkflowStepPage =
-    currentSlug === "script" ||
+    currentSlug === "story" ||
     currentSlug === "style" ||
     currentSlug === "compose";
 
@@ -142,8 +142,8 @@ export default function App() {
             <HomePageView />
           ) : isRendersPage ? (
             <RendersOverviewPageView />
-          ) : currentSlug === "script" ? (
-            <ScriptPageView step={stepBySlug("script")!} />
+          ) : currentSlug === "story" ? (
+            <StoryPageView step={stepBySlug("story")!} />
           ) : currentSlug === "style" ? (
             <StylePageView step={stepBySlug("style")!} />
           ) : currentSlug === "compose" ? (

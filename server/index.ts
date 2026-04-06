@@ -19,6 +19,9 @@ const PORT = Number(process.env.RENDER_API_PORT ?? 8787);
 /** OpenAI Images `prompt` max length (same as client-side assembly). */
 const OPENAI_IMAGE_PROMPT_MAX_CHARS = 4000;
 
+/** OpenAI TTS input limit (characters). */
+const OPENAI_TTS_INPUT_MAX_CHARS = 4096;
+
 function clampPromptForOpenAiImages(prompt: string): string {
   if (prompt.length <= OPENAI_IMAGE_PROMPT_MAX_CHARS) return prompt;
   const note = "\n[Truncated]";
@@ -143,6 +146,59 @@ app.post("/api/render-frame", async (req, res) => {
   } catch (e: unknown) {
     console.error(e);
     const message = e instanceof Error ? e.message : "Render failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+app.post("/api/narration", async (req, res) => {
+  try {
+    const body = req.body as {
+      projectId?: string;
+      sceneId?: string;
+      text?: string;
+    };
+    const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
+    const sceneId = typeof body.sceneId === "string" ? body.sceneId.trim() : "";
+    let text = typeof body.text === "string" ? body.text.trim() : "";
+    if (!projectId || !sceneId) {
+      res.status(400).json({ error: "projectId and sceneId are required" });
+      return;
+    }
+    if (!text) {
+      res.status(400).json({ error: "text is required" });
+      return;
+    }
+    if (text.length > OPENAI_TTS_INPUT_MAX_CHARS) {
+      const note = "\n[Truncated]";
+      text =
+        text.slice(0, Math.max(0, OPENAI_TTS_INPUT_MAX_CHARS - note.length)) + note;
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey?.trim()) {
+      res.status(503).json({ error: "OPENAI_API_KEY is not set" });
+      return;
+    }
+
+    const openai = new OpenAI({ apiKey });
+    const speech = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: "alloy",
+      input: text,
+    });
+
+    const arrayBuffer = await speech.arrayBuffer();
+    const dir = path.join(publicRenders, safeSegment(projectId));
+    await mkdir(dir, { recursive: true });
+    const fileName = `narration-${safeSegment(sceneId)}.mp3`;
+    const filePath = path.join(dir, fileName);
+    await writeFile(filePath, Buffer.from(arrayBuffer));
+
+    const audioUrl = `/renders/${safeSegment(projectId)}/${fileName}`;
+    res.json({ audioUrl });
+  } catch (e: unknown) {
+    console.error(e);
+    const message = e instanceof Error ? e.message : "Narration failed";
     res.status(500).json({ error: message });
   }
 });

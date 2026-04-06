@@ -52,10 +52,14 @@ export type Scene = {
   id: string;
   projectId: string;
   index: number;
-  /** Short label for lists and chrome (e.g. Script scene row). */
+  /** Short label for lists and chrome (e.g. Story scene row). */
   title: string;
   /** Staging / beat copy: who does what with props. */
   description: string;
+  /** Spoken lines for this scene (chunk of the project script / VO). Distinct from staging `description`. */
+  voiceoverText: string;
+  /** Optional URL to generated narration audio (e.g. `/renders/{projectId}/narration-{sceneId}.mp3`). */
+  narrationAudioSrc?: string;
   characterIds: string[];
   /** One optional still defining target look for this scene’s frames (Style step). */
   referenceImageSrc?: string;

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 export type WorkflowStepPageProps = ComponentProps<typeof WorkflowStepLayout>;
 
-/** Same outer shell + main layout for Script, Style, and Compose. */
+/** Same outer shell + main layout for Story, Style, and Compose. */
 export function WorkflowStepPage({ className, ...props }: WorkflowStepPageProps) {
   return (
     <WorkflowStepLayout

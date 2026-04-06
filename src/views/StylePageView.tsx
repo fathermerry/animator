@@ -247,7 +247,7 @@ export function StylePageView({ step: _step }: Props) {
     <div className="flex flex-col gap-4">
       <p className={panelHeadingClass}>Background</p>
       {!selectedScene ? (
-        <p className="archive-text text-sm text-muted-foreground">No scenes in the script.</p>
+        <p className="archive-text text-sm text-muted-foreground">No scenes yet.</p>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -331,7 +331,90 @@ export function StylePageView({ step: _step }: Props) {
       equalWidthColumns
       primaryClassName="gap-6"
       middleClassName="gap-4 bg-background lg:pb-3"
-      middle={
+      panels={[
+        <>
+          <div className="flex flex-col gap-2">
+            <p className={panelHeadingClass}>Description</p>
+            <label htmlFor="style-description" className="sr-only">
+              Style description
+            </label>
+            <Textarea
+              id="style-description"
+              className="archive-text min-h-[3.5rem] resize-y text-base leading-snug"
+              placeholder="Overall look, tone, and constraints for this film…"
+              value={assetBundle.description}
+              onChange={(e) => updateStyle((s) => ({ ...s, description: e.target.value }))}
+              rows={3}
+            />
+          </div>
+
+          <KitSection
+            label="Characters"
+            addLabel="Add character"
+            emptyMessage="Nothing here yet"
+            assets={assetBundle.characters}
+            generatingKeys={kitAssetGeneratingKeys}
+            selection={kitSelection}
+            onToggleSelect={toggleKitSelection}
+            onAddLine={addCharacterPlaceholder}
+            onPatch={patchKitAsset}
+            onGenerateAsset={(id) => void requestKitAssetRender("characters", id)}
+            onRemove={removeKitAsset}
+          />
+
+          {selectedCharacter ? (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-medium uppercase text-muted-foreground">Character</p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="shrink-0 text-[13px] uppercase leading-none text-muted-foreground"
+                    aria-hidden
+                  >
+                    {selectedCharacter.id}
+                  </span>
+                  <label htmlFor={`style-char-name-${selectedCharacter.id}`} className="sr-only">
+                    Character name
+                  </label>
+                  <Input
+                    id={`style-char-name-${selectedCharacter.id}`}
+                    className="archive-text min-w-0 flex-1 text-base"
+                    placeholder="Name"
+                    value={selectedCharacter.name}
+                    onChange={(e) => patchKitAsset(selectedCharacter.id, { name: e.target.value })}
+                    aria-label={`${selectedCharacter.id}, character name`}
+                  />
+                </div>
+              </div>
+              <div className="flex min-h-0 flex-col gap-2">
+                <label
+                  htmlFor={`style-char-desc-${selectedCharacter.id}`}
+                  className="text-xs font-medium uppercase text-muted-foreground"
+                >
+                  Prompt
+                </label>
+                <Textarea
+                  id={`style-char-desc-${selectedCharacter.id}`}
+                  className="archive-text min-h-[6rem] flex-1 resize-y text-sm leading-snug"
+                  placeholder="Appearance, role, and how they read on screen…"
+                  value={selectedCharacter.description ?? ""}
+                  onChange={(e) =>
+                    patchKitAsset(selectedCharacter.id, { description: e.target.value })
+                  }
+                  rows={6}
+                  aria-label={`${selectedCharacter.id}, character prompt`}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium uppercase text-muted-foreground">Character</p>
+              <p className="archive-text text-sm text-muted-foreground">
+                Select a character in the grid to edit name and prompt.
+              </p>
+            </div>
+          )}
+        </>,
         <>
           {sceneBackgroundEditor}
 
@@ -439,7 +522,7 @@ export function StylePageView({ step: _step }: Props) {
                 />
               </>
             ) : (
-              <p className="archive-text text-sm text-muted-foreground">No scenes in the script.</p>
+              <p className="archive-text text-sm text-muted-foreground">No scenes yet.</p>
             )}
           </div>
 
@@ -496,102 +579,15 @@ export function StylePageView({ step: _step }: Props) {
               ) : null}
             </div>
           </div>
-        </>
-      }
-      primary={
-        <>
-          <div className="flex flex-col gap-2">
-            <p className={panelHeadingClass}>Description</p>
-            <label htmlFor="style-description" className="sr-only">
-              Style description
-            </label>
-            <Textarea
-              id="style-description"
-              className="archive-text min-h-[3.5rem] resize-y text-base leading-snug"
-              placeholder="Overall look, tone, and constraints for this film…"
-              value={assetBundle.description}
-              onChange={(e) => updateStyle((s) => ({ ...s, description: e.target.value }))}
-              rows={3}
-            />
-          </div>
-
-          <KitSection
-            label="Characters"
-            addLabel="Add character"
-            emptyMessage="Nothing here yet"
-            assets={assetBundle.characters}
-            generatingKeys={kitAssetGeneratingKeys}
-            selection={kitSelection}
-            onToggleSelect={toggleKitSelection}
-            onAddLine={addCharacterPlaceholder}
-            onPatch={patchKitAsset}
-            onGenerateAsset={(id) => void requestKitAssetRender("characters", id)}
-            onRemove={removeKitAsset}
-          />
-
-          {selectedCharacter ? (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-medium uppercase text-muted-foreground">Character</p>
-                <div className="flex min-w-0 items-center gap-2">
-                  <span
-                    className="shrink-0 text-[13px] uppercase leading-none text-muted-foreground"
-                    aria-hidden
-                  >
-                    {selectedCharacter.id}
-                  </span>
-                  <label htmlFor={`style-char-name-${selectedCharacter.id}`} className="sr-only">
-                    Character name
-                  </label>
-                  <Input
-                    id={`style-char-name-${selectedCharacter.id}`}
-                    className="archive-text min-w-0 flex-1 text-base"
-                    placeholder="Name"
-                    value={selectedCharacter.name}
-                    onChange={(e) => patchKitAsset(selectedCharacter.id, { name: e.target.value })}
-                    aria-label={`${selectedCharacter.id}, character name`}
-                  />
-                </div>
-              </div>
-              <div className="flex min-h-0 flex-col gap-2">
-                <label
-                  htmlFor={`style-char-desc-${selectedCharacter.id}`}
-                  className="text-xs font-medium uppercase text-muted-foreground"
-                >
-                  Prompt
-                </label>
-                <Textarea
-                  id={`style-char-desc-${selectedCharacter.id}`}
-                  className="archive-text min-h-[6rem] flex-1 resize-y text-sm leading-snug"
-                  placeholder="Appearance, role, and how they read on screen…"
-                  value={selectedCharacter.description ?? ""}
-                  onChange={(e) =>
-                    patchKitAsset(selectedCharacter.id, { description: e.target.value })
-                  }
-                  rows={6}
-                  aria-label={`${selectedCharacter.id}, character prompt`}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Character</p>
-              <p className="archive-text text-sm text-muted-foreground">
-                Select a character in the grid to edit name and prompt.
-              </p>
-            </div>
-          )}
-        </>
-      }
-      preview={
+        </>,
         <>
           <WorkflowPreviewColumn>
             <StyleSceneReferencePreview scene={selectedScene} className="w-full shrink-0" />
           </WorkflowPreviewColumn>
           <RenderActivityFloatingDock renders={renders} scenes={scenes} frames={frames} />
-        </>
-      }
-      />
+        </>,
+      ]}
+    />
   );
 }
 

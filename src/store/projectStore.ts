@@ -649,7 +649,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     openProject: async (id) => {
       const ok = await get().loadProjectById(id);
       if (!ok) return;
-      navigate(pathForProjectStep(id, "script"));
+      navigate(pathForProjectStep(id, "story"));
     },
 
     createNewProject: async () => {
@@ -697,7 +697,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         sceneReferenceGeneratingKeys: {},
         sceneReferenceRenderErrors: {},
       });
-      navigate(pathForProjectStep(slice.project.id, "script"));
+      navigate(pathForProjectStep(slice.project.id, "story"));
     },
 
     deleteProject: async (id) => {

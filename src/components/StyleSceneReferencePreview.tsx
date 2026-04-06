@@ -32,7 +32,7 @@ export function StyleSceneReferencePreview({ scene, className }: Props) {
             <p className="archive-text text-center text-sm text-muted-foreground">
               {scene
                 ? "No reference image — generate one in Scene references."
-                : "No scenes in the script."}
+                : "No scenes yet."}
             </p>
           </div>
         )}

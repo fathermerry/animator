@@ -9,11 +9,11 @@ export type Step = {
 
 export const STEPS: readonly Step[] = [
   {
-    slug: "script",
-    label: "Script",
-    title: "Script",
+    slug: "story",
+    label: "Story",
+    title: "Story",
     body:
-      "Script and scene beats for the film. The script step is where you shape the narrative; style and compose build on it.",
+      "Compose your film from scenes: add them manually or paste a full script. Set length, transcript, and narration per scene before style and compose.",
   },
   {
     slug: "style",
@@ -35,7 +35,7 @@ export function stepBySlug(slug: string): Step | undefined {
   return STEPS.find((s) => s.slug === slug);
 }
 
-/** True when `path` is Script, Style, or Compose (in-project workflow), not top-level Projects/Renders. */
+/** True when `path` is Story, Style, or Compose (in-project workflow), not top-level Projects/Renders. */
 export function isWorkflowStepPath(path: string): boolean {
   const r = parseRoute(path);
   return r.kind === "workflow" || r.kind === "legacyWorkflow";

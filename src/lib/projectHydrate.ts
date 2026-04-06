@@ -254,16 +254,23 @@ function reviveScene(raw: unknown, projectId: string): Scene | null {
   const backgroundImageSrcRaw =
     typeof s.backgroundImageSrc === "string" ? s.backgroundImageSrc.trim() : "";
   const backgroundImageSrc = backgroundImageSrcRaw.length > 0 ? backgroundImageSrcRaw : undefined;
+  const voiceoverText =
+    typeof s.voiceoverText === "string" ? s.voiceoverText.trim() : "";
+  const narrationAudioSrcRaw =
+    typeof s.narrationAudioSrc === "string" ? s.narrationAudioSrc.trim() : "";
+  const narrationAudioSrc = narrationAudioSrcRaw.length > 0 ? narrationAudioSrcRaw : undefined;
   return {
     id: s.id,
     projectId: typeof s.projectId === "string" && s.projectId.trim() ? s.projectId : projectId,
     index,
     title,
     description,
+    voiceoverText,
     characterIds,
     ...(referenceImageSrc ? { referenceImageSrc } : {}),
     ...(backgroundColor ? { backgroundColor } : {}),
     ...(backgroundImageSrc ? { backgroundImageSrc } : {}),
+    ...(narrationAudioSrc ? { narrationAudioSrc } : {}),
     durationSeconds,
     createdAt: reviveDate(s.createdAt),
   };
