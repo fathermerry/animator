@@ -12,6 +12,12 @@ export type Cost = {
 /** Film frame still vs style-kit character/object still. */
 export type RenderTargetType = "frame" | "asset";
 
+/** When {@link Render.type} is `asset`, which kit row this render produced. */
+export type RenderKitTarget = {
+  kind: "characters" | "objects";
+  assetId: string;
+};
+
 export type Render = {
   id: string;
   projectId: string;
@@ -23,6 +29,8 @@ export type Render = {
   createdAt: Date;
   /** Set when {@link engine} is `openai-image` (which image model produced the still). */
   model?: string;
+  /** Present for style-kit asset image generations. */
+  kitTarget?: RenderKitTarget;
 };
 
 export type Frame = {

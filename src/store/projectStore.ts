@@ -2,6 +2,12 @@ import { createStore } from "zustand/vanilla";
 
 import defaultProjectJson from "../data/default-project.json";
 import { buildFrameImagePrompt } from "../lib/buildFrameImagePrompt";
+import {
+  buildKitAssetImagePrompt,
+  KIT_ASSET_RENDER_IMAGE_SIZE,
+  kitAssetRenderFrameId,
+  type KitAssetKind,
+} from "../lib/buildKitAssetImagePrompt";
 import { frameHasOutputImage } from "../lib/frameRenderStatus";
 import {
   DEFAULT_OPENAI_IMAGE_MODEL,
@@ -20,7 +26,12 @@ import { requestFrameImageRender } from "../lib/renderFrameApi";
 import { navigate, pathForProjectStep } from "../router";
 import { SAMPLE_PROJECT_ID } from "../lib/sampleProject";
 import type { Frame, Project, Render, Scene } from "../types/project";
-import { createDefaultAssetBundle, type AssetBundle, type StyleConfig } from "../types/styleConfig";
+import {
+  createDefaultAssetBundle,
+  type AssetBundle,
+  type KitAsset,
+  type StyleConfig,
+} from "../types/styleConfig";
 
 /**
  * Stable object when no {@link ProjectState.styleConfigs} entry matches {@link Project.styleConfigId}.
@@ -56,6 +67,11 @@ function isAbortError(e: unknown): boolean {
   );
 }
 
+/** Store key for {@link ProjectState.kitAssetGeneratingKeys} (parallel kit generation UI). */
+export function kitAssetGeneratingKey(kind: KitAssetKind, assetId: string): string {
+  return `${kind}:${assetId}`;
+}
+
 export type ProjectState = {
   project: Project;
   styleConfigs: StyleConfig[];
@@ -66,6 +82,12 @@ export type ProjectState = {
   renderingFrameIds: Record<string, true>;
   /** Last error message per frame from the image API (not persisted). */
   frameRenderErrors: Record<string, string>;
+  /** Ephemeral UI: style-kit batch generation in progress. */
+  generatingKitAssets: boolean;
+  /** Ephemeral UI: which kit rows are currently generating (key = {@link kitAssetGeneratingKey}). */
+  kitAssetGeneratingKeys: Record<string, true>;
+  /** Last error per kit-asset render id from the image API (not persisted). */
+  kitAssetRenderErrors: Record<string, string>;
 
   ensureDraftProject: () => string;
   setPromptText: (text: string) => void;
@@ -78,6 +100,13 @@ export type ProjectState = {
   removeFrame: (frameId: string) => void;
   requestFrameRender: (frameId: string, modelId?: OpenAiImageModelId) => Promise<void>;
   requestFullFilmRender: (modelId?: OpenAiImageModelId) => Promise<void>;
+  requestKitAssetsRender: (modelId?: OpenAiImageModelId) => Promise<void>;
+  /** Generate one style-kit still (character or object) via the image API. */
+  requestKitAssetRender: (
+    kind: KitAssetKind,
+    assetId: string,
+    modelId?: OpenAiImageModelId,
+  ) => Promise<void>;
   cancelFrameRender: (frameId: string) => void;
 
   openProject: (id: string) => Promise<void>;
@@ -102,6 +131,8 @@ function initialState(): Omit<
   | "removeFrame"
   | "requestFrameRender"
   | "requestFullFilmRender"
+  | "requestKitAssetsRender"
+  | "requestKitAssetRender"
   | "cancelFrameRender"
   | "openProject"
   | "loadProjectById"
@@ -116,6 +147,9 @@ function initialState(): Omit<
     frames: initialBundle.frames,
     renderingFrameIds: {},
     frameRenderErrors: {},
+    generatingKitAssets: false,
+    kitAssetGeneratingKeys: {},
+    kitAssetRenderErrors: {},
   };
 }
 
@@ -157,7 +191,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         },
         signal,
       );
-      get().patchFrame(frameId, { src: data.imageUrl });
+      get().patchFrame(frameId, { src: data.imageDataUrl ?? data.imageUrl });
       get().patchRender(render.id, {
         status: "complete",
         engine: "openai-image",
@@ -186,6 +220,84 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     }
   };
 
+  const runKitAssetImageRender = async (
+    kind: KitAssetKind,
+    asset: KitAsset,
+    modelId: OpenAiImageModelId,
+  ): Promise<void> => {
+    const project = get().project;
+    const bundle = selectResolvedStyleBundle(get());
+    const prompt = buildKitAssetImagePrompt(project, bundle, kind, asset);
+    const frameId = kitAssetRenderFrameId(kind, asset.id);
+    const renderId = crypto.randomUUID();
+    const zeroCost: Render["cost"] = { amount: 0, currency: "USD", breakdown: [] };
+    const newRender: Render = {
+      id: renderId,
+      projectId: project.id,
+      sceneId: "",
+      type: "asset",
+      engine: "openai-image",
+      status: "processing",
+      cost: zeroCost,
+      createdAt: new Date(),
+      kitTarget: { kind, assetId: asset.id },
+    };
+    set((s) => ({ renders: [...s.renders, newRender] }));
+
+    try {
+      const data = await requestFrameImageRender({
+        projectId: project.id,
+        frameId,
+        prompt,
+        modelId,
+      });
+      get().updateStyle((b) => {
+        const list = b[kind];
+        const idx = list.findIndex((a) => a.id === asset.id);
+        if (idx === -1) return b;
+        const prev = list[idx]!;
+        const next = [...list];
+        const src = data.imageDataUrl ?? data.imageUrl;
+        if (kind === "objects") {
+          next[idx] = {
+            id: prev.id,
+            name: prev.name,
+            src,
+            width: KIT_ASSET_RENDER_IMAGE_SIZE,
+            height: KIT_ASSET_RENDER_IMAGE_SIZE,
+          };
+        } else {
+          next[idx] = {
+            ...prev,
+            src,
+            width: KIT_ASSET_RENDER_IMAGE_SIZE,
+            height: KIT_ASSET_RENDER_IMAGE_SIZE,
+          };
+        }
+        return { ...b, [kind]: next };
+      });
+      get().patchRender(renderId, {
+        status: "complete",
+        engine: "openai-image",
+        model: data.model,
+        cost: data.cost,
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Render failed";
+      set((st) => ({
+        kitAssetRenderErrors: { ...st.kitAssetRenderErrors, [renderId]: msg },
+      }));
+      get().patchRender(renderId, { status: "failed" });
+    } finally {
+      const gk = kitAssetGeneratingKey(kind, asset.id);
+      set((st) => {
+        const kitAssetGeneratingKeys = { ...st.kitAssetGeneratingKeys };
+        delete kitAssetGeneratingKeys[gk];
+        return { kitAssetGeneratingKeys };
+      });
+    }
+  };
+
   return {
     ...initialState(),
 
@@ -207,6 +319,9 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         frames: fresh.frames.map((f) => ({ ...f, projectId })),
         renderingFrameIds: {},
         frameRenderErrors: {},
+        generatingKitAssets: false,
+        kitAssetGeneratingKeys: {},
+        kitAssetRenderErrors: {},
       });
     },
 
@@ -221,11 +336,18 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
 
     updateStyle: (recipe) => {
       set((s) => {
-        const id = s.project.styleConfigId;
-        const styleConfigs = s.styleConfigs.map((c) =>
-          c.id === id ? { ...c, assets: recipe(c.assets) } : c,
+        let idx = s.styleConfigs.findIndex((c) => c.id === s.project.styleConfigId);
+        if (idx < 0 && s.styleConfigs.length > 0) idx = 0;
+        if (idx < 0) return s;
+        const target = s.styleConfigs[idx]!;
+        const styleConfigs = s.styleConfigs.map((c, i) =>
+          i === idx ? { ...c, assets: recipe(c.assets) } : c,
         );
-        return { styleConfigs };
+        const project =
+          s.project.styleConfigId === target.id
+            ? s.project
+            : { ...s.project, styleConfigId: target.id };
+        return { styleConfigs, project };
       });
     },
 
@@ -294,6 +416,52 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       await runFrameImageRender(frameId, { clearRenderingFlagWhenDone: true }, modelId);
     },
 
+    requestKitAssetsRender: async (modelIdParam) => {
+      if (get().generatingKitAssets) return;
+      const modelId: OpenAiImageModelId =
+        modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
+      const bundle = selectResolvedStyleBundle(get());
+      const n = bundle.characters.length + bundle.objects.length;
+      if (n === 0) return;
+
+      const initialKeys: Record<string, true> = {};
+      for (const a of bundle.characters) {
+        initialKeys[kitAssetGeneratingKey("characters", a.id)] = true;
+      }
+      for (const a of bundle.objects) {
+        initialKeys[kitAssetGeneratingKey("objects", a.id)] = true;
+      }
+
+      set({
+        generatingKitAssets: true,
+        kitAssetGeneratingKeys: initialKeys,
+        kitAssetRenderErrors: {},
+      });
+      try {
+        await Promise.all([
+          ...bundle.characters.map((asset) => runKitAssetImageRender("characters", asset, modelId)),
+          ...bundle.objects.map((asset) => runKitAssetImageRender("objects", asset, modelId)),
+        ]);
+      } finally {
+        set({ generatingKitAssets: false, kitAssetGeneratingKeys: {} });
+      }
+    },
+
+    requestKitAssetRender: async (kind, assetId, modelIdParam) => {
+      const gk = kitAssetGeneratingKey(kind, assetId);
+      if (get().kitAssetGeneratingKeys[gk]) return;
+      const bundle = selectResolvedStyleBundle(get());
+      const list = bundle[kind];
+      const asset = list.find((a) => a.id === assetId);
+      if (!asset) return;
+      const modelId: OpenAiImageModelId =
+        modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
+      set((st) => ({
+        kitAssetGeneratingKeys: { ...st.kitAssetGeneratingKeys, [gk]: true },
+      }));
+      await runKitAssetImageRender(kind, asset, modelId);
+    },
+
     requestFullFilmRender: async (modelIdParam) => {
       const modelId: OpenAiImageModelId =
         modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
@@ -349,6 +517,9 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         frames: slice.frames,
         renderingFrameIds: {},
         frameRenderErrors: {},
+        generatingKitAssets: false,
+        kitAssetGeneratingKeys: {},
+        kitAssetRenderErrors: {},
       });
       return true;
     },
@@ -398,6 +569,9 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         frames: slice.frames,
         renderingFrameIds: {},
         frameRenderErrors: {},
+        generatingKitAssets: false,
+        kitAssetGeneratingKeys: {},
+        kitAssetRenderErrors: {},
       });
       navigate(pathForProjectStep(slice.project.id, "script"));
     },
@@ -418,6 +592,9 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         frames: sample.frames,
         renderingFrameIds: {},
         frameRenderErrors: {},
+        generatingKitAssets: false,
+        kitAssetGeneratingKeys: {},
+        kitAssetRenderErrors: {},
       });
     },
   };
@@ -427,9 +604,19 @@ export function selectCurrentProject(s: ProjectState): Project {
   return s.project;
 }
 
+/** Index of the style kit to show and edit — falls back to `0` when `styleConfigId` is missing or stale. */
+function resolveActiveStyleConfigIndex(s: ProjectState): number {
+  const id = s.project.styleConfigId;
+  const idx = s.styleConfigs.findIndex((c) => c.id === id);
+  if (idx >= 0) return idx;
+  if (s.styleConfigs.length > 0) return 0;
+  return -1;
+}
+
 export function selectResolvedStyleBundle(s: ProjectState): AssetBundle {
-  const c = s.styleConfigs.find((x) => x.id === s.project.styleConfigId);
-  return c?.assets ?? FALLBACK_RESOLVED_STYLE_BUNDLE;
+  const idx = resolveActiveStyleConfigIndex(s);
+  if (idx < 0) return FALLBACK_RESOLVED_STYLE_BUNDLE;
+  return s.styleConfigs[idx]!.assets;
 }
 
 export function selectScenes(s: ProjectState): Scene[] {

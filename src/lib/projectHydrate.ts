@@ -185,6 +185,17 @@ function reviveRender(raw: unknown): Render | null {
   const status =
     r.status === "processing" || r.status === "complete" || r.status === "failed" ? r.status : "pending";
   const model = typeof r.model === "string" && r.model.trim() ? r.model.trim() : undefined;
+  const ktRaw = (r as Partial<Render>).kitTarget;
+  let kitTarget: Render["kitTarget"];
+  if (
+    ktRaw &&
+    typeof ktRaw === "object" &&
+    (ktRaw.kind === "characters" || ktRaw.kind === "objects") &&
+    typeof ktRaw.assetId === "string" &&
+    ktRaw.assetId.trim()
+  ) {
+    kitTarget = { kind: ktRaw.kind, assetId: ktRaw.assetId.trim() };
+  }
   return {
     id: r.id,
     projectId: r.projectId,
@@ -195,6 +206,7 @@ function reviveRender(raw: unknown): Render | null {
     cost: reviveCost(r.cost),
     createdAt: reviveDate(r.createdAt),
     ...(model ? { model } : {}),
+    ...(kitTarget ? { kitTarget } : {}),
   };
 }
 

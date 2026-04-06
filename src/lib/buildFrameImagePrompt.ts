@@ -4,7 +4,7 @@ import type { AssetBundle, KitAsset } from "@/types/styleConfig";
 /** OpenAI Images API (`images.generate`) rejects prompts over this length. */
 export const OPENAI_IMAGE_PROMPT_MAX_CHARS = 4000;
 
-function truncateTailWithNote(s: string, max: number): string {
+export function truncateTailWithNote(s: string, max: number): string {
   if (s.length <= max) return s;
   const note = "\n[Truncated]";
   return s.slice(0, Math.max(0, max - note.length)) + note;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { RenderActivityFloatingDock } from "@/components/RenderActivityFloatingDock";
@@ -8,18 +8,23 @@ import { WorkflowStepLayout } from "@/components/WorkflowStepLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PLACEHOLDER_PNG } from "@/lib/placeholderImage";
 import {
   renumberCharacterKitIds,
   renumberObjectKitIds,
 } from "@/lib/kitAssetId";
 import { normalizeHex } from "@/lib/color";
-import { validateBackgroundImageFile, validateTransparentKitPng } from "@/lib/kitAssetPng";
+import { kitAssetDisplaySrc } from "@/lib/kitAssetDisplaySrc";
+import { validateBackgroundImageFile } from "@/lib/kitAssetPng";
 import { cn } from "@/lib/utils";
-import { selectResolvedStyleBundle, useProjectStore } from "@/store/projectStore";
+import {
+  kitAssetGeneratingKey,
+  selectResolvedStyleBundle,
+  useProjectStore,
+} from "@/store/projectStore";
 import type { Step } from "@/steps";
+import type { Render } from "@/types/project";
 import { createDefaultAssetBundle, type AssetBundle, type KitAsset } from "@/types/styleConfig";
-import { ImagePlus, Trash2 } from "lucide-react";
+import { Sparkles, Trash2 } from "lucide-react";
 
 type Props = { step: Step };
 
@@ -47,12 +52,15 @@ function normalizeObjectIds(list: KitAsset[]): KitAsset[] {
 export function StylePageView({ step: _step }: Props) {
   const ensureDraft = useStore(useProjectStore, (s) => s.ensureDraftProject);
   const updateStyle = useStore(useProjectStore, (s) => s.updateStyle);
+  const requestKitAssetsRender = useStore(useProjectStore, (s) => s.requestKitAssetsRender);
+  const requestKitAssetRender = useStore(useProjectStore, (s) => s.requestKitAssetRender);
+  const generatingKitAssets = useStore(useProjectStore, (s) => s.generatingKitAssets);
+  const kitAssetGeneratingKeys = useStore(useProjectStore, (s) => s.kitAssetGeneratingKeys);
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
   const renders = useStore(useProjectStore, (s) => s.renders);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const frames = useStore(useProjectStore, (s) => s.frames);
 
-  const [pngError, setPngError] = useState<string | null>(null);
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   /** Local hex field while typing (commit on blur). */
   const [backgroundHexDraft, setBackgroundHexDraft] = useState<string | null>(null);
@@ -86,9 +94,7 @@ export function StylePageView({ step: _step }: Props) {
     setBackgroundHexDraft(null);
   }, [assetBundle.background.color]);
 
-  const kitFileInputRef = useRef<HTMLInputElement>(null);
   const backgroundFileInputRef = useRef<HTMLInputElement>(null);
-  const pickKitTargetRef = useRef<{ kind: KitKey; id: string } | null>(null);
 
   const patchKitAsset = (kind: KitKey, id: string, patch: Partial<KitAsset>) => {
     updateStyle((s) => {
@@ -143,12 +149,6 @@ export function StylePageView({ step: _step }: Props) {
     });
   };
 
-  const openKitImagePicker = (kind: KitKey, id: string) => {
-    setPngError(null);
-    pickKitTargetRef.current = { kind, id };
-    kitFileInputRef.current?.click();
-  };
-
   const onBackgroundFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -174,25 +174,16 @@ export function StylePageView({ step: _step }: Props) {
     }));
   };
 
-  const onKitFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const target = pickKitTargetRef.current;
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    pickKitTargetRef.current = null;
-    if (!target || !file) return;
+  const kitAssetRenderRowLabel = useCallback((r: Render) => {
+    const t = r.kitTarget;
+    if (t?.kind === "characters") return `Character ${t.assetId}`;
+    if (t?.kind === "objects") return `Object ${t.assetId}`;
+    return "Kit render";
+  }, []);
 
-    const result = await validateTransparentKitPng(file);
-    if (!result.ok) {
-      setPngError(result.reason);
-      return;
-    }
-    setPngError(null);
-    patchKitAsset(target.kind, target.id, {
-      src: result.dataUrl,
-      width: result.width,
-      height: result.height,
-    });
-  };
+  const kitAssetCount = assetBundle.characters.length + assetBundle.objects.length;
+
+  const kitGenerateDisabled = generatingKitAssets || kitAssetCount === 0;
 
   const kitHoverDetail = useMemo((): StylePreviewKitHover | null => {
     if (!kitSelection) return null;
@@ -318,21 +309,7 @@ export function StylePageView({ step: _step }: Props) {
     <WorkflowStepLayout
       primary={
         <div className="flex w-full min-w-0 max-w-[min(100%,42rem)] flex-col gap-8 pt-2">
-          {pngError ? (
-            <p className="archive-text rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive">
-              {pngError}
-            </p>
-          ) : null}
-
           <div className="flex flex-col gap-8">
-            <input
-              ref={kitFileInputRef}
-              type="file"
-              accept="image/png"
-              className="sr-only"
-              onChange={onKitFileChange}
-            />
-
             <div className="flex flex-col gap-2">
               <p className="text-xs font-medium uppercase text-muted-foreground">Description</p>
               <label htmlFor="style-description" className="sr-only">
@@ -354,11 +331,12 @@ export function StylePageView({ step: _step }: Props) {
               addLabel="Add character"
               emptyMessage="Nothing here yet"
               assets={assetBundle.characters}
+              generatingKeys={kitAssetGeneratingKeys}
               selection={kitSelection}
               onToggleSelect={toggleKitSelection}
               onAddLine={() => addKitPlaceholder("characters")}
               onPatch={(id, patch) => patchKitAsset("characters", id, patch)}
-              onPickImage={(id) => openKitImagePicker("characters", id)}
+              onGenerateAsset={(id) => void requestKitAssetRender("characters", id)}
               onRemove={(id) => removeKitAsset("characters", id)}
             />
 
@@ -368,11 +346,12 @@ export function StylePageView({ step: _step }: Props) {
               addLabel="Add object"
               emptyMessage="Nothing here yet"
               assets={assetBundle.objects}
+              generatingKeys={kitAssetGeneratingKeys}
               selection={kitSelection}
               onToggleSelect={toggleKitSelection}
               onAddLine={() => addKitPlaceholder("objects")}
               onPatch={(id, patch) => patchKitAsset("objects", id, patch)}
-              onPickImage={(id) => openKitImagePicker("objects", id)}
+              onGenerateAsset={(id) => void requestKitAssetRender("objects", id)}
               onRemove={(id) => removeKitAsset("objects", id)}
             />
           </div>
@@ -396,14 +375,15 @@ export function StylePageView({ step: _step }: Props) {
           <RenderActivityFloatingDock
             primary={{
               label: "Generate assets",
-              onClick: () => {},
-              disabled: true,
+              onClick: () => void requestKitAssetsRender(),
+              disabled: kitGenerateDisabled,
               ariaLabel: "Generate assets",
             }}
             renders={renders}
             renderScope="asset"
             scenes={scenes}
             frames={frames}
+            renderRowLabel={kitAssetRenderRowLabel}
             title="Renders"
           />
         </>
@@ -413,7 +393,7 @@ export function StylePageView({ step: _step }: Props) {
 }
 
 const kitTileIconBtn =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background/90 text-muted-foreground shadow-sm ring-1 ring-border/40 transition-[color,background-color] hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md bg-background/90 text-muted-foreground shadow-sm ring-1 ring-border/40 transition-[color,background-color] hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background/90 disabled:hover:text-muted-foreground";
 
 const kitTileActionsRow =
   "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 px-2 pt-2 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100";
@@ -424,9 +404,10 @@ function KitThumbnailTile({
   asset,
   index,
   isSelected,
+  isGenerating,
   onToggleSelect,
   onPatch,
-  onPickImage,
+  onGenerateAsset,
   onRemove,
 }: {
   kind: KitKey;
@@ -434,9 +415,11 @@ function KitThumbnailTile({
   asset: KitAsset;
   index: number;
   isSelected: boolean;
+  /** Store-driven: this row’s image is being generated (parallel batch). */
+  isGenerating: boolean;
   onToggleSelect: (kind: KitKey, id: string) => void;
   onPatch: (id: string, patch: Partial<KitAsset>) => void;
-  onPickImage: (id: string) => void;
+  onGenerateAsset: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
   const [broken, setBroken] = useState(false);
@@ -444,9 +427,14 @@ function KitThumbnailTile({
   useEffect(() => {
     setBroken(false);
   }, [raw]);
+  /** After a batch finishes, retry load in case a prior attempt 404’d and left `broken` stuck. */
+  useEffect(() => {
+    if (!isGenerating) setBroken(false);
+  }, [isGenerating]);
 
+  const displaySrc = kitAssetDisplaySrc(raw);
   const hasImage = Boolean(raw) && !broken;
-  const src = hasImage ? raw : PLACEHOLDER_PNG;
+  const showImage = hasImage && Boolean(displaySrc);
   const rowLabel = `${label} ${index + 1}`;
 
   return (
@@ -459,19 +447,26 @@ function KitThumbnailTile({
       >
         <button
           type="button"
-          className="relative z-0 flex min-h-0 w-full flex-1 cursor-pointer items-center justify-center bg-muted/30 p-1"
+          className={cn(
+            "relative z-0 flex min-h-0 w-full flex-1 cursor-pointer items-center justify-center p-1 transition-colors duration-300",
+            isGenerating ? "kit-tile-generating-bg" : "bg-muted/30",
+          )}
           onClick={() => onToggleSelect(kind, asset.id)}
           aria-label={`Select ${rowLabel}`}
           aria-pressed={isSelected}
+          aria-busy={isGenerating}
         >
-          <img
-            src={src}
-            alt=""
-            className={cn("max-h-full max-w-full object-contain", !hasImage && "opacity-55")}
-            onError={() => {
-              if (raw) setBroken(true);
-            }}
-          />
+          {showImage ? (
+            <img
+              key={`${kind}-${asset.id}-${raw ? String(raw.length) : "0"}`}
+              src={displaySrc}
+              alt=""
+              className="max-h-full max-w-full object-contain"
+              onError={() => {
+                if (raw) setBroken(true);
+              }}
+            />
+          ) : null}
         </button>
         <div
           className="flex shrink-0 items-center gap-1 border-t border-border/25 bg-background/90 px-1.5 py-1"
@@ -508,10 +503,14 @@ function KitThumbnailTile({
           <button
             type="button"
             className={kitTileIconBtn}
-            onClick={() => onPickImage(asset.id)}
-            aria-label={raw ? "Replace PNG" : "Add PNG"}
+            disabled={isGenerating}
+            onClick={(e) => {
+              e.stopPropagation();
+              onGenerateAsset(asset.id);
+            }}
+            aria-label={isGenerating ? "Generating image…" : "Generate image with AI"}
           >
-            <ImagePlus className="size-4" strokeWidth={2} aria-hidden />
+            <Sparkles className="size-4" strokeWidth={2} aria-hidden />
           </button>
           <button
             type="button"
@@ -533,11 +532,12 @@ function KitSection({
   addLabel,
   emptyMessage,
   assets,
+  generatingKeys,
   selection,
   onToggleSelect,
   onAddLine,
   onPatch,
-  onPickImage,
+  onGenerateAsset,
   onRemove,
 }: {
   kind: KitKey;
@@ -545,11 +545,12 @@ function KitSection({
   addLabel: string;
   emptyMessage: string;
   assets: KitAsset[];
+  generatingKeys: Record<string, true>;
   selection: KitSelection | null;
   onToggleSelect: (kind: KitKey, id: string) => void;
   onAddLine: () => void;
   onPatch: (id: string, patch: Partial<KitAsset>) => void;
-  onPickImage: (id: string) => void;
+  onGenerateAsset: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
   return (
@@ -572,6 +573,7 @@ function KitSection({
           <ul className="grid list-none grid-cols-4 gap-2 p-0 sm:gap-3">
             {assets.map((asset, index) => {
               const isSelected = selection?.kind === kind && selection.id === asset.id;
+              const isGenerating = Boolean(generatingKeys[kitAssetGeneratingKey(kind, asset.id)]);
               return (
                 <KitThumbnailTile
                   key={asset.id}
@@ -580,9 +582,10 @@ function KitSection({
                   asset={asset}
                   index={index}
                   isSelected={isSelected}
+                  isGenerating={isGenerating}
                   onToggleSelect={onToggleSelect}
                   onPatch={onPatch}
-                  onPickImage={onPickImage}
+                  onGenerateAsset={onGenerateAsset}
                   onRemove={onRemove}
                 />
               );

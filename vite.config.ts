@@ -17,6 +17,11 @@ export default defineConfig({
         target: "http://127.0.0.1:8787",
         changeOrigin: true,
       },
+      /** Same host as the render API — stills live under `public/renders` and are served by Express. */
+      "/renders": {
+        target: "http://127.0.0.1:8787",
+        changeOrigin: true,
+      },
     },
   },
   resolve: {

@@ -11,6 +11,8 @@ export type RenderFrameRequestBody = {
 
 export type RenderFrameResponse = {
   imageUrl: string;
+  /** Inline PNG (same as OpenAI `b64_json` / file on disk) for immediate `<img src>` without fetching `/renders/...`. */
+  imageDataUrl?: string;
   model: string;
   cost: Cost;
 };

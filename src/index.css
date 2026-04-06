@@ -188,6 +188,21 @@
   }
 }
 
+/** Style page kit tiles: pulsing plate while an asset image is generating. */
+@keyframes kit-tile-generating-bg-kf {
+  0%,
+  100% {
+    background-color: color-mix(in oklab, var(--muted) 55%, transparent);
+  }
+  50% {
+    background-color: color-mix(in oklab, var(--primary) 28%, var(--muted) 72%);
+  }
+}
+
+.kit-tile-generating-bg {
+  animation: kit-tile-generating-bg-kf 1.35s ease-in-out infinite;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

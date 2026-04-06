@@ -55,6 +55,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
+/** Serve generated stills and other `public/` files (same tree the render handler writes into). */
+app.use(express.static(path.join(repoRoot, "public")));
+
 app.post("/api/render-frame", async (req, res) => {
   try {
     const body = req.body as {
@@ -109,10 +112,13 @@ app.post("/api/render-frame", async (req, res) => {
     await writeFile(filePath, Buffer.from(b64, "base64"));
 
     const imageUrl = `/renders/${safeSegment(projectId)}/${fileName}`;
+    /** Same bytes as on disk — lets the client show the still without a follow-up GET to `/renders/...`. */
+    const imageDataUrl = `data:image/png;base64,${b64}`;
     const cost = costPlaceholder(model);
 
     res.json({
       imageUrl,
+      imageDataUrl,
       model,
       cost,
     });
