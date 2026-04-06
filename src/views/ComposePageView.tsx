@@ -166,6 +166,7 @@ export function ComposePageView({ step: _step }: Props) {
               </>
             ) : null
           }
+          contentClassName="flex flex-col gap-2"
         >
           <RenderFilmPreview
             assetBundle={assetBundle}
@@ -178,7 +179,7 @@ export function ComposePageView({ step: _step }: Props) {
             onGlobalFrameChange={setFilmGlobalFrame}
             onPlayingChange={setFilmPlaying}
           />
-          <p className="mt-2 min-w-0 text-sm leading-relaxed text-muted-foreground">
+          <p className="min-w-0 text-sm leading-relaxed text-muted-foreground">
             {editScene?.voiceoverText?.trim()
               ? editScene.voiceoverText.trim()
               : "No voiceover for this scene."}

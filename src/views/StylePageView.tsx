@@ -6,20 +6,13 @@ import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepPage } from "@/components/WorkflowStepPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { panelHeadingAfterBlockClass, panelHeadingClass } from "@/lib/panelHeading";
 import { renumberCharacterKitIds } from "@/lib/kitAssetId";
 import { normalizeHex } from "@/lib/color";
 import { kitAssetDisplaySrc } from "@/lib/kitAssetDisplaySrc";
+import { normalizeCharacterKitImageSrcs } from "@/lib/kitAssetImages";
 import { validateBackgroundImageFile } from "@/lib/kitAssetPng";
-import {
-  DEFAULT_OPENAI_IMAGE_MODEL,
-  OPENAI_IMAGE_MODEL_OPTIONS,
-  type OpenAiImageModelId,
-  isOpenAiImageModelId,
-} from "@/lib/imageModels";
-import { framesForSceneSorted } from "@/lib/sceneFrames";
 import { resolveSceneBackground } from "@/lib/sceneBackground";
 import { cn } from "@/lib/utils";
 import {
@@ -28,8 +21,10 @@ import {
   useProjectStore,
 } from "@/store/projectStore";
 import type { Step } from "@/steps";
+import type { Scene } from "@/types/project";
 import { createDefaultAssetBundle, type AssetBundle, type KitAsset } from "@/types/styleConfig";
-import { Sparkles, Trash2 } from "lucide-react";
+import { Popover } from "@base-ui/react/popover";
+import { Pencil, Sparkles, X } from "lucide-react";
 
 type Props = { step: Step };
 
@@ -58,8 +53,6 @@ export function StylePageView({ step: _step }: Props) {
   const ensureDraft = useStore(useProjectStore, (s) => s.ensureDraftProject);
   const updateStyle = useStore(useProjectStore, (s) => s.updateStyle);
   const patchScene = useStore(useProjectStore, (s) => s.patchScene);
-  const requestFrameRender = useStore(useProjectStore, (s) => s.requestFrameRender);
-  const renderingFrameIds = useStore(useProjectStore, (s) => s.renderingFrameIds);
   const requestSceneReferenceRender = useStore(useProjectStore, (s) => s.requestSceneReferenceRender);
   const sceneReferenceGeneratingKeys = useStore(useProjectStore, (s) => s.sceneReferenceGeneratingKeys);
   const sceneReferenceRenderErrors = useStore(useProjectStore, (s) => s.sceneReferenceRenderErrors);
@@ -67,7 +60,6 @@ export function StylePageView({ step: _step }: Props) {
   const kitAssetGeneratingKeys = useStore(useProjectStore, (s) => s.kitAssetGeneratingKeys);
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
-  const frames = useStore(useProjectStore, (s) => s.frames);
 
   const sortedScenes = useMemo(() => [...scenes].sort((a, b) => a.index - b.index), [scenes]);
 
@@ -77,9 +69,6 @@ export function StylePageView({ step: _step }: Props) {
   /** Local hex field while typing (commit on blur). */
   const [backgroundHexDraft, setBackgroundHexDraft] = useState<string | null>(null);
   const [kitSelection, setKitSelection] = useState<KitSelection | null>(null);
-  const [sceneImageModel, setSceneImageModel] = useState<OpenAiImageModelId>(
-    DEFAULT_OPENAI_IMAGE_MODEL,
-  );
 
   useEffect(() => {
     ensureDraft();
@@ -199,28 +188,6 @@ export function StylePageView({ step: _step }: Props) {
     });
   };
 
-  const framesInSelectedScene = useMemo(
-    () => (selectedSceneId ? framesForSceneSorted(frames, selectedSceneId) : []),
-    [frames, selectedSceneId],
-  );
-
-  const sceneFramesRendering = useMemo(
-    () => framesInSelectedScene.some((f) => renderingFrameIds[f.id]),
-    [framesInSelectedScene, renderingFrameIds],
-  );
-
-  const sceneRenderBusy = useMemo(
-    () =>
-      sceneFramesRendering ||
-      sortedScenes.some((sc) => sceneReferenceGeneratingKeys[sc.id]),
-    [sceneFramesRendering, sortedScenes, sceneReferenceGeneratingKeys],
-  );
-
-  const selectedCharacter = useMemo(() => {
-    if (!kitSelection) return null;
-    return assetBundle.characters.find((a) => a.id === kitSelection.id) ?? null;
-  }, [kitSelection, assetBundle.characters]);
-
   const backgroundColorHex = normalizeHex(resolvedScenePlate.color);
   const backgroundHexShown = backgroundHexDraft ?? backgroundColorHex;
 
@@ -243,7 +210,7 @@ export function StylePageView({ step: _step }: Props) {
 
   const sceneBackgroundEditor = (
     <div className="flex flex-col gap-4">
-      <p className={panelHeadingClass}>Background</p>
+      <p className={panelHeadingAfterBlockClass}>Background</p>
       {!selectedScene ? (
         <p className="archive-text text-sm text-muted-foreground">No scenes yet.</p>
       ) : (
@@ -360,66 +327,11 @@ export function StylePageView({ step: _step }: Props) {
             onGenerateAsset={(id) => void requestKitAssetRender("characters", id)}
             onRemove={removeKitAsset}
           />
-
-          {selectedCharacter ? (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-medium uppercase text-muted-foreground">Character</p>
-                <div className="flex min-w-0 items-center gap-2">
-                  <span
-                    className="shrink-0 text-[13px] uppercase leading-none text-muted-foreground"
-                    aria-hidden
-                  >
-                    {selectedCharacter.id}
-                  </span>
-                  <label htmlFor={`style-char-name-${selectedCharacter.id}`} className="sr-only">
-                    Character name
-                  </label>
-                  <Input
-                    id={`style-char-name-${selectedCharacter.id}`}
-                    className="archive-text min-w-0 flex-1 text-base"
-                    placeholder="Name"
-                    value={selectedCharacter.name}
-                    onChange={(e) => patchKitAsset(selectedCharacter.id, { name: e.target.value })}
-                    aria-label={`${selectedCharacter.id}, character name`}
-                  />
-                </div>
-              </div>
-              <div className="flex min-h-0 flex-col gap-2">
-                <label
-                  htmlFor={`style-char-desc-${selectedCharacter.id}`}
-                  className="text-xs font-medium uppercase text-muted-foreground"
-                >
-                  Prompt
-                </label>
-                <Textarea
-                  id={`style-char-desc-${selectedCharacter.id}`}
-                  className="archive-text min-h-[6rem] flex-1 resize-y text-sm leading-snug"
-                  placeholder="Appearance, role, and how they read on screen…"
-                  value={selectedCharacter.description ?? ""}
-                  onChange={(e) =>
-                    patchKitAsset(selectedCharacter.id, { description: e.target.value })
-                  }
-                  rows={6}
-                  aria-label={`${selectedCharacter.id}, character prompt`}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Character</p>
-              <p className="archive-text text-sm text-muted-foreground">
-                Select a character in the grid to edit name and prompt.
-              </p>
-            </div>
-          )}
         </>,
         <>
-          {sceneBackgroundEditor}
-
           <div className="flex min-h-0 flex-col gap-2">
-            <p className={panelHeadingAfterBlockClass}>Scene references</p>
-            <div className="flex max-h-[min(50vh,22rem)] min-h-0 flex-col overflow-hidden rounded-lg border border-border/80">
+            <p className={panelHeadingClass}>Scenes</p>
+            <div className="flex max-h-[min(26vh,11.25rem)] min-h-0 flex-col overflow-hidden rounded-lg border border-border/80">
               <ul className="flex min-h-0 list-none flex-col gap-0 overflow-y-auto p-1" role="list">
                 {sortedScenes.map((sc) => {
                   const title = sc.title.trim() || `Scene ${sc.index + 1}`;
@@ -461,7 +373,7 @@ export function StylePageView({ step: _step }: Props) {
                             disabled={refGenerating}
                             onClick={(e) => {
                               e.stopPropagation();
-                              void requestSceneReferenceRender(sc.id, sceneImageModel);
+                              void requestSceneReferenceRender(sc.id);
                             }}
                             aria-label={
                               refGenerating
@@ -515,72 +427,117 @@ export function StylePageView({ step: _step }: Props) {
                   rows={5}
                   aria-label={`Scene description, ${selectedScene.title.trim() || "scene"}`}
                 />
+                <SceneCharacterTagField
+                  sceneId={selectedScene.id}
+                  characterIds={selectedScene.characterIds}
+                  kitCharacters={assetBundle.characters}
+                  patchScene={patchScene}
+                />
               </>
             ) : (
               <p className="archive-text text-sm text-muted-foreground">No scenes yet.</p>
             )}
           </div>
-
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="style-scene-image-model" className="text-sm text-muted-foreground">
-                Image model
-              </Label>
-              <select
-                id="style-scene-image-model"
-                value={sceneImageModel}
-                disabled={sceneRenderBusy}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setSceneImageModel(isOpenAiImageModelId(v) ? v : DEFAULT_OPENAI_IMAGE_MODEL);
-                }}
-                className={cn(
-                  "flex h-8 w-full min-w-[12rem] max-w-sm rounded-md border border-input bg-transparent px-2 text-base shadow-xs outline-none",
-                  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
-                  "disabled:cursor-not-allowed disabled:opacity-50",
-                  "dark:bg-input/30",
-                )}
-              >
-                {OPENAI_IMAGE_MODEL_OPTIONS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="w-fit cursor-pointer"
-                disabled={
-                  !selectedScene ||
-                  framesInSelectedScene.length === 0 ||
-                  sceneFramesRendering
-                }
-                onClick={() => {
-                  for (const fr of framesInSelectedScene) {
-                    void requestFrameRender(fr.id, sceneImageModel);
-                  }
-                }}
-              >
-                Render
-              </Button>
-              {selectedScene && framesInSelectedScene.length === 0 ? (
-                <p className="archive-text text-sm text-muted-foreground">
-                  No frames in this scene — add frames on Compose.
-                </p>
-              ) : null}
-            </div>
-          </div>
         </>,
         <WorkflowPreviewColumn>
           <StyleSceneReferencePreview scene={selectedScene} className="w-full shrink-0" />
+          {sceneBackgroundEditor}
         </WorkflowPreviewColumn>,
       ]}
       />
     </>
+  );
+}
+
+function SceneCharacterTagField({
+  sceneId,
+  characterIds,
+  kitCharacters,
+  patchScene,
+}: {
+  sceneId: string;
+  characterIds: string[];
+  kitCharacters: KitAsset[];
+  patchScene: (id: string, patch: Partial<Scene>) => void;
+}) {
+  const available = useMemo(
+    () => kitCharacters.filter((c) => !characterIds.includes(c.id)),
+    [kitCharacters, characterIds],
+  );
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className={panelHeadingAfterBlockClass}>Characters</p>
+      <label htmlFor={`scene-char-add-${sceneId}`} className="sr-only">
+        Add character to scene
+      </label>
+      <div
+        className={cn(
+          "flex min-h-10 w-full flex-wrap items-center gap-2 rounded-md border border-input bg-transparent px-2 py-2 shadow-xs",
+          "dark:bg-input/30",
+        )}
+      >
+        {characterIds.map((id) => {
+          const kit = kitCharacters.find((c) => c.id === id);
+          const name = kit?.name?.trim() ?? "";
+          return (
+            <span
+              key={id}
+              className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted/50 py-1 pl-2 pr-1 text-base leading-tight"
+            >
+              <span
+                className="shrink-0 text-[13px] uppercase leading-none text-muted-foreground"
+                aria-hidden
+              >
+                {id}
+              </span>
+              {name ? <span className="min-w-0 truncate">{name}</span> : null}
+              <button
+                type="button"
+                className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`Remove ${id} from scene`}
+                onClick={() => patchScene(sceneId, { characterIds: characterIds.filter((x) => x !== id) })}
+              >
+                <X className="size-3.5" strokeWidth={2} aria-hidden />
+              </button>
+            </span>
+          );
+        })}
+        <select
+          key={`scene-char-add-${characterIds.join(",")}`}
+          id={`scene-char-add-${sceneId}`}
+          className={cn(
+            "h-8 w-fit min-w-[10rem] max-w-full flex-none rounded-md border border-dashed border-input bg-transparent px-2 text-base shadow-xs outline-none",
+            "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            "dark:bg-input/30",
+          )}
+          disabled={available.length === 0}
+          defaultValue=""
+          onChange={(e) => {
+            const v = e.target.value;
+            if (!v || characterIds.includes(v)) return;
+            patchScene(sceneId, { characterIds: [...characterIds, v] });
+          }}
+        >
+          <option value="">
+            {kitCharacters.length === 0
+              ? "No kit characters"
+              : available.length === 0
+                ? "All kit characters added"
+                : "Add character…"}
+          </option>
+          {available.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.id} — {c.name.trim() || "Unnamed"}
+            </option>
+          ))}
+        </select>
+      </div>
+      {kitCharacters.length === 0 ? (
+        <p className="archive-text text-base text-muted-foreground">Add characters in the Characters panel.</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -607,7 +564,8 @@ function KitThumbnailTile({
   onRemove: (id: string) => void;
 }) {
   const [broken, setBroken] = useState(false);
-  const raw = asset.src?.trim() ?? "";
+  const kitImageSrcs = normalizeCharacterKitImageSrcs(asset);
+  const raw = kitImageSrcs[0] ?? "";
   useEffect(() => {
     setBroken(false);
   }, [raw]);
@@ -617,7 +575,8 @@ function KitThumbnailTile({
   }, [isGenerating]);
 
   const displaySrc = kitAssetDisplaySrc(raw);
-  const hasImage = Boolean(raw) && !broken;
+  const hasKitImage = kitImageSrcs.length > 0;
+  const hasImage = hasKitImage && !broken;
   const showImage = hasImage && Boolean(displaySrc);
   const rowLabel = `${label} ${index + 1}`;
 
@@ -693,14 +652,101 @@ function KitThumbnailTile({
           >
             <Sparkles className="size-4" strokeWidth={2} aria-hidden />
           </button>
-          <button
-            type="button"
-            className={cn(kitTileIconBtn, "hover:text-destructive")}
-            onClick={() => onRemove(asset.id)}
-            aria-label={`Remove ${rowLabel}`}
-          >
-            <Trash2 className="size-4" strokeWidth={2} aria-hidden />
-          </button>
+          <Popover.Root>
+            <Popover.Trigger
+              type="button"
+              className={kitTileIconBtn}
+              disabled={isGenerating}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              aria-label={`Edit ${rowLabel} details`}
+            >
+              <Pencil className="size-4" strokeWidth={2} aria-hidden />
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
+                <Popover.Popup
+                  className={cn(
+                    "max-h-[min(70vh,28rem)] w-[min(calc(100vw-2rem),22rem)] origin-(--transform-origin) overflow-hidden rounded-lg border border-border bg-popover p-4 text-popover-foreground shadow-md outline-none ring-1 ring-foreground/10",
+                    "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+                  )}
+                >
+                  <div className="flex max-h-[min(70vh,28rem)] min-h-0 flex-col gap-3 overflow-y-auto">
+                    <Popover.Title className="text-xs font-medium uppercase text-muted-foreground">
+                      Character
+                    </Popover.Title>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="shrink-0 text-[13px] uppercase leading-none text-muted-foreground"
+                        aria-hidden
+                      >
+                        {asset.id}
+                      </span>
+                      <label htmlFor={`popover-char-name-${asset.id}`} className="sr-only">
+                        Character name
+                      </label>
+                      <Input
+                        id={`popover-char-name-${asset.id}`}
+                        className="archive-text min-w-0 flex-1 text-base"
+                        placeholder="Name"
+                        value={asset.name}
+                        onChange={(e) => onPatch(asset.id, { name: e.target.value })}
+                        aria-label={`${asset.id}, character name`}
+                      />
+                    </div>
+                    <div className="flex min-h-0 flex-col gap-2">
+                      <label
+                        htmlFor={`popover-char-desc-${asset.id}`}
+                        className="text-xs font-medium uppercase text-muted-foreground"
+                      >
+                        Prompt
+                      </label>
+                      <Textarea
+                        id={`popover-char-desc-${asset.id}`}
+                        className="archive-text min-h-[6rem] flex-1 resize-y text-sm leading-snug"
+                        placeholder="Appearance, role, and how they read on screen…"
+                        value={asset.description ?? ""}
+                        onChange={(e) =>
+                          onPatch(asset.id, { description: e.target.value })
+                        }
+                        rows={6}
+                        aria-label={`${asset.id}, character prompt`}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="cursor-pointer"
+                        disabled={isGenerating || !hasKitImage}
+                        onClick={() =>
+                          onPatch(asset.id, {
+                            src: undefined,
+                            imageSrcs: undefined,
+                            width: undefined,
+                            height: undefined,
+                          })
+                        }
+                      >
+                        Clear image
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="cursor-pointer"
+                        disabled={isGenerating}
+                        onClick={() => onRemove(asset.id)}
+                      >
+                        Delete character
+                      </Button>
+                    </div>
+                  </div>
+                </Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
         </div>
       </div>
     </li>

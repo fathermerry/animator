@@ -1,20 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { useStore } from "zustand/react";
+import { useEffect, useRef } from "react";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  DEFAULT_OPENAI_IMAGE_MODEL,
-  OPENAI_IMAGE_MODEL_OPTIONS,
-  type OpenAiImageModelId,
-  isOpenAiImageModelId,
-} from "@/lib/imageModels";
 import { useNarrationAudioDuration } from "@/lib/useNarrationAudioDuration";
 import { panelHeadingClass } from "@/lib/panelHeading";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@/store/projectStore";
 import type { Frame, Scene } from "@/types/project";
 
 type Props = {
@@ -32,13 +23,6 @@ export function RenderSceneFrameDetails({
   onPatchFrame,
   className,
 }: Props) {
-  const renderingFrameIds = useStore(useProjectStore, (s) => s.renderingFrameIds);
-  const frameRenderErrors = useStore(useProjectStore, (s) => s.frameRenderErrors);
-  const requestFrameRender = useStore(useProjectStore, (s) => s.requestFrameRender);
-  const cancelFrameRender = useStore(useProjectStore, (s) => s.cancelFrameRender);
-
-  const [imageModel, setImageModel] = useState<OpenAiImageModelId>(DEFAULT_OPENAI_IMAGE_MODEL);
-
   const narrationSrc = scene?.narrationAudioSrc?.trim() ?? "";
   const narrationAudioDur = useNarrationAudioDuration(narrationSrc || undefined);
   const onPatchSceneRef = useRef(onPatchScene);
@@ -136,62 +120,6 @@ export function RenderSceneFrameDetails({
           />
         </div>
       </div>
-
-      {frame ? (
-        <div className="flex flex-col gap-3 self-start">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="render-image-model" className="text-sm text-muted-foreground">
-              Image model
-            </Label>
-            <select
-              id="render-image-model"
-              value={imageModel}
-              disabled={Boolean(renderingFrameIds[frame.id])}
-              onChange={(e) => {
-                const v = e.target.value;
-                setImageModel(isOpenAiImageModelId(v) ? v : DEFAULT_OPENAI_IMAGE_MODEL);
-              }}
-              className={cn(
-                "flex h-8 w-full min-w-[12rem] rounded-md border border-input bg-transparent px-2 text-base shadow-xs outline-none",
-                "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-                "dark:bg-input/30",
-              )}
-            >
-              {OPENAI_IMAGE_MODEL_OPTIONS.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={Boolean(renderingFrameIds[frame.id])}
-              onClick={() => void requestFrameRender(frame.id, imageModel)}
-            >
-              Render
-            </Button>
-            {renderingFrameIds[frame.id] ? (
-              <button
-                type="button"
-                className="rounded-md px-1.5 py-0.5 text-base text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                onClick={() => cancelFrameRender(frame.id)}
-              >
-                Cancel
-              </button>
-            ) : null}
-          </div>
-          {frameRenderErrors[frame.id] ? (
-            <p className="max-w-full text-sm text-destructive" role="alert">
-              {frameRenderErrors[frame.id]}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }
