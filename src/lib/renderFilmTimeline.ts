@@ -19,7 +19,6 @@ export type FilmSegmentInput = {
   /** Frame staging copy, or scene beat when there is no frame row. */
   frameDescription: string;
   characters: KitAsset[];
-  objects: KitAsset[];
 };
 
 function resolveKitAssets(ids: string[], pool: KitAsset[]): KitAsset[] {
@@ -56,7 +55,6 @@ export function buildRenderFilmTimeline(
     const sceneFrames = framesForSceneSorted(frames, scene.id);
     const durSec = Number.isFinite(scene.durationSeconds) ? Math.max(0, scene.durationSeconds) : 0;
     const chars = resolveKitAssets(scene.characterIds, assetBundle.characters);
-    const objs = resolveKitAssets(scene.objectIds, assetBundle.objects);
 
     const title = scene.title.trim();
     const sceneBeat = scene.description.trim();
@@ -72,7 +70,6 @@ export function buildRenderFilmTimeline(
         sceneTitle: title,
         frameDescription: sceneBeat,
         characters: chars,
-        objects: objs,
       });
       continue;
     }
@@ -94,7 +91,6 @@ export function buildRenderFilmTimeline(
         sceneTitle: title,
         frameDescription: frameText || sceneBeat,
         characters: chars,
-        objects: objs,
       });
     });
   }

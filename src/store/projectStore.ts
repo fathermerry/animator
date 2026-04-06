@@ -9,6 +9,7 @@ import {
   type KitAssetKind,
 } from "../lib/buildKitAssetImagePrompt";
 import { frameHasOutputImage } from "../lib/frameRenderStatus";
+import { KIT_ASSET_MAX_IMAGES, normalizeCharacterKitImageSrcs } from "../lib/kitAssetImages";
 import {
   DEFAULT_OPENAI_IMAGE_MODEL,
   type OpenAiImageModelId,
@@ -241,7 +242,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
   ): Promise<void> => {
     const project = get().project;
     const bundle = selectResolvedStyleBundle(get());
-    const prompt = buildKitAssetImagePrompt(project, bundle, kind, asset);
+    const prompt = buildKitAssetImagePrompt(project, bundle, asset);
     const frameId = kitAssetRenderFrameId(kind, asset.id);
     const renderId = crypto.randomUUID();
     const zeroCost: Render["cost"] = { amount: 0, currency: "USD", breakdown: [] };
@@ -268,29 +269,31 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         modelId,
       });
       get().updateStyle((b) => {
-        const list = b[kind];
+        const list = b.characters;
         const idx = list.findIndex((a) => a.id === asset.id);
         if (idx === -1) return b;
         const prev = list[idx]!;
         const next = [...list];
         const src = data.imageDataUrl ?? data.imageUrl;
-        if (kind === "objects") {
-          next[idx] = {
-            id: prev.id,
-            name: prev.name,
-            src,
-            width: KIT_ASSET_RENDER_IMAGE_SIZE,
-            height: KIT_ASSET_RENDER_IMAGE_SIZE,
-          };
-        } else {
-          next[idx] = {
-            ...prev,
-            src,
-            width: KIT_ASSET_RENDER_IMAGE_SIZE,
-            height: KIT_ASSET_RENDER_IMAGE_SIZE,
-          };
+        const prevSrcs = normalizeCharacterKitImageSrcs(prev);
+        const newUrl = src;
+        const merged: string[] = [];
+        const seen = new Set<string>();
+        for (const u of [...prevSrcs, newUrl]) {
+          const t = typeof u === "string" ? u.trim() : "";
+          if (!t || seen.has(t)) continue;
+          seen.add(t);
+          merged.push(t);
         }
-        return { ...b, [kind]: next };
+        const capped = merged.slice(-KIT_ASSET_MAX_IMAGES);
+        next[idx] = {
+          ...prev,
+          src: capped[0],
+          imageSrcs: capped.length > 0 ? capped : undefined,
+          width: KIT_ASSET_RENDER_IMAGE_SIZE,
+          height: KIT_ASSET_RENDER_IMAGE_SIZE,
+        };
+        return { ...b, characters: next };
       });
       get().patchRender(renderId, {
         status: "complete",
@@ -473,15 +476,11 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       const modelId: OpenAiImageModelId =
         modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
       const bundle = selectResolvedStyleBundle(get());
-      const n = bundle.characters.length + bundle.objects.length;
-      if (n === 0) return;
+      if (bundle.characters.length === 0) return;
 
       const initialKeys: Record<string, true> = {};
       for (const a of bundle.characters) {
         initialKeys[kitAssetGeneratingKey("characters", a.id)] = true;
-      }
-      for (const a of bundle.objects) {
-        initialKeys[kitAssetGeneratingKey("objects", a.id)] = true;
       }
 
       set({
@@ -490,10 +489,9 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         kitAssetRenderErrors: {},
       });
       try {
-        await Promise.all([
-          ...bundle.characters.map((asset) => runKitAssetImageRender("characters", asset, modelId)),
-          ...bundle.objects.map((asset) => runKitAssetImageRender("objects", asset, modelId)),
-        ]);
+        await Promise.all(
+          bundle.characters.map((asset) => runKitAssetImageRender("characters", asset, modelId)),
+        );
       } finally {
         set({ generatingKitAssets: false, kitAssetGeneratingKeys: {} });
       }

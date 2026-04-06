@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { frameHasOutputImage } from "@/lib/frameRenderStatus";
 import {
   DEFAULT_OPENAI_IMAGE_MODEL,
   OPENAI_IMAGE_MODEL_OPTIONS,
   type OpenAiImageModelId,
   isOpenAiImageModelId,
 } from "@/lib/imageModels";
+import { panelHeadingClass } from "@/lib/panelHeading";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/store/projectStore";
 import type { Frame, Scene } from "@/types/project";
@@ -53,9 +53,9 @@ export function RenderSceneFrameDetails({
   const frameDesc = frame?.description ?? "";
 
   return (
-    <div className={cn("flex min-h-0 flex-col gap-6", className)}>
-      <div className="flex flex-col gap-5">
-        <p className="text-xs font-medium uppercase text-muted-foreground">Prompts</p>
+    <div className={cn("flex min-h-0 flex-col gap-4", className)}>
+      <div className="flex flex-col gap-4">
+        <p className={panelHeadingClass}>Prompts</p>
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="render-scene-title" className="text-sm text-muted-foreground">
@@ -153,9 +153,7 @@ export function RenderSceneFrameDetails({
               type="button"
               variant="secondary"
               size="sm"
-              disabled={
-                frameHasOutputImage(frame.src) || Boolean(renderingFrameIds[frame.id])
-              }
+              disabled={Boolean(renderingFrameIds[frame.id])}
               onClick={() => void requestFrameRender(frame.id, imageModel)}
             >
               Render

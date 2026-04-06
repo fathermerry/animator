@@ -122,21 +122,23 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-svh flex flex-col">
+    <div className="min-h-svh">
       <AppHeader currentSlug={currentSlug} mainNav={mainNav} projectId={mainNav ? null : project.id} />
-      {/* Fixed header: pad so flow starts below it; one document scroll — no nested overflow */}
-      <div className="pt-14">
-        {isProjectsPage ? (
-          <HomePageView />
-        ) : isRendersPage ? (
-          <RendersOverviewPageView />
-        ) : currentSlug === "script" ? (
-          <ScriptPageView step={stepBySlug("script")!} />
-        ) : currentSlug === "style" ? (
-          <StylePageView step={stepBySlug("style")!} />
-        ) : currentSlug === "compose" ? (
-          <ComposePageView step={stepBySlug("compose")!} />
-        ) : null}
+      {/* Height = viewport minus fixed header. Inner flex-1 min-h-0 fills so workflow columns align from the top (no vertical centering). */}
+      <div className="mt-14 box-border flex h-[calc(100svh-3.5rem)] min-h-0 w-full flex-col justify-start overflow-x-hidden overflow-y-auto lg:overflow-y-hidden">
+        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col justify-start basis-0">
+          {isProjectsPage ? (
+            <HomePageView />
+          ) : isRendersPage ? (
+            <RendersOverviewPageView />
+          ) : currentSlug === "script" ? (
+            <ScriptPageView step={stepBySlug("script")!} />
+          ) : currentSlug === "style" ? (
+            <StylePageView step={stepBySlug("style")!} />
+          ) : currentSlug === "compose" ? (
+            <ComposePageView step={stepBySlug("compose")!} />
+          ) : null}
+        </div>
       </div>
     </div>
   );

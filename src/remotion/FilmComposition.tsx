@@ -83,12 +83,10 @@ function IdTag({
 
 function CenteredAssetLine({
   characters,
-  objects,
   assetName,
   fontFamily,
 }: {
   characters: KitAsset[];
-  objects: KitAsset[];
   assetName: CSSProperties;
   fontFamily: string;
 }) {
@@ -108,9 +106,7 @@ function CenteredAssetLine({
     </span>
   );
 
-  const hasC = characters.length > 0;
-  const hasO = objects.length > 0;
-  if (!hasC && !hasO) {
+  if (characters.length === 0) {
     return (
       <p style={{ ...assetName, margin: 0, opacity: 0.55 }}>—</p>
     );
@@ -129,21 +125,6 @@ function CenteredAssetLine({
       }}
     >
       {characters.map((a) => chip(a))}
-      {hasC && hasO ? (
-        <span
-          aria-hidden
-          style={{
-            fontFamily,
-            fontSize: FRAME_ASSET_NAME_PX,
-            color: "rgba(255,255,255,0.35)",
-            lineHeight: 1,
-            padding: "0 4px",
-          }}
-        >
-          ·
-        </span>
-      ) : null}
-      {objects.map((a) => chip(a))}
     </div>
   );
 }
@@ -168,7 +149,7 @@ function GeneratedStillBackdrop({ src }: { src: string }) {
 }
 
 function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
-  const { assetBundle, sceneTitle, frameDescription, characters, objects } = segment;
+  const { assetBundle, sceneTitle, frameDescription, characters } = segment;
   const still = segment.stillSrc?.trim() ?? "";
 
   const titleTs = textStyleForTitle(assetBundle);
@@ -277,7 +258,7 @@ function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
               boxSizing: "border-box",
             }}
           >
-            <CenteredAssetLine characters={characters} objects={objects} assetName={assetName} fontFamily={fontFamily} />
+            <CenteredAssetLine characters={characters} assetName={assetName} fontFamily={fontFamily} />
           </div>
         </div>
       </AbsoluteFill>

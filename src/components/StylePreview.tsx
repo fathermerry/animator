@@ -1,133 +1,154 @@
-import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { isLightBackground, normalizeHex } from "@/lib/color";
-import type { AssetBundle } from "@/types/styleConfig";
+import { kitAssetDisplaySrc } from "@/lib/kitAssetDisplaySrc";
 import { cn } from "@/lib/utils";
 
-/** Selected kit copy shown in the Style step preview while that row is selected. */
-export type StylePreviewKitHover = {
-  id: string;
-  name: string;
-  description?: string;
-  kind: "characters" | "objects";
-};
-
-type Props = {
-  assetBundle: AssetBundle;
+type GeneratingProps = {
+  /** Row is generating an image (parallel batch or single). */
+  isGenerating?: boolean;
   className?: string;
-  /** When set (asset selected), id, name, and description show on the preview. */
-  kitHoverDetail?: StylePreviewKitHover | null;
-  /** Update name / description while editing the overlay (characters include description). */
-  onPatchKitDetail?: (patch: { name?: string; description?: string }) => void;
-  /** Background color/image controls; rendered below the frame. */
-  backgroundEditor?: ReactNode;
 };
 
-/** Full-bleed 16:9 frame with background plate; optional kit detail overlay while selected. */
-function overlayTextColors(bgHex: string): { primary: string; muted: string } {
-  const light = isLightBackground(bgHex);
-  return light
-    ? { primary: "#000000", muted: "rgba(0,0,0,0.55)" }
-    : { primary: "#ffffff", muted: "rgba(255,255,255,0.55)" };
+function PreviewImageCell({ raw }: { raw: string }) {
+  const displaySrc = raw ? kitAssetDisplaySrc(raw) : "";
+  const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    setBroken(false);
+  }, [raw]);
+
+  if (!displaySrc || broken) {
+    return (
+      <div
+        className="flex aspect-square w-full items-center justify-center bg-muted/40 text-xs text-muted-foreground"
+        aria-hidden
+      >
+        —
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative aspect-square w-full overflow-hidden rounded-sm ring-1 ring-border/40">
+      <img
+        key={`cell-${raw.length}-${raw.slice(0, 24)}`}
+        src={displaySrc}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+        onError={() => {
+          if (raw) setBroken(true);
+        }}
+      />
+    </div>
+  );
 }
 
-export function StylePreview({
-  assetBundle,
+/** Single primary preview image (first kit URL) for the Style middle column. */
+export function StyleKitMainPreview({
+  srcs,
+  isGenerating,
   className,
-  kitHoverDetail = null,
-  onPatchKitDetail,
-  backgroundEditor,
-}: Props) {
-  const bgHex = normalizeHex(assetBundle.background.color);
-  const bgSrc = assetBundle.background.src?.trim();
-  const fg = overlayTextColors(bgHex);
+}: { srcs: string[] } & GeneratingProps) {
+  const urls = srcs.map((s) => s.trim()).filter(Boolean);
+  const raw = urls[0] ?? "";
+  const displaySrc = raw ? kitAssetDisplaySrc(raw) : "";
+  const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    setBroken(false);
+  }, [raw]);
+  useEffect(() => {
+    if (!isGenerating) setBroken(false);
+  }, [isGenerating]);
+
+  const showImg = Boolean(displaySrc) && !broken;
 
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 flex-col",
-        backgroundEditor ? "gap-7" : "gap-3",
+        "relative aspect-square w-full max-w-[11rem] min-h-0 overflow-hidden rounded-md border border-dashed border-border bg-card",
+        isGenerating && "kit-tile-generating-bg",
         className,
       )}
+      role="region"
+      aria-label="Character preview"
     >
-      <div
-        className="relative box-border aspect-video w-full min-h-0 overflow-hidden border-2 border-dotted border-muted-foreground/45 bg-transparent"
-        role="region"
-        aria-label="Preview"
-      >
-        <div className="absolute inset-0 z-0" style={{ backgroundColor: bgHex }} aria-hidden />
-        {bgSrc ? (
-          <img
-            src={bgSrc}
-            alt=""
-            className="absolute inset-0 z-[1] h-full w-full object-cover"
-          />
-        ) : null}
-        {kitHoverDetail ? (
-          <div className="absolute inset-0 z-[2] flex items-center justify-center p-4">
-            <div
-              className={cn(
-                "w-full max-w-[min(100%,28rem)] max-h-[min(100%,14rem)] overflow-y-auto rounded-md bg-transparent px-4 py-3 text-left",
-              )}
-            >
-              <p
-                className={cn(
-                  "text-[13px]",
-                  kitHoverDetail.kind === "characters" && "uppercase",
-                )}
-                style={{ color: fg.muted }}
-              >
-                {kitHoverDetail.id}
-              </p>
-              <label htmlFor={`style-preview-kit-name-${kitHoverDetail.id}`} className="sr-only">
-                {kitHoverDetail.kind === "characters" ? "Character" : "Object"} name
-              </label>
-              <Input
-                id={`style-preview-kit-name-${kitHoverDetail.id}`}
-                className={cn(
-                  "archive-text mt-1 h-auto min-h-0 border-0 bg-transparent px-0 py-0 text-base leading-snug shadow-none",
-                  "dark:bg-transparent",
-                  "placeholder:text-current placeholder:opacity-45",
-                  "focus-visible:border-transparent focus-visible:ring-0",
-                )}
-                style={{ color: fg.primary }}
-                placeholder="Name"
-                value={kitHoverDetail.name}
-                onChange={(e) => onPatchKitDetail?.({ name: e.target.value })}
-                aria-label={`${kitHoverDetail.id} name`}
-              />
-              {kitHoverDetail.kind === "characters" ? (
-                <>
-                  <label
-                    htmlFor={`style-preview-kit-desc-${kitHoverDetail.id}`}
-                    className="sr-only"
-                  >
-                    Character description
-                  </label>
-                  <Textarea
-                    id={`style-preview-kit-desc-${kitHoverDetail.id}`}
-                    className={cn(
-                      "archive-text mt-2 min-h-12 resize-none border-0 bg-transparent px-0 py-0 text-sm leading-snug shadow-none [overflow-wrap:anywhere]",
-                      "dark:bg-transparent",
-                      "placeholder:text-current placeholder:opacity-45",
-                      "focus-visible:border-transparent focus-visible:ring-0",
-                    )}
-                    style={{ color: fg.muted }}
-                    placeholder="Description"
-                    value={kitHoverDetail.description ?? ""}
-                    onChange={(e) => onPatchKitDetail?.({ description: e.target.value })}
-                    rows={4}
-                    aria-label={`${kitHoverDetail.id} description`}
-                  />
-                </>
-              ) : null}
-            </div>
+      {showImg ? (
+        <img
+          key={`main-${raw.length}`}
+          src={displaySrc}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => {
+            if (raw) setBroken(true);
+          }}
+        />
+      ) : (
+        <div className="flex h-full min-h-[6rem] flex-col items-center justify-center p-3 text-center">
+          <p className="archive-text text-sm text-muted-foreground">
+            {isGenerating ? "Generating…" : "No image yet"}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Up to five reference images in a compact grid (Style right column).
+ */
+export function StyleKitReferenceImages({ srcs, isGenerating, className }: { srcs: string[] } & GeneratingProps) {
+  const urls = srcs.map((s) => s.trim()).filter(Boolean);
+  const n = urls.length;
+
+  return (
+    <div
+      className={cn(
+        "relative w-full max-w-[14rem] min-h-0 rounded-md border border-dashed border-border bg-card p-1.5",
+        isGenerating && "kit-tile-generating-bg",
+        className,
+      )}
+      role="region"
+      aria-label="Character reference images"
+    >
+      {n === 0 ? (
+        <div className="flex min-h-[6rem] flex-col items-center justify-center px-2 py-6 text-center">
+          <p className="archive-text text-sm text-muted-foreground">
+            {isGenerating ? "Generating…" : "No reference images yet"}
+          </p>
+        </div>
+      ) : n === 1 ? (
+        <PreviewImageCell raw={urls[0]!} />
+      ) : n === 2 ? (
+        <div className="grid grid-cols-2 gap-1.5">
+          {urls.map((raw, i) => (
+            <PreviewImageCell key={`${i}-${raw.slice(0, 48)}`} raw={raw} />
+          ))}
+        </div>
+      ) : n === 3 ? (
+        <div className="grid grid-cols-3 gap-1.5">
+          {urls.map((raw, i) => (
+            <PreviewImageCell key={`${i}-${raw.slice(0, 48)}`} raw={raw} />
+          ))}
+        </div>
+      ) : n === 4 ? (
+        <div className="grid grid-cols-2 gap-1.5">
+          {urls.map((raw, i) => (
+            <PreviewImageCell key={`${i}-${raw.slice(0, 48)}`} raw={raw} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
+            {urls.slice(0, 3).map((raw, i) => (
+              <PreviewImageCell key={`t-${i}-${raw.slice(0, 48)}`} raw={raw} />
+            ))}
           </div>
-        ) : null}
-      </div>
-      {backgroundEditor}
+          <div className="mx-auto grid w-2/3 grid-cols-2 gap-1.5">
+            {urls.slice(3, 5).map((raw, i) => (
+              <PreviewImageCell key={`b-${i}-${raw.slice(0, 48)}`} raw={raw} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

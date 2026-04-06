@@ -13,10 +13,10 @@ export type Cost = {
 export type RenderTargetType = "frame" | "asset";
 
 /** When {@link Render.type} is `asset`, which kit row this render produced. */
-export type RenderKitTarget = {
-  kind: "characters" | "objects";
-  assetId: string;
-};
+export type RenderKitTarget =
+  | { kind: "characters"; assetId: string }
+  /** Legacy renders from older projects; no longer produced. */
+  | { kind: "objects"; assetId: string };
 
 export type Render = {
   id: string;
@@ -57,7 +57,8 @@ export type Scene = {
   /** Staging / beat copy: who does what with props. */
   description: string;
   characterIds: string[];
-  objectIds: string[];
+  /** One optional still defining target look for this scene’s frames (Style step). */
+  referenceImageSrc?: string;
   durationSeconds: number;
   createdAt: Date;
 };

@@ -1,11 +1,12 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "zustand/react";
 
 import { ScriptScenePreview } from "@/components/ScriptScenePreview";
 import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
-import { WorkflowStepLayout } from "@/components/WorkflowStepLayout";
+import { WorkflowStepPage } from "@/components/WorkflowStepPage";
 import { useDocumentScrollScene } from "@/hooks/useDocumentScrollScene";
 import { formatDurationMmSs } from "@/lib/filmTime";
+import { panelHeadingAfterBlockClass } from "@/lib/panelHeading";
 import { cn } from "@/lib/utils";
 import {
   selectCurrentProject,
@@ -31,8 +32,9 @@ export function ScriptPageView({ step: _step }: Props) {
   );
   const sceneCount = orderedScenes.length;
 
+  const primaryScrollRef = useRef<HTMLDivElement>(null);
   const { scrollProgress, activeSceneIndex, scrollToSceneIndex } =
-    useDocumentScrollScene(sceneCount);
+    useDocumentScrollScene(sceneCount, { scrollRootRef: primaryScrollRef });
 
   const activeScene: Scene | null =
     sceneCount > 0 ? orderedScenes[Math.min(activeSceneIndex, sceneCount - 1)]! : null;
@@ -44,27 +46,27 @@ export function ScriptPageView({ step: _step }: Props) {
   const text = project?.prompt ?? "";
 
   return (
-    <WorkflowStepLayout
+    <WorkflowStepPage
+      primaryColumnRef={primaryScrollRef}
+      primaryClassName="md:pr-0 lg:pr-0"
       primary={
-        <div className="w-full max-w-[min(100%,42rem)] pt-2">
-          <textarea
-            value={text}
-            onChange={(e) => setPromptText(e.target.value)}
-            autoComplete="off"
-            spellCheck
-            placeholder="Start typing"
-            className={cn(
-              "min-h-[min(28rem,55svh)] w-full min-w-0 flex-1 resize-none bg-transparent",
-              "[field-sizing:content]",
-              "border-0 p-0 text-left shadow-none outline-none ring-0",
-              "focus-visible:ring-0",
-              "placeholder:text-muted-foreground/35",
-              "leading-relaxed text-foreground",
-              "[mask-image:linear-gradient(to_bottom,transparent,black_1.125rem,black_calc(100%-1.125rem),transparent)] [-webkit-mask-image:linear-gradient(to_bottom,transparent,black_1.125rem,black_calc(100%-1.125rem),transparent)] [mask-size:100%_100%] [-webkit-mask-size:100%_100%]",
-            )}
-            aria-label="Script"
-          />
-        </div>
+        <textarea
+          value={text}
+          onChange={(e) => setPromptText(e.target.value)}
+          autoComplete="off"
+          spellCheck
+          placeholder="Start typing"
+          className={cn(
+            "min-h-[min(28rem,55svh)] w-full min-w-0 resize-none bg-transparent",
+            "[field-sizing:content]",
+            "border-0 p-0 text-left shadow-none outline-none ring-0 md:pr-8 lg:pr-6",
+            "focus-visible:ring-0",
+            "placeholder:text-muted-foreground/35",
+            "leading-relaxed text-foreground",
+            "[mask-image:linear-gradient(to_bottom,transparent,black_1.125rem,black_calc(100%-1.125rem),transparent)] [-webkit-mask-image:linear-gradient(to_bottom,transparent,black_1.125rem,black_calc(100%-1.125rem),transparent)] [mask-size:100%_100%] [-webkit-mask-size:100%_100%]",
+          )}
+          aria-label="Script"
+        />
       }
       preview={
         <WorkflowPreviewColumn>
@@ -76,8 +78,8 @@ export function ScriptPageView({ step: _step }: Props) {
             }}
             className="w-full"
           />
-          <div className="mt-7 flex w-full min-w-0 flex-col gap-2.5" aria-label="Scenes">
-            <p className="text-xs font-medium uppercase text-muted-foreground">Scenes</p>
+          <div className="flex w-full min-w-0 flex-col gap-2.5" aria-label="Scenes">
+            <p className={panelHeadingAfterBlockClass}>Scenes</p>
             <p className="sr-only" aria-live="polite">
               Scroll progress {(scrollProgress * 100).toFixed(0)} percent; active scene{" "}
               {activeSceneIndex + 1} of {Math.max(sceneCount, 1)}

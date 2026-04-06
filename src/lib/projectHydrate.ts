@@ -58,6 +58,13 @@ function reviveCharacterAsset(raw: unknown): KitAsset | null {
   const description = typeof o.description === "string" ? o.description : "";
   const srcRaw = typeof o.src === "string" ? o.src.trim() : "";
   const src = srcRaw.length > 0 ? srcRaw : undefined;
+  let imageSrcs: string[] | undefined;
+  if (Array.isArray(o.imageSrcs)) {
+    const urls = o.imageSrcs
+      .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+      .map((s) => s.trim());
+    imageSrcs = urls.length > 0 ? urls.slice(0, 5) : undefined;
+  }
   const width = typeof o.width === "number" && Number.isFinite(o.width) ? o.width : undefined;
   const height = typeof o.height === "number" && Number.isFinite(o.height) ? o.height : undefined;
   return {
@@ -65,26 +72,7 @@ function reviveCharacterAsset(raw: unknown): KitAsset | null {
     name,
     description,
     ...(src ? { src } : {}),
-    ...(width !== undefined ? { width } : {}),
-    ...(height !== undefined ? { height } : {}),
-  };
-}
-
-/** Kit objects do not carry `description`; legacy keys in JSON are ignored. */
-function reviveObjectAsset(raw: unknown): KitAsset | null {
-  if (!raw || typeof raw !== "object") return null;
-  const o = raw as Partial<KitAsset>;
-  const id = typeof o.id === "string" ? o.id.trim() : "";
-  if (!id) return null;
-  const name = typeof o.name === "string" ? o.name : "";
-  const srcRaw = typeof o.src === "string" ? o.src.trim() : "";
-  const src = srcRaw.length > 0 ? srcRaw : undefined;
-  const width = typeof o.width === "number" && Number.isFinite(o.width) ? o.width : undefined;
-  const height = typeof o.height === "number" && Number.isFinite(o.height) ? o.height : undefined;
-  return {
-    id,
-    name,
-    ...(src ? { src } : {}),
+    ...(imageSrcs ? { imageSrcs } : {}),
     ...(width !== undefined ? { width } : {}),
     ...(height !== undefined ? { height } : {}),
   };
@@ -93,19 +81,6 @@ function reviveObjectAsset(raw: unknown): KitAsset | null {
 function reviveCharacterAssets(raw: unknown): KitAsset[] {
   if (!Array.isArray(raw)) return [];
   const list = raw.map(reviveCharacterAsset).filter((x): x is KitAsset => x !== null);
-  const seen = new Set<string>();
-  const out: KitAsset[] = [];
-  for (const a of list) {
-    if (seen.has(a.id)) continue;
-    seen.add(a.id);
-    out.push(a);
-  }
-  return out;
-}
-
-function reviveObjectAssets(raw: unknown): KitAsset[] {
-  if (!Array.isArray(raw)) return [];
-  const list = raw.map(reviveObjectAsset).filter((x): x is KitAsset => x !== null);
   const seen = new Set<string>();
   const out: KitAsset[] = [];
   for (const a of list) {
@@ -133,7 +108,6 @@ function reviveAssetBundle(raw: unknown): AssetBundle {
   const s = raw as Partial<AssetBundle>;
   const bg = reviveBackground(s.background, d.background);
   const characters = reviveCharacterAssets(s.characters);
-  const objects = reviveObjectAssets(s.objects);
   const textStyles =
     Array.isArray(s.textStyles) && s.textStyles.length > 0
       ? s.textStyles.map((t, i) => reviveTextStyle(t, d.textStyles[i] ?? d.textStyles[0]!))
@@ -146,7 +120,6 @@ function reviveAssetBundle(raw: unknown): AssetBundle {
     background: bg,
     textStyles,
     characters: characters.length > 0 ? characters : [...d.characters],
-    objects: objects.length > 0 ? objects : [...d.objects],
   };
 }
 
@@ -274,9 +247,8 @@ function reviveScene(raw: unknown, projectId: string): Scene | null {
   const characterIds = Array.isArray(s.characterIds)
     ? s.characterIds.filter((x): x is string => typeof x === "string" && x.length > 0)
     : [];
-  const objectIds = Array.isArray(s.objectIds)
-    ? s.objectIds.filter((x): x is string => typeof x === "string" && x.length > 0)
-    : [];
+  const referenceImageSrcRaw = typeof s.referenceImageSrc === "string" ? s.referenceImageSrc.trim() : "";
+  const referenceImageSrc = referenceImageSrcRaw.length > 0 ? referenceImageSrcRaw : undefined;
   return {
     id: s.id,
     projectId: typeof s.projectId === "string" && s.projectId.trim() ? s.projectId : projectId,
@@ -284,7 +256,7 @@ function reviveScene(raw: unknown, projectId: string): Scene | null {
     title,
     description,
     characterIds,
-    objectIds,
+    ...(referenceImageSrc ? { referenceImageSrc } : {}),
     durationSeconds,
     createdAt: reviveDate(s.createdAt),
   };
@@ -326,7 +298,7 @@ export function projectFromConfigJson(raw: unknown): HydratedProjectBundle {
   }
 
   const activeRenumber = renumbered.find((x) => x.config.id === styleConfigId) ?? renumbered[0]!;
-  const { characterIdMap, objectIdMap } = activeRenumber.maps;
+  const { characterIdMap } = activeRenumber.maps;
 
   const scenesRaw = Array.isArray(o.scenes) ? o.scenes : [];
   let scenes = scenesRaw
@@ -335,7 +307,6 @@ export function projectFromConfigJson(raw: unknown): HydratedProjectBundle {
   scenes = scenes.map((s) => ({
     ...s,
     characterIds: s.characterIds.map((id) => characterIdMap.get(id) ?? id),
-    objectIds: s.objectIds.map((id) => objectIdMap.get(id) ?? id),
   }));
 
   const rendersRaw = Array.isArray(o.renders) ? o.renders : [];

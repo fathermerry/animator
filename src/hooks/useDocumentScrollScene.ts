@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 
-function readScrollProgress(): number {
-  const el = document.documentElement;
+function readScrollProgress(scrollRoot: HTMLElement | null): number {
+  const el =
+    scrollRoot && scrollRoot.scrollHeight > scrollRoot.clientHeight + 1
+      ? scrollRoot
+      : document.documentElement;
   const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
   if (maxScroll <= 0) return 0;
   return Math.min(1, Math.max(0, el.scrollTop / maxScroll));
@@ -14,19 +23,30 @@ function progressToSceneIndex(p: number, sceneCount: number): number {
 
 const TOP_EPS = 0.5;
 
+export type UseDocumentScrollSceneOptions = {
+  /** Primary column with `overflow-y-auto`: uses this for progress when it can scroll; else the window. */
+  scrollRootRef?: RefObject<HTMLElement | null>;
+};
+
 /**
- * Observes document scroll and publishes scroll progress [0,1] and a discrete scene index
- * (N equal buckets). Choosing a scene scrolls the window to the top and pins that index
- * until the user scrolls away from the top.
+ * Observes scroll on `scrollRootRef` when it overflows, else the document, and publishes progress
+ * [0,1] and a discrete scene index (N equal buckets).
  */
-export function useDocumentScrollScene(sceneCount: number) {
+export function useDocumentScrollScene(
+  sceneCount: number,
+  options: UseDocumentScrollSceneOptions = {},
+) {
+  const { scrollRootRef } = options;
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const pinnedSceneIndexRef = useRef<number | null>(null);
 
   const update = useCallback(() => {
-    const el = document.documentElement;
-    const p = readScrollProgress();
+    const root = scrollRootRef?.current ?? null;
+    const useRoot = root && root.scrollHeight > root.clientHeight + 1;
+    const scrollRoot = useRoot ? root : null;
+    const el = scrollRoot ?? document.documentElement;
+    const p = readScrollProgress(scrollRoot);
     const top = el.scrollTop;
     setScrollProgress(p);
 
@@ -50,20 +70,29 @@ export function useDocumentScrollScene(sceneCount: number) {
       pinnedSceneIndexRef.current = null;
     }
     setActiveSceneIndex(progressToSceneIndex(p, sceneCount));
-  }, [sceneCount]);
+  }, [sceneCount, scrollRootRef]);
 
-  useEffect(() => {
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    const ro = new ResizeObserver(() => update());
+  useLayoutEffect(() => {
+    const tick = () => update();
+    tick();
+    window.addEventListener("scroll", tick, { passive: true });
+    window.addEventListener("resize", tick);
+    const ro = new ResizeObserver(tick);
     if (document.body) ro.observe(document.body);
+
+    const root = scrollRootRef?.current ?? null;
+    if (root) {
+      root.addEventListener("scroll", tick, { passive: true });
+      ro.observe(root);
+    }
+
     return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", tick);
+      window.removeEventListener("resize", tick);
       ro.disconnect();
+      root?.removeEventListener("scroll", tick);
     };
-  }, [update]);
+  }, [update, scrollRootRef]);
 
   const scrollToSceneIndex = useCallback(
     (k: number) => {
@@ -71,9 +100,21 @@ export function useDocumentScrollScene(sceneCount: number) {
       const clamped = Math.max(0, Math.min(sceneCount - 1, k));
       pinnedSceneIndexRef.current = clamped;
       setActiveSceneIndex(clamped);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+
+      const root = scrollRootRef?.current ?? null;
+      const useRoot = root && root.scrollHeight > root.clientHeight + 1;
+      const el = useRoot ? root : document.documentElement;
+      const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+      const targetTop =
+        sceneCount <= 1 ? 0 : (clamped / sceneCount) * maxScroll;
+
+      if (useRoot && root) {
+        root.scrollTo({ top: targetTop, behavior: "smooth" });
+      } else {
+        window.scrollTo({ top: targetTop, behavior: "smooth" });
+      }
     },
-    [sceneCount],
+    [sceneCount, scrollRootRef],
   );
 
   return { scrollProgress, activeSceneIndex, scrollToSceneIndex };

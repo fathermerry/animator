@@ -8,7 +8,7 @@ export { OPENAI_IMAGE_PROMPT_MAX_CHARS };
 /** Server writes DALL·E 3 output at this square size (`/api/render-frame`). */
 export const KIT_ASSET_RENDER_IMAGE_SIZE = 1024;
 
-export type KitAssetKind = "characters" | "objects";
+export type KitAssetKind = "characters";
 
 /** Stable id passed to `/api/render-frame` as `frameId` (filename under `public/renders/{projectId}/`). */
 export function kitAssetRenderFrameId(kind: KitAssetKind, assetId: string): string {
@@ -32,7 +32,7 @@ function sharedLookBlock(bundle: AssetBundle): string {
 }
 
 /** Fixed visual contract for every kit asset image; bundle details refine but do not replace this. */
-function kitAssetStandardPrompt(kind: KitAssetKind): string {
+function kitAssetStandardPrompt(): string {
   const base: string[] = [
     "Generate a single high-quality square (1:1 aspect ratio) image for a style-kit asset library.",
     "Composition: full-frame solid white background (#FFFFFF) only — no gradients, no off-white, no paper texture unless the shared style direction explicitly requires it.",
@@ -43,38 +43,32 @@ function kitAssetStandardPrompt(kind: KitAssetKind): string {
     "No text overlays, watermarks, logos, captions, letters, or readable symbols in the image.",
   ];
 
-  if (kind === "characters") {
-    base.push(
-      "One character only. No furniture, electronics, charts, documents, floor plane, or extra props — except clothing and accessories worn on the body.",
-      "Use the description below only for the character's appearance, pose, and outfit; do not draw props, settings, or metaphors mentioned for story context.",
-    );
-  } else {
-    base.push(
-      "One isolated object or graphic only — no surrounding scene, desk, environment, or extra pictograms.",
-    );
-  }
+  base.push(
+    "One character only. No furniture, electronics, charts, documents, floor plane, or extra props — except clothing and accessories worn on the body.",
+    "Use the description below only for the character's appearance, pose, and outfit; do not draw props, settings, or metaphors mentioned for story context.",
+  );
 
   return base.join("\n");
 }
 
-function thisAssetBlock(kind: KitAssetKind, asset: KitAsset): string {
+function thisAssetBlock(asset: KitAsset): string {
   const name = asset.name.trim() || "(unnamed)";
   const lines: string[] = [
     "## This asset",
-    kind === "characters" ? "Type: Character" : "Type: Object / graphic",
+    "Type: Character",
     `Kit id: ${asset.id}`,
     `Name: ${name}`,
   ];
-  if (kind === "characters" && asset.description?.trim()) {
+  if (asset.description?.trim()) {
     lines.push(`Description: ${asset.description.trim()}`);
   }
   return lines.join("\n");
 }
 
-function kitAssetBody(bundle: AssetBundle, kind: KitAssetKind, asset: KitAsset): string {
-  const standard = kitAssetStandardPrompt(kind);
+function kitAssetBody(bundle: AssetBundle, asset: KitAsset): string {
+  const standard = kitAssetStandardPrompt();
   const look = sharedLookBlock(bundle);
-  const assetBlock = thisAssetBlock(kind, asset);
+  const assetBlock = thisAssetBlock(asset);
   return [standard, look, assetBlock].join("\n\n");
 }
 
@@ -82,12 +76,7 @@ function kitAssetBody(bundle: AssetBundle, kind: KitAssetKind, asset: KitAsset):
  * Full prompt for one kit asset image. Does not include the project script — only the standard
  * kit contract, shared bundle style, and this asset's fields.
  */
-export function buildKitAssetImagePrompt(
-  _project: Project,
-  bundle: AssetBundle,
-  kind: KitAssetKind,
-  asset: KitAsset,
-): string {
-  const body = kitAssetBody(bundle, kind, asset);
+export function buildKitAssetImagePrompt(_project: Project, bundle: AssetBundle, asset: KitAsset): string {
+  const body = kitAssetBody(bundle, asset);
   return truncateTailWithNote(body, OPENAI_IMAGE_PROMPT_MAX_CHARS);
 }

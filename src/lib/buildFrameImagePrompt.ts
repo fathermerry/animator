@@ -15,7 +15,8 @@ export type FrameImageContext = {
   sceneDescription: string;
   frameDescription: string;
   characters: { id: string; name: string; description?: string }[];
-  objects: { id: string; name: string }[];
+  /** True when the scene has a reference still set on the Style step (image not embedded in prompt). */
+  hasSceneReferenceImage: boolean;
   backgroundColor: string;
   textStyleHints: string[];
   /** Overall style direction from the Style step. */
@@ -35,7 +36,7 @@ function resolveKitAssets(ids: string[], pool: KitAsset[]): KitAsset[] {
 /** Structured context for one film still (scene + frame + style kit). */
 export function buildFrameImageContext(scene: Scene, frame: Frame, bundle: AssetBundle): FrameImageContext {
   const chars = resolveKitAssets(scene.characterIds, bundle.characters);
-  const objs = resolveKitAssets(scene.objectIds, bundle.objects);
+  const ref = scene.referenceImageSrc?.trim() ?? "";
   return {
     sceneTitle: scene.title.trim(),
     sceneDescription: scene.description.trim(),
@@ -45,12 +46,35 @@ export function buildFrameImageContext(scene: Scene, frame: Frame, bundle: Asset
       name: c.name.trim(),
       ...(c.description?.trim() ? { description: c.description.trim() } : {}),
     })),
-    objects: objs.map((o) => ({ id: o.id, name: o.name.trim() })),
+    hasSceneReferenceImage: ref.length > 0,
     backgroundColor: bundle.background.color?.trim() || "#0a0a0a",
     textStyleHints: bundle.textStyles.map((t) => t.instructions.trim()).filter(Boolean),
     styleDescription: bundle.description.trim(),
     kitNotes: bundle.notes.trim(),
   };
+}
+
+function styleContractSection(ctx: FrameImageContext): string[] {
+  const lines: string[] = [
+    "## Style contract (binding)",
+    "Must match this visual language for the entire image — environment, characters, and props.",
+  ];
+  if (ctx.styleDescription) {
+    lines.push(ctx.styleDescription);
+  } else {
+    lines.push(
+      "Use illustrated / explainer graphics consistent with the style kit — do not default to photoreal stock photography, glossy ad stills, or cinematic live-action B-roll unless the scene beat explicitly requires it.",
+    );
+  }
+  if (ctx.kitNotes) {
+    lines.push(`Additional kit constraints: ${ctx.kitNotes}`);
+  }
+  if (ctx.styleDescription || ctx.kitNotes) {
+    lines.push(
+      "Avoid unrelated photoreal stock imagery; cast and props must read as the same graphic language as the channel style kit.",
+    );
+  }
+  return lines;
 }
 
 /**
@@ -60,7 +84,9 @@ export function buildFrameImageContext(scene: Scene, frame: Frame, bundle: Asset
 export function frameImagePromptFromContext(ctx: FrameImageContext): string {
   const lines: string[] = [
     "Generate a single high-quality widescreen (16:9) keyframe image for a finance YouTube video.",
-    "No text overlays, watermarks, or logos unless described as part of the scene. Photoreal or polished 3D look; broadcast-safe lighting.",
+    "No text overlays, watermarks, or logos unless described as part of the scene.",
+    "",
+    ...styleContractSection(ctx),
     "",
     "## Scene",
     ctx.sceneTitle ? `Title: ${ctx.sceneTitle}` : "Title: (untitled scene)",
@@ -72,6 +98,7 @@ export function frameImagePromptFromContext(ctx: FrameImageContext): string {
       : "Staging / shot: Match the scene beat with a clear focal subject.",
     "",
     "## Cast (in shot)",
+    "Render each person below in the same graphic language as the style kit — not as unrelated live-action actors or stock models.",
   ];
 
   if (ctx.characters.length === 0) {
@@ -83,24 +110,21 @@ export function frameImagePromptFromContext(ctx: FrameImageContext): string {
     }
   }
 
-  lines.push("", "## Props / graphics kit");
-  if (ctx.objects.length === 0) {
-    lines.push("(No kit objects — keep graphics minimal.)");
-  } else {
-    for (const o of ctx.objects) {
-      lines.push(`- ${o.name} (${o.id})`);
-    }
-  }
+  lines.push(
+    "",
+    "## Scene reference (visual target)",
+    ctx.hasSceneReferenceImage
+      ? "This scene has a reference still on the Style step — match its composition energy, palette, line weight, and illustration language for every generated frame in this scene. Treat it as the authoritative look target for this beat (do not ignore it in favor of unrelated stock or live-action styles)."
+      : "(No scene reference image set on the Style step — rely on the style contract and cast descriptions above.)",
+  );
 
   lines.push(
     "",
     "## Look",
     `Background plate color hint: ${ctx.backgroundColor}.`,
-    ctx.styleDescription ? `Overall style direction: ${ctx.styleDescription}` : "",
     ctx.textStyleHints.length
       ? `Typography / caption vibe (for mood only — do not render text): ${ctx.textStyleHints.join("; ")}`
       : "",
-    ctx.kitNotes ? `Additional kit notes: ${ctx.kitNotes}` : "",
   );
 
   return lines.filter((x) => x !== "").join("\n");

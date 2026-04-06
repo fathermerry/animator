@@ -15,6 +15,8 @@ import {
   formatRenderListTimestamp,
   formatRenderStatus,
 } from "@/lib/renderDisplay";
+import { panelHeadingClass } from "@/lib/panelHeading";
+import { cn } from "@/lib/utils";
 
 /** Flip to `false` after design sign-off to show only IndexedDB rows (empty when none). */
 const USE_RENDER_TABLE_DESIGN_SAMPLES = true;
@@ -110,72 +112,75 @@ export function RendersOverviewPageView() {
   );
 
   return (
-    <main className="flex min-h-[calc(100svh-3.5rem)] w-full flex-col">
-      <div className="flex min-h-0 flex-1 flex-col px-6 pb-10 pt-6">
-        {loadError ? (
-          <p className="mb-4 text-base text-destructive" role="alert">
-            {loadError}
-          </p>
-        ) : null}
+    <main className="w-full px-6 pb-10 pt-6">
+      {loadError ? (
+        <p className="mb-4 text-base text-destructive" role="alert">
+          {loadError}
+        </p>
+      ) : null}
 
-        {!USE_RENDER_TABLE_DESIGN_SAMPLES && rows.length === 0 ? (
-          <p className="text-base text-muted-foreground">No renders yet.</p>
-        ) : (
-          <>
-            <div className="mb-3 shrink-0">
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <div className="relative min-w-0 flex-1 sm:max-w-xl">
-                  <Search
-                    className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                    aria-hidden
-                  />
-                  <Input
-                    id="renders-search"
-                    type="search"
-                    placeholder="Search renders…"
-                    className="pl-9"
-                    disabled
-                    title="Search is not available yet"
-                    autoComplete="off"
-                    aria-label="Search renders"
-                  />
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-8 min-w-[10rem] justify-between gap-2 font-normal"
-                    disabled
-                    title="Filters are not available yet"
-                  >
-                    All projects
-                    <ChevronDown className="size-4 opacity-60" aria-hidden />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-8 min-w-[10rem] justify-between gap-2 font-normal"
-                    disabled
-                    title="Filters are not available yet"
-                  >
-                    All engines
-                    <ChevronDown className="size-4 opacity-60" aria-hidden />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-8 min-w-[10rem] justify-between gap-2 font-normal"
-                    disabled
-                    title="Filters are not available yet"
-                  >
-                    All statuses
-                    <ChevronDown className="size-4 opacity-60" aria-hidden />
-                  </Button>
-                </div>
+      <p className={cn(panelHeadingClass, "mb-3")}>Renders</p>
+
+      {!USE_RENDER_TABLE_DESIGN_SAMPLES && rows.length === 0 ? (
+        <div className="rounded-lg border border-border px-4 py-10">
+          <p className="text-center text-base text-muted-foreground">No renders yet.</p>
+        </div>
+      ) : (
+        <>
+          <div className="mb-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="relative min-w-0 flex-1 sm:max-w-xl">
+                <Search
+                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden
+                />
+                <Input
+                  id="renders-search"
+                  type="search"
+                  placeholder="Search renders…"
+                  className="pl-9"
+                  disabled
+                  title="Search is not available yet"
+                  autoComplete="off"
+                  aria-label="Search renders"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 min-w-[10rem] justify-between gap-2 font-normal"
+                  disabled
+                  title="Filters are not available yet"
+                >
+                  All projects
+                  <ChevronDown className="size-4 opacity-60" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 min-w-[10rem] justify-between gap-2 font-normal"
+                  disabled
+                  title="Filters are not available yet"
+                >
+                  All engines
+                  <ChevronDown className="size-4 opacity-60" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 min-w-[10rem] justify-between gap-2 font-normal"
+                  disabled
+                  title="Filters are not available yet"
+                >
+                  All statuses
+                  <ChevronDown className="size-4 opacity-60" aria-hidden />
+                </Button>
               </div>
             </div>
+          </div>
 
-            <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[640px] border-collapse text-base">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
@@ -226,9 +231,8 @@ export function RendersOverviewPageView() {
               </tbody>
             </table>
           </div>
-          </>
-        )}
-      </div>
+        </>
+      )}
     </main>
   );
 }

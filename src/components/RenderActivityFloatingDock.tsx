@@ -1,7 +1,6 @@
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   formatCost,
   formatEngine,
@@ -22,15 +21,7 @@ function coerceDate(d: Date | string): Date {
   return d instanceof Date ? d : new Date(String(d));
 }
 
-export type RenderActivityPrimaryAction = {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  ariaLabel?: string;
-};
-
 export type RenderActivityFloatingDockProps = {
-  primary: RenderActivityPrimaryAction;
   /** In-memory project renders (from store); kept in sync with persistence. */
   renders: readonly Render[];
   /** List only frame (film) or asset (style kit) renders. Default `frame`. */
@@ -106,7 +97,6 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 }
 
 export function RenderActivityFloatingDock({
-  primary,
   renders,
   renderScope = "frame",
   scenes,
@@ -132,9 +122,7 @@ export function RenderActivityFloatingDock({
   );
 
   const [expandedRenderId, setExpandedRenderId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
-  );
+  const [collapsed, setCollapsed] = useState(true);
 
   const frameRowTitle = useCallback(
     (r: Render) => {
@@ -387,17 +375,6 @@ export function RenderActivityFloatingDock({
             {listBody}
           </div>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="w-full shrink-0 rounded-xl border border-border/60 bg-background/92 text-sm shadow-none backdrop-blur-md hover:bg-background dark:bg-background/88"
-          disabled={primary.disabled}
-          aria-label={primary.ariaLabel ?? primary.label}
-          onClick={primary.onClick}
-        >
-          {primary.label}
-        </Button>
       </div>
     </div>
   );

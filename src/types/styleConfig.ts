@@ -13,14 +13,16 @@ export type TextStyle = {
 export type KitAsset = {
   id: string;
   name: string;
-  /** Present for characters only; omit for kit objects. */
+  /** Characters: appearance / role for prompts. */
   description?: string;
   src?: string;
+  /** Characters: up to five reference images; `src` mirrors the first for compatibility. */
+  imageSrcs?: string[];
   width?: number;
   height?: number;
 };
 
-/** Visual kit: plate, type, characters, objects. Referenced by {@link Project.styleConfigId}. */
+/** Visual kit: plate, type, characters. Referenced by {@link Project.styleConfigId}. */
 export type AssetBundle = {
   id: string;
   name: string;
@@ -29,7 +31,6 @@ export type AssetBundle = {
   background: Background;
   textStyles: TextStyle[];
   characters: KitAsset[];
-  objects: KitAsset[];
   notes: string;
 };
 
@@ -73,28 +74,24 @@ export const defaultCharacters: KitAsset[] = [
   },
 ];
 
-export const defaultObjects: KitAsset[] = [
-  { id: "001", name: "House / property" },
-  { id: "002", name: "Documents stack" },
-  { id: "003", name: "SA302 form" },
-  { id: "004", name: "Tax vs borrowing seesaw" },
-  { id: "005", name: "Trading timeline" },
-  { id: "006", name: "Income scale" },
-  { id: "007", name: "Funnel" },
-  { id: "008", name: "Credit score meter" },
-  { id: "009", name: "Checkmark" },
-  { id: "010", name: "Warning triangle" },
-];
-
 function cloneDefaultKitAssets(list: KitAsset[]): KitAsset[] {
   return list.map((a) => ({ ...a }));
 }
+
+/**
+ * Default copy for `AssetBundle.description` (Style page + frame prompts).
+ * Keep in sync with `assets.description` in `src/data/default-project.json`.
+ */
+export const DEFAULT_STYLE_KIT_DESCRIPTION =
+  "UK finance YouTube explainer: 2D illustration with flat colour or soft cel-style shading — clear silhouettes, readable faces, broadcast-friendly contrast. Approachable and direct, not corporate-stiff. " +
+  "Not photoreal photography, not glossy stock-ad stills, and not cinematic live-action or documentary office B-roll unless the scene copy explicitly calls for it. " +
+  "One clear focal idea per frame; same graphic language as the square style-kit asset thumbnails (characters and props feel like they belong to one channel).";
 
 export function createDefaultAssetBundle(): AssetBundle {
   return {
     id: crypto.randomUUID(),
     name: "Default style",
-    description: "",
+    description: DEFAULT_STYLE_KIT_DESCRIPTION,
     notes: "",
     background: { color: "#0a0a0a" },
     textStyles: [
@@ -112,7 +109,6 @@ export function createDefaultAssetBundle(): AssetBundle {
       },
     ],
     characters: cloneDefaultKitAssets(defaultCharacters),
-    objects: cloneDefaultKitAssets(defaultObjects),
   };
 }
 
