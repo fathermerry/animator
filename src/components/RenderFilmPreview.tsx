@@ -10,6 +10,7 @@ import {
 import { Player, type PlayerRef } from "@remotion/player";
 
 import { normalizeHex } from "@/lib/color";
+import { resolveSceneBackground } from "@/lib/sceneBackground";
 import { buildRenderFilmTimeline, FILM_FPS } from "@/lib/renderFilmTimeline";
 import { cn } from "@/lib/utils";
 import { FilmComposition } from "@/remotion/FilmComposition";
@@ -121,8 +122,13 @@ export function RenderFilmPreview({
     [maxFrame, onGlobalFrameChange],
   );
 
-  const bgHex = normalizeHex(assetBundle.background.color);
-  const bgSrc = assetBundle.background.src?.trim();
+  const firstScene = useMemo(() => {
+    if (scenes.length === 0) return null;
+    return [...scenes].sort((a, b) => a.index - b.index)[0] ?? null;
+  }, [scenes]);
+  const emptyPlate = resolveSceneBackground(firstScene, assetBundle);
+  const bgHex = normalizeHex(emptyPlate.color);
+  const bgSrc = emptyPlate.src?.trim();
 
   if (!hasTimeline) {
     return (

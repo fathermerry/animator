@@ -1,16 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { RenderActivityFloatingDock } from "@/components/RenderActivityFloatingDock";
+import { StyleSceneReferencePreview } from "@/components/StyleSceneReferencePreview";
+import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepPage } from "@/components/WorkflowStepPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { panelHeadingClass } from "@/lib/panelHeading";
+import { panelHeadingAfterBlockClass, panelHeadingClass } from "@/lib/panelHeading";
 import { renumberCharacterKitIds } from "@/lib/kitAssetId";
 import { normalizeHex } from "@/lib/color";
 import { kitAssetDisplaySrc } from "@/lib/kitAssetDisplaySrc";
 import { validateBackgroundImageFile } from "@/lib/kitAssetPng";
+import {
+  DEFAULT_OPENAI_IMAGE_MODEL,
+  OPENAI_IMAGE_MODEL_OPTIONS,
+  type OpenAiImageModelId,
+  isOpenAiImageModelId,
+} from "@/lib/imageModels";
+import { framesForSceneSorted } from "@/lib/sceneFrames";
+import { resolveSceneBackground } from "@/lib/sceneBackground";
 import { cn } from "@/lib/utils";
 import {
   kitAssetGeneratingKey,
@@ -18,7 +29,6 @@ import {
   useProjectStore,
 } from "@/store/projectStore";
 import type { Step } from "@/steps";
-import type { Render } from "@/types/project";
 import { createDefaultAssetBundle, type AssetBundle, type KitAsset } from "@/types/styleConfig";
 import { Sparkles, Trash2 } from "lucide-react";
 
@@ -39,10 +49,21 @@ function normalizeCharacterIds(list: KitAsset[]): KitAsset[] {
   return renumberCharacterKitIds(list);
 }
 
+const kitTileIconBtn =
+  "flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md bg-background/90 text-muted-foreground shadow-sm ring-1 ring-border/40 transition-[color,background-color] hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background/90 disabled:hover:text-muted-foreground";
+
+const kitTileActionsRow =
+  "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 px-2 pt-2 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100";
+
 export function StylePageView({ step: _step }: Props) {
   const ensureDraft = useStore(useProjectStore, (s) => s.ensureDraftProject);
   const updateStyle = useStore(useProjectStore, (s) => s.updateStyle);
   const patchScene = useStore(useProjectStore, (s) => s.patchScene);
+  const requestFrameRender = useStore(useProjectStore, (s) => s.requestFrameRender);
+  const renderingFrameIds = useStore(useProjectStore, (s) => s.renderingFrameIds);
+  const requestSceneReferenceRender = useStore(useProjectStore, (s) => s.requestSceneReferenceRender);
+  const sceneReferenceGeneratingKeys = useStore(useProjectStore, (s) => s.sceneReferenceGeneratingKeys);
+  const sceneReferenceRenderErrors = useStore(useProjectStore, (s) => s.sceneReferenceRenderErrors);
   const requestKitAssetRender = useStore(useProjectStore, (s) => s.requestKitAssetRender);
   const kitAssetGeneratingKeys = useStore(useProjectStore, (s) => s.kitAssetGeneratingKeys);
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
@@ -53,14 +74,14 @@ export function StylePageView({ step: _step }: Props) {
   const sortedScenes = useMemo(() => [...scenes].sort((a, b) => a.index - b.index), [scenes]);
 
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [sceneRefError, setSceneRefError] = useState<string | null>(null);
-  const sceneRefUploadTargetRef = useRef<string | null>(null);
-  const sceneRefFileInputRef = useRef<HTMLInputElement>(null);
 
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   /** Local hex field while typing (commit on blur). */
   const [backgroundHexDraft, setBackgroundHexDraft] = useState<string | null>(null);
   const [kitSelection, setKitSelection] = useState<KitSelection | null>(null);
+  const [sceneImageModel, setSceneImageModel] = useState<OpenAiImageModelId>(
+    DEFAULT_OPENAI_IMAGE_MODEL,
+  );
 
   useEffect(() => {
     ensureDraft();
@@ -81,11 +102,6 @@ export function StylePageView({ step: _step }: Props) {
     });
   }, [sortedScenes]);
 
-  const selectedScene = useMemo(
-    () => (selectedSceneId ? sortedScenes.find((s) => s.id === selectedSceneId) ?? null : null),
-    [sortedScenes, selectedSceneId],
-  );
-
   useEffect(() => {
     setKitSelection((prev) => {
       if (prev) {
@@ -98,9 +114,19 @@ export function StylePageView({ step: _step }: Props) {
     });
   }, [assetBundle.characters]);
 
+  const selectedScene = useMemo(
+    () => (selectedSceneId ? sortedScenes.find((s) => s.id === selectedSceneId) ?? null : null),
+    [sortedScenes, selectedSceneId],
+  );
+
+  const resolvedScenePlate = useMemo(
+    () => resolveSceneBackground(selectedScene, assetBundle),
+    [selectedScene, assetBundle],
+  );
+
   useEffect(() => {
     setBackgroundHexDraft(null);
-  }, [assetBundle.background.color]);
+  }, [selectedSceneId, resolvedScenePlate.color]);
 
   const backgroundFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -149,7 +175,7 @@ export function StylePageView({ step: _step }: Props) {
   const onBackgroundFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
+    if (!file || !selectedSceneId) return;
 
     const result = await validateBackgroundImageFile(file);
     if (!result.ok) {
@@ -157,172 +183,321 @@ export function StylePageView({ step: _step }: Props) {
       return;
     }
     setBackgroundError(null);
-    updateStyle((s) => ({
-      ...s,
-      background: { ...s.background, src: result.dataUrl },
-    }));
+    patchScene(selectedSceneId, { backgroundImageSrc: result.dataUrl });
   };
 
   const clearBackgroundImage = () => {
+    if (!selectedSceneId) return;
     setBackgroundError(null);
-    updateStyle((s) => ({
-      ...s,
-      background: { color: s.background.color },
-    }));
-  };
-
-  const onSceneReferenceFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    const sid = sceneRefUploadTargetRef.current;
-    sceneRefUploadTargetRef.current = null;
-    if (!file || !sid) return;
-    const result = await validateBackgroundImageFile(file);
-    if (!result.ok) {
-      setSceneRefError(result.reason);
-      return;
-    }
-    setSceneRefError(null);
-    patchScene(sid, { referenceImageSrc: result.dataUrl });
-  };
-
-  const triggerSceneReferenceUpload = (sceneId: string) => {
-    setSceneRefError(null);
-    sceneRefUploadTargetRef.current = sceneId;
-    sceneRefFileInputRef.current?.click();
+    patchScene(selectedSceneId, { backgroundImageSrc: undefined });
   };
 
   const clearSceneReference = (sceneId: string) => {
-    setSceneRefError(null);
     patchScene(sceneId, { referenceImageSrc: undefined });
+    useProjectStore.setState((s) => {
+      const sceneReferenceRenderErrors = { ...s.sceneReferenceRenderErrors };
+      delete sceneReferenceRenderErrors[sceneId];
+      return { sceneReferenceRenderErrors };
+    });
   };
 
-  const kitAssetRenderRowLabel = useCallback((r: Render) => {
-    const t = r.kitTarget;
-    if (t?.kind === "characters") return `Character ${t.assetId}`;
-    if (t?.kind === "objects") return `Object ${t.assetId}`;
-    return "Kit render";
-  }, []);
+  const framesInSelectedScene = useMemo(
+    () => (selectedSceneId ? framesForSceneSorted(frames, selectedSceneId) : []),
+    [frames, selectedSceneId],
+  );
+
+  const sceneFramesRendering = useMemo(
+    () => framesInSelectedScene.some((f) => renderingFrameIds[f.id]),
+    [framesInSelectedScene, renderingFrameIds],
+  );
+
+  const sceneRenderBusy = useMemo(
+    () =>
+      sceneFramesRendering ||
+      sortedScenes.some((sc) => sceneReferenceGeneratingKeys[sc.id]),
+    [sceneFramesRendering, sortedScenes, sceneReferenceGeneratingKeys],
+  );
 
   const selectedCharacter = useMemo(() => {
     if (!kitSelection) return null;
     return assetBundle.characters.find((a) => a.id === kitSelection.id) ?? null;
   }, [kitSelection, assetBundle.characters]);
 
-  const backgroundColorHex = normalizeHex(assetBundle.background.color);
+  const backgroundColorHex = normalizeHex(resolvedScenePlate.color);
   const backgroundHexShown = backgroundHexDraft ?? backgroundColorHex;
 
   const commitBackgroundHex = (raw: string) => {
+    if (!selectedSceneId) return;
     const t = raw.trim();
     if (/^#[0-9A-Fa-f]{6}$/i.test(t)) {
-      updateStyle((s) => ({
-        ...s,
-        background: { ...s.background, color: t.toLowerCase() },
-      }));
+      patchScene(selectedSceneId, { backgroundColor: t.toLowerCase() });
       setBackgroundHexDraft(null);
       return;
     }
     if (/^#[0-9A-Fa-f]{3}$/i.test(t)) {
       const n = normalizeHex(t);
-      updateStyle((s) => ({
-        ...s,
-        background: { ...s.background, color: n },
-      }));
+      patchScene(selectedSceneId, { backgroundColor: n });
       setBackgroundHexDraft(null);
       return;
     }
     setBackgroundHexDraft(null);
   };
 
-  const backgroundEditor = (
+  const sceneBackgroundEditor = (
     <div className="flex flex-col gap-4">
-      <p className="text-xs font-medium uppercase text-muted-foreground">Background</p>
+      <p className={panelHeadingClass}>Background</p>
+      {!selectedScene ? (
+        <p className="archive-text text-sm text-muted-foreground">No scenes in the script.</p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="archive-text w-12 shrink-0 text-sm text-muted-foreground">Color</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap">
+              <input
+                type="color"
+                className={cn(
+                  "h-8 w-8 shrink-0 cursor-pointer appearance-none overflow-hidden rounded-lg border border-input bg-transparent p-0 shadow-none outline-none transition-colors [color-scheme:dark] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30",
+                  "[&::-webkit-color-swatch-wrapper]:p-0",
+                  "[&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg",
+                  "[&::-moz-color-swatch]:border-0 [&::-moz-color-swatch]:rounded-lg",
+                )}
+                value={backgroundColorHex}
+                onChange={(e) =>
+                  patchScene(selectedScene.id, { backgroundColor: e.target.value })
+                }
+                aria-label="Scene background color"
+              />
+              <Input
+                className="archive-text font-mono h-8 w-[7.5rem] shrink-0 px-2 py-0 text-base"
+                value={backgroundHexShown}
+                onChange={(e) => setBackgroundHexDraft(e.target.value)}
+                onBlur={() => {
+                  if (backgroundHexDraft === null) return;
+                  commitBackgroundHex(backgroundHexDraft);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                aria-label="Scene background color hex"
+              />
+            </div>
+          </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="archive-text w-12 shrink-0 text-sm text-muted-foreground">Color</span>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap">
-          <input
-            type="color"
-            className={cn(
-              "h-8 w-8 shrink-0 cursor-pointer appearance-none overflow-hidden rounded-lg border border-input bg-transparent p-0 shadow-none outline-none transition-colors [color-scheme:dark] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30",
-              "[&::-webkit-color-swatch-wrapper]:p-0",
-              "[&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg",
-              "[&::-moz-color-swatch]:border-0 [&::-moz-color-swatch]:rounded-lg",
-            )}
-            value={backgroundColorHex}
-            onChange={(e) =>
-              updateStyle((s) => ({
-                ...s,
-                background: { ...s.background, color: e.target.value },
-              }))
-            }
-            aria-label="Background color"
-          />
-          <Input
-            className="archive-text font-mono h-8 w-[7.5rem] shrink-0 px-2 py-0 text-base"
-            value={backgroundHexShown}
-            onChange={(e) => setBackgroundHexDraft(e.target.value)}
-            onBlur={() => {
-              if (backgroundHexDraft === null) return;
-              commitBackgroundHex(backgroundHexDraft);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-            aria-label="Background color hex"
-          />
-        </div>
-      </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="archive-text w-12 shrink-0 text-sm text-muted-foreground">Image</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <input
+                ref={backgroundFileInputRef}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={onBackgroundFileChange}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="cursor-pointer text-sm"
+                onClick={() => {
+                  setBackgroundError(null);
+                  backgroundFileInputRef.current?.click();
+                }}
+              >
+                {resolvedScenePlate.src?.trim() ? "Replace file" : "Choose file"}
+              </Button>
+              {selectedScene.backgroundImageSrc?.trim() ? (
+                <Button type="button" variant="ghost" size="sm" onClick={clearBackgroundImage}>
+                  Remove image
+                </Button>
+              ) : null}
+            </div>
+          </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="archive-text w-12 shrink-0 text-sm text-muted-foreground">Image</span>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <input
-            ref={backgroundFileInputRef}
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={onBackgroundFileChange}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="cursor-pointer text-sm"
-            onClick={() => {
-              setBackgroundError(null);
-              backgroundFileInputRef.current?.click();
-            }}
-          >
-            {assetBundle.background.src?.trim() ? "Replace file" : "Choose file"}
-          </Button>
-          {assetBundle.background.src?.trim() ? (
-            <Button type="button" variant="ghost" size="sm" onClick={clearBackgroundImage}>
-              Remove image
-            </Button>
+          {backgroundError ? (
+            <p className="archive-text text-sm text-destructive">{backgroundError}</p>
           ) : null}
-        </div>
-      </div>
-
-      {backgroundError ? (
-        <p className="archive-text text-sm text-destructive">{backgroundError}</p>
-      ) : null}
+        </>
+      )}
     </div>
   );
 
-  const selectedSceneRefRaw = selectedScene?.referenceImageSrc?.trim() ?? "";
-  const selectedSceneRefDisplay = selectedSceneRefRaw ? kitAssetDisplaySrc(selectedSceneRefRaw) : "";
-
   return (
     <WorkflowStepPage
-      middleColumnWide
+      equalWidthColumns
       primaryClassName="gap-6"
-      middleClassName="gap-3 bg-background lg:pb-3"
+      middleClassName="gap-4 bg-background lg:pb-3"
+      middle={
+        <>
+          {sceneBackgroundEditor}
+
+          <div className="flex min-h-0 flex-col gap-2">
+            <p className={panelHeadingAfterBlockClass}>Scene references</p>
+            <div
+              className={cn(
+                "flex max-h-[min(50vh,22rem)] min-h-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-muted/25 shadow-sm ring-1 ring-foreground/[0.06]",
+              )}
+            >
+              <ul className="flex min-h-0 list-none flex-col gap-0 overflow-y-auto p-1" role="list">
+                {sortedScenes.map((sc) => {
+                  const title = sc.title.trim() || `Scene ${sc.index + 1}`;
+                  const refRaw = sc.referenceImageSrc?.trim() ?? "";
+                  const thumb = refRaw ? kitAssetDisplaySrc(refRaw) : "";
+                  const isSelected = selectedSceneId === sc.id;
+                  const refGenerating = Boolean(sceneReferenceGeneratingKeys[sc.id]);
+                  const refError = sceneReferenceRenderErrors[sc.id];
+                  return (
+                    <li key={sc.id} className="list-none">
+                      <div
+                        className={cn(
+                          "flex min-w-0 flex-col gap-1 rounded-sm py-1 pl-1 pr-1",
+                          isSelected ? "bg-muted/90" : "",
+                        )}
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <button
+                            type="button"
+                            className="flex min-w-0 min-h-0 flex-1 cursor-pointer items-center gap-2 rounded-sm py-0.5 text-left text-base leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                            onClick={() => setSelectedSceneId(sc.id)}
+                            aria-pressed={isSelected}
+                          >
+                            <span
+                              className={cn(
+                                "relative h-6 w-10 shrink-0 overflow-hidden rounded-[2px] bg-muted",
+                                refGenerating && "kit-tile-generating-bg",
+                              )}
+                            >
+                              {thumb ? (
+                                <img src={thumb} alt="" className="h-full w-full object-cover" />
+                              ) : null}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">{title}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={cn(kitTileIconBtn, "shrink-0")}
+                            disabled={refGenerating}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void requestSceneReferenceRender(sc.id, sceneImageModel);
+                            }}
+                            aria-label={
+                              refGenerating
+                                ? "Generating scene reference…"
+                                : "Generate scene reference with AI"
+                            }
+                            aria-busy={refGenerating}
+                          >
+                            <Sparkles className="size-4" strokeWidth={2} aria-hidden />
+                          </button>
+                          {refRaw ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 cursor-pointer text-sm"
+                              disabled={refGenerating}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                clearSceneReference(sc.id);
+                              }}
+                            >
+                              Clear
+                            </Button>
+                          ) : null}
+                        </div>
+                        {refError ? (
+                          <p className="archive-text px-1 text-sm text-destructive">{refError}</p>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-col gap-2">
+            <p className={panelHeadingAfterBlockClass}>Scene description</p>
+            {selectedScene ? (
+              <>
+                <label htmlFor="style-scene-description" className="sr-only">
+                  Scene description
+                </label>
+                <Textarea
+                  id="style-scene-description"
+                  className="archive-text min-h-[5rem] resize-y text-base leading-snug"
+                  placeholder="Staging / beat copy: who does what with props…"
+                  value={selectedScene.description}
+                  onChange={(e) => patchScene(selectedScene.id, { description: e.target.value })}
+                  rows={5}
+                  aria-label={`Scene description, ${selectedScene.title.trim() || "scene"}`}
+                />
+              </>
+            ) : (
+              <p className="archive-text text-sm text-muted-foreground">No scenes in the script.</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="style-scene-image-model" className="text-sm text-muted-foreground">
+                Image model
+              </Label>
+              <select
+                id="style-scene-image-model"
+                value={sceneImageModel}
+                disabled={sceneRenderBusy}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSceneImageModel(isOpenAiImageModelId(v) ? v : DEFAULT_OPENAI_IMAGE_MODEL);
+                }}
+                className={cn(
+                  "flex h-8 w-full min-w-[12rem] max-w-sm rounded-md border border-input bg-transparent px-2 text-base shadow-xs outline-none",
+                  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
+                  "dark:bg-input/30",
+                )}
+              >
+                {OPENAI_IMAGE_MODEL_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="w-fit cursor-pointer"
+                disabled={
+                  !selectedScene ||
+                  framesInSelectedScene.length === 0 ||
+                  sceneFramesRendering
+                }
+                onClick={() => {
+                  for (const fr of framesInSelectedScene) {
+                    void requestFrameRender(fr.id, sceneImageModel);
+                  }
+                }}
+              >
+                Render
+              </Button>
+              {selectedScene && framesInSelectedScene.length === 0 ? (
+                <p className="archive-text text-sm text-muted-foreground">
+                  No frames in this scene — add frames on Compose.
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </>
+      }
       primary={
         <>
           <div className="flex flex-col gap-2">
@@ -340,115 +515,6 @@ export function StylePageView({ step: _step }: Props) {
             />
           </div>
 
-          <div className="flex min-h-0 flex-col gap-2">
-            <p className="text-xs font-medium uppercase text-muted-foreground">Scene references</p>
-            <input
-              ref={sceneRefFileInputRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={onSceneReferenceFileChange}
-            />
-            {sceneRefError ? (
-              <p className="archive-text text-sm text-destructive">{sceneRefError}</p>
-            ) : null}
-            <div
-              className={cn(
-                "flex max-h-[min(50vh,22rem)] min-h-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-muted/25 shadow-sm ring-1 ring-foreground/[0.06]",
-              )}
-            >
-              <ul className="flex min-h-0 list-none flex-col gap-0 overflow-y-auto p-1" role="list">
-                {sortedScenes.map((sc) => {
-                  const title = sc.title.trim() || `Scene ${sc.index + 1}`;
-                  const refRaw = sc.referenceImageSrc?.trim() ?? "";
-                  const thumb = refRaw ? kitAssetDisplaySrc(refRaw) : "";
-                  const isSelected = selectedSceneId === sc.id;
-                  return (
-                    <li key={sc.id} className="list-none">
-                      <div
-                        className={cn(
-                          "flex min-w-0 items-center gap-2 rounded-sm py-1 pl-1 pr-1",
-                          isSelected ? "bg-muted/90" : "",
-                        )}
-                      >
-                        <button
-                          type="button"
-                          className="flex min-w-0 min-h-0 flex-1 cursor-pointer items-center gap-2 rounded-sm py-0.5 text-left text-base leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-                          onClick={() => setSelectedSceneId(sc.id)}
-                          aria-pressed={isSelected}
-                        >
-                          <span className="relative h-6 w-10 shrink-0 overflow-hidden rounded-[2px] bg-muted">
-                            {thumb ? (
-                              <img src={thumb} alt="" className="h-full w-full object-cover" />
-                            ) : null}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate">{title}</span>
-                        </button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0 cursor-pointer text-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            triggerSceneReferenceUpload(sc.id);
-                          }}
-                        >
-                          {refRaw ? "Replace" : "Add"}
-                        </Button>
-                        {refRaw ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="shrink-0 cursor-pointer text-sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              clearSceneReference(sc.id);
-                            }}
-                          >
-                            Clear
-                          </Button>
-                        ) : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
-
-          {backgroundEditor}
-        </>
-      }
-      middle={
-        <>
-          <p className={panelHeadingClass}>Preview</p>
-          <div
-            className="relative box-border aspect-video w-full min-h-0 shrink-0 overflow-hidden rounded-md border-2 border-dotted border-muted-foreground/45 bg-black"
-            role="region"
-            aria-label="Scene reference preview"
-          >
-            {selectedSceneRefDisplay ? (
-              <img
-                src={selectedSceneRefDisplay}
-                alt=""
-                className="absolute inset-0 h-full w-full object-contain"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center p-4">
-                <p className="archive-text text-center text-sm text-muted-foreground">
-                  {selectedScene
-                    ? "No reference image for this scene — use Add on the left."
-                    : "No scenes in the script."}
-                </p>
-              </div>
-            )}
-          </div>
-        </>
-      }
-      preview={
-        <>
           <KitSection
             label="Characters"
             addLabel="Add character"
@@ -462,8 +528,9 @@ export function StylePageView({ step: _step }: Props) {
             onGenerateAsset={(id) => void requestKitAssetRender("characters", id)}
             onRemove={removeKitAsset}
           />
+
           {selectedCharacter ? (
-            <>
+            <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <p className="text-xs font-medium uppercase text-muted-foreground">Character</p>
                 <div className="flex min-w-0 items-center gap-2">
@@ -505,34 +572,28 @@ export function StylePageView({ step: _step }: Props) {
                   aria-label={`${selectedCharacter.id}, character prompt`}
                 />
               </div>
-            </>
+            </div>
           ) : (
             <div className="flex flex-col gap-2">
               <p className="text-xs font-medium uppercase text-muted-foreground">Character</p>
               <p className="archive-text text-sm text-muted-foreground">
-                Select a character in the grid to edit.
+                Select a character in the grid to edit name and prompt.
               </p>
             </div>
           )}
-          <RenderActivityFloatingDock
-            renders={renders}
-            renderScope="asset"
-            scenes={scenes}
-            frames={frames}
-            renderRowLabel={kitAssetRenderRowLabel}
-            title="Renders"
-          />
+        </>
+      }
+      preview={
+        <>
+          <WorkflowPreviewColumn>
+            <StyleSceneReferencePreview scene={selectedScene} className="w-full shrink-0" />
+          </WorkflowPreviewColumn>
+          <RenderActivityFloatingDock renders={renders} scenes={scenes} frames={frames} />
         </>
       }
       />
   );
 }
-
-const kitTileIconBtn =
-  "flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md bg-background/90 text-muted-foreground shadow-sm ring-1 ring-border/40 transition-[color,background-color] hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background/90 disabled:hover:text-muted-foreground";
-
-const kitTileActionsRow =
-  "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 px-2 pt-2 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100";
 
 function KitThumbnailTile({
   label,

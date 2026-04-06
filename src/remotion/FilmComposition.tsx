@@ -3,7 +3,7 @@ import { AbsoluteFill, Img, Series } from "remotion";
 
 import { normalizeHex } from "@/lib/color";
 import type { FilmSegmentInput } from "@/lib/renderFilmTimeline";
-import type { AssetBundle, KitAsset, TextStyle } from "@/types/styleConfig";
+import type { AssetBundle, Background, KitAsset, TextStyle } from "@/types/styleConfig";
 
 const W = 1920;
 const H = 1080;
@@ -21,9 +21,9 @@ const EDGE_PAD = 56;
 /** Inset for the scene title in the top-left (tighter than full edge padding). */
 const SCENE_TITLE_INSET = 24;
 
-function AssetBundlePlate({ bundle }: { bundle: AssetBundle }) {
-  const bgHex = normalizeHex(bundle.background.color);
-  const bgSrc = bundle.background.src?.trim();
+function PlateLayer({ background }: { background: Background }) {
+  const bgHex = normalizeHex(background.color);
+  const bgSrc = background.src?.trim();
 
   return (
     <>
@@ -190,7 +190,7 @@ function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
 
   return (
     <AbsoluteFill style={{ width: W, height: H }}>
-      {still ? <GeneratedStillBackdrop src={still} /> : <AssetBundlePlate bundle={assetBundle} />}
+      {still ? <GeneratedStillBackdrop src={still} /> : <PlateLayer background={segment.plate} />}
       <AbsoluteFill
         style={{
           width: W,

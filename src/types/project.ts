@@ -59,6 +59,10 @@ export type Scene = {
   characterIds: string[];
   /** One optional still defining target look for this scene’s frames (Style step). */
   referenceImageSrc?: string;
+  /** Optional plate color; falls back to the style kit background. */
+  backgroundColor?: string;
+  /** Optional plate image; falls back to the style kit background image. */
+  backgroundImageSrc?: string;
   durationSeconds: number;
   createdAt: Date;
 };

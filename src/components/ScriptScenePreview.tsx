@@ -1,4 +1,5 @@
 import { normalizeHex } from "@/lib/color";
+import { resolveSceneBackground } from "@/lib/sceneBackground";
 import type { Scene } from "@/types/project";
 import type { AssetBundle } from "@/types/styleConfig";
 import { cn } from "@/lib/utils";
@@ -17,8 +18,9 @@ export function ScriptScenePreview({
   onDescriptionChange,
   className,
 }: Props) {
-  const bgHex = normalizeHex(assetBundle.background.color);
-  const bgSrc = assetBundle.background.src?.trim();
+  const plate = resolveSceneBackground(scene, assetBundle);
+  const bgHex = normalizeHex(plate.color);
+  const bgSrc = plate.src?.trim();
   const value = scene?.description ?? "";
   const onImage = Boolean(bgSrc);
 

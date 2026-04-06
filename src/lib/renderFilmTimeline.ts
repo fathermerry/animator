@@ -1,7 +1,8 @@
 import { isFrameGeneratedForPreview } from "@/lib/frameRenderStatus";
 import { framesForSceneSorted } from "@/lib/sceneFrames";
+import { resolveSceneBackground } from "@/lib/sceneBackground";
 import type { Frame, Render, Scene } from "@/types/project";
-import type { AssetBundle, KitAsset } from "@/types/styleConfig";
+import type { AssetBundle, Background, KitAsset } from "@/types/styleConfig";
 
 export const FILM_FPS = 30;
 
@@ -19,6 +20,8 @@ export type FilmSegmentInput = {
   /** Frame staging copy, or scene beat when there is no frame row. */
   frameDescription: string;
   characters: KitAsset[];
+  /** Resolved background plate for this segment’s scene (kit + per-scene overrides). */
+  plate: Background;
 };
 
 function resolveKitAssets(ids: string[], pool: KitAsset[]): KitAsset[] {
@@ -70,6 +73,7 @@ export function buildRenderFilmTimeline(
         sceneTitle: title,
         frameDescription: sceneBeat,
         characters: chars,
+        plate: resolveSceneBackground(scene, assetBundle),
       });
       continue;
     }
@@ -91,6 +95,7 @@ export function buildRenderFilmTimeline(
         sceneTitle: title,
         frameDescription: frameText || sceneBeat,
         characters: chars,
+        plate: resolveSceneBackground(scene, assetBundle),
       });
     });
   }

@@ -12,6 +12,7 @@ import { ScriptPageView } from "@/views/ScriptPageView";
 import { StylePageView } from "@/views/StylePageView";
 import { HomePageView } from "@/views/HomePageView";
 import { RendersOverviewPageView } from "@/views/RendersOverviewPageView";
+import { cn } from "@/lib/utils";
 
 export default function App() {
   const path = useHashPath();
@@ -62,6 +63,11 @@ export default function App() {
 
   const currentSlug =
     route.kind === "workflow" || route.kind === "legacyWorkflow" ? route.stepSlug : null;
+
+  const isWorkflowStepPage =
+    currentSlug === "script" ||
+    currentSlug === "style" ||
+    currentSlug === "compose";
 
   const isProjectsPage = route.kind === "home" || route.kind === "projects";
   const isRendersPage = route.kind === "renders";
@@ -125,7 +131,12 @@ export default function App() {
     <div className="min-h-svh">
       <AppHeader currentSlug={currentSlug} mainNav={mainNav} projectId={mainNav ? null : project.id} />
       {/* Height = viewport minus fixed header. Inner flex-1 min-h-0 fills so workflow columns align from the top (no vertical centering). */}
-      <div className="mt-14 box-border flex h-[calc(100svh-3.5rem)] min-h-0 w-full flex-col justify-start overflow-x-hidden overflow-y-auto lg:overflow-y-hidden">
+      <div
+        className={cn(
+          "mt-14 box-border flex h-[calc(100svh-3.5rem)] min-h-0 w-full flex-col justify-start overflow-x-hidden lg:overflow-y-hidden",
+          isWorkflowStepPage ? "overflow-y-hidden" : "overflow-y-auto",
+        )}
+      >
         <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col justify-start basis-0">
           {isProjectsPage ? (
             <HomePageView />

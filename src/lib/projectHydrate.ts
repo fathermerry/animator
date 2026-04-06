@@ -249,6 +249,11 @@ function reviveScene(raw: unknown, projectId: string): Scene | null {
     : [];
   const referenceImageSrcRaw = typeof s.referenceImageSrc === "string" ? s.referenceImageSrc.trim() : "";
   const referenceImageSrc = referenceImageSrcRaw.length > 0 ? referenceImageSrcRaw : undefined;
+  const backgroundColorRaw = typeof s.backgroundColor === "string" ? s.backgroundColor.trim() : "";
+  const backgroundColor = backgroundColorRaw.length > 0 ? backgroundColorRaw : undefined;
+  const backgroundImageSrcRaw =
+    typeof s.backgroundImageSrc === "string" ? s.backgroundImageSrc.trim() : "";
+  const backgroundImageSrc = backgroundImageSrcRaw.length > 0 ? backgroundImageSrcRaw : undefined;
   return {
     id: s.id,
     projectId: typeof s.projectId === "string" && s.projectId.trim() ? s.projectId : projectId,
@@ -257,6 +262,8 @@ function reviveScene(raw: unknown, projectId: string): Scene | null {
     description,
     characterIds,
     ...(referenceImageSrc ? { referenceImageSrc } : {}),
+    ...(backgroundColor ? { backgroundColor } : {}),
+    ...(backgroundImageSrc ? { backgroundImageSrc } : {}),
     durationSeconds,
     createdAt: reviveDate(s.createdAt),
   };

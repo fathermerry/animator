@@ -36,9 +36,9 @@ type Props = {
 
 /**
  * Shared shell for Script, Style, and Compose (two columns by default; optional middle on Compose).
- * On `lg+`, each column scrolls independently (`overflow-y-auto` on column shells); the outer `<main>`
- * is `overflow-hidden` so height is bounded. The preview column stretches with the primary column
- * (`items-stretch`).
+ * Primary and preview columns scroll independently (`overflow-y-auto`); the outer `<main>` is
+ * `overflow-hidden` so height is bounded. On narrow viewports the columns stack and share the
+ * viewport height (`flex-1 min-h-0`); the app shell does not scroll on workflow routes.
  */
 export function WorkflowStepLayout({
   primary,
@@ -86,7 +86,7 @@ export function WorkflowStepLayout({
       <div
         ref={primaryColumnRef}
         className={cn(
-          "flex min-h-0 min-w-0 w-full flex-col justify-start px-4 md:px-8 lg:h-full lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pl-10 lg:pr-6",
+          "flex min-h-0 min-w-0 w-full flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-4 md:px-8 lg:h-full lg:min-h-0 lg:pl-10 lg:pr-6",
           columnContentPad,
           threeColumnPrimaryNarrow,
           (threeColEqual || threeColWide) && "lg:px-4",
@@ -115,7 +115,7 @@ export function WorkflowStepLayout({
       ) : null}
       <div
         className={cn(
-          "flex min-h-0 min-w-0 w-full flex-col justify-start gap-6 overflow-y-auto overscroll-contain px-4 md:px-8 lg:h-full lg:flex-1",
+          "flex min-h-0 min-w-0 w-full flex-1 basis-0 flex-col justify-start gap-6 overflow-y-auto overscroll-contain px-4 md:px-8 lg:h-full lg:min-w-0 lg:flex-1",
           !threeColumn && "lg:border-l lg:border-border/60",
           threeColEqual || threeColWide
             ? "lg:max-w-none lg:px-4"

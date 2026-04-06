@@ -2,6 +2,7 @@ import { createStore } from "zustand/vanilla";
 
 import defaultProjectJson from "../data/default-project.json";
 import { buildFrameImagePrompt } from "../lib/buildFrameImagePrompt";
+import { buildSceneReferenceImagePrompt, sceneRefRenderFrameId } from "../lib/buildSceneReferenceImagePrompt";
 import {
   buildKitAssetImagePrompt,
   KIT_ASSET_RENDER_IMAGE_SIZE,
@@ -89,6 +90,10 @@ export type ProjectState = {
   kitAssetGeneratingKeys: Record<string, true>;
   /** Last error per kit-asset render id from the image API (not persisted). */
   kitAssetRenderErrors: Record<string, string>;
+  /** Ephemeral UI: scene reference AI generation in progress (key = scene id). */
+  sceneReferenceGeneratingKeys: Record<string, true>;
+  /** Last error per scene id from scene reference image API (not persisted). */
+  sceneReferenceRenderErrors: Record<string, string>;
 
   ensureDraftProject: () => string;
   setPromptText: (text: string) => void;
@@ -110,6 +115,8 @@ export type ProjectState = {
     assetId: string,
     modelId?: OpenAiImageModelId,
   ) => Promise<void>;
+  /** Generate the Style-step scene reference still via the image API. */
+  requestSceneReferenceRender: (sceneId: string, modelId?: OpenAiImageModelId) => Promise<void>;
   cancelFrameRender: (frameId: string) => void;
 
   openProject: (id: string) => Promise<void>;
@@ -137,6 +144,7 @@ function initialState(): Omit<
   | "requestFullFilmRender"
   | "requestKitAssetsRender"
   | "requestKitAssetRender"
+  | "requestSceneReferenceRender"
   | "cancelFrameRender"
   | "openProject"
   | "loadProjectById"
@@ -154,6 +162,8 @@ function initialState(): Omit<
     generatingKitAssets: false,
     kitAssetGeneratingKeys: {},
     kitAssetRenderErrors: {},
+    sceneReferenceGeneratingKeys: {},
+    sceneReferenceRenderErrors: {},
   };
 }
 
@@ -318,6 +328,51 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     }
   };
 
+  const runSceneReferenceImageRender = async (
+    sceneId: string,
+    modelId: OpenAiImageModelId,
+  ): Promise<void> => {
+    const scene = get().scenes.find((s) => s.id === sceneId);
+    if (!scene) return;
+    const project = get().project;
+    const bundle = selectResolvedStyleBundle(get());
+    const prompt = buildSceneReferenceImagePrompt(scene, bundle);
+    const frameId = sceneRefRenderFrameId(sceneId);
+
+    set((st) => {
+      const sceneReferenceRenderErrors = { ...st.sceneReferenceRenderErrors };
+      delete sceneReferenceRenderErrors[sceneId];
+      return {
+        sceneReferenceGeneratingKeys: { ...st.sceneReferenceGeneratingKeys, [sceneId]: true },
+        sceneReferenceRenderErrors,
+      };
+    });
+
+    try {
+      const data = await requestFrameImageRender({
+        projectId: project.id,
+        frameId,
+        prompt,
+        modelId,
+      });
+      const src = (data.imageDataUrl ?? data.imageUrl)?.trim();
+      if (src) {
+        get().patchScene(sceneId, { referenceImageSrc: src });
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Render failed";
+      set((st) => ({
+        sceneReferenceRenderErrors: { ...st.sceneReferenceRenderErrors, [sceneId]: msg },
+      }));
+    } finally {
+      set((st) => {
+        const sceneReferenceGeneratingKeys = { ...st.sceneReferenceGeneratingKeys };
+        delete sceneReferenceGeneratingKeys[sceneId];
+        return { sceneReferenceGeneratingKeys };
+      });
+    }
+  };
+
   return {
     ...initialState(),
 
@@ -342,6 +397,8 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         generatingKitAssets: false,
         kitAssetGeneratingKeys: {},
         kitAssetRenderErrors: {},
+        sceneReferenceGeneratingKeys: {},
+        sceneReferenceRenderErrors: {},
       });
     },
 
@@ -377,6 +434,8 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         generatingKitAssets: false,
         kitAssetGeneratingKeys: {},
         kitAssetRenderErrors: {},
+        sceneReferenceGeneratingKeys: {},
+        sceneReferenceRenderErrors: {},
       });
     },
 
@@ -512,6 +571,13 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       await runKitAssetImageRender(kind, asset, modelId);
     },
 
+    requestSceneReferenceRender: async (sceneId, modelIdParam) => {
+      if (get().sceneReferenceGeneratingKeys[sceneId]) return;
+      const modelId: OpenAiImageModelId =
+        modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
+      await runSceneReferenceImageRender(sceneId, modelId);
+    },
+
     requestFullFilmRender: async (modelIdParam) => {
       const modelId: OpenAiImageModelId =
         modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
@@ -574,6 +640,8 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         generatingKitAssets: false,
         kitAssetGeneratingKeys: {},
         kitAssetRenderErrors: {},
+        sceneReferenceGeneratingKeys: {},
+        sceneReferenceRenderErrors: {},
       });
       return true;
     },
@@ -626,6 +694,8 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         generatingKitAssets: false,
         kitAssetGeneratingKeys: {},
         kitAssetRenderErrors: {},
+        sceneReferenceGeneratingKeys: {},
+        sceneReferenceRenderErrors: {},
       });
       navigate(pathForProjectStep(slice.project.id, "script"));
     },
@@ -649,6 +719,8 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         generatingKitAssets: false,
         kitAssetGeneratingKeys: {},
         kitAssetRenderErrors: {},
+        sceneReferenceGeneratingKeys: {},
+        sceneReferenceRenderErrors: {},
       });
     },
   };

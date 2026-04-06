@@ -1,3 +1,4 @@
+import { resolveSceneBackground } from "@/lib/sceneBackground";
 import type { Frame, Project, Scene } from "@/types/project";
 import type { AssetBundle, KitAsset } from "@/types/styleConfig";
 
@@ -47,7 +48,7 @@ export function buildFrameImageContext(scene: Scene, frame: Frame, bundle: Asset
       ...(c.description?.trim() ? { description: c.description.trim() } : {}),
     })),
     hasSceneReferenceImage: ref.length > 0,
-    backgroundColor: bundle.background.color?.trim() || "#0a0a0a",
+    backgroundColor: resolveSceneBackground(scene, bundle).color?.trim() || "#0a0a0a",
     textStyleHints: bundle.textStyles.map((t) => t.instructions.trim()).filter(Boolean),
     styleDescription: bundle.description.trim(),
     kitNotes: bundle.notes.trim(),

@@ -6,11 +6,7 @@ import {
   type RefObject,
 } from "react";
 
-function readScrollProgress(scrollRoot: HTMLElement | null): number {
-  const el =
-    scrollRoot && scrollRoot.scrollHeight > scrollRoot.clientHeight + 1
-      ? scrollRoot
-      : document.documentElement;
+function progressForElement(el: HTMLElement): number {
   const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
   if (maxScroll <= 0) return 0;
   return Math.min(1, Math.max(0, el.scrollTop / maxScroll));
@@ -24,13 +20,13 @@ function progressToSceneIndex(p: number, sceneCount: number): number {
 const TOP_EPS = 0.5;
 
 export type UseDocumentScrollSceneOptions = {
-  /** Primary column with `overflow-y-auto`: uses this for progress when it can scroll; else the window. */
+  /** Scroll container for the script column (`primaryColumnRef` only — no window or outer shell). */
   scrollRootRef?: RefObject<HTMLElement | null>;
 };
 
 /**
- * Observes scroll on `scrollRootRef` when it overflows, else the document, and publishes progress
- * [0,1] and a discrete scene index (N equal buckets).
+ * Maps vertical scroll within the primary column to scene index (N equal buckets). Scene clicks
+ * scroll that same column only.
  */
 export function useDocumentScrollScene(
   sceneCount: number,
@@ -42,11 +38,10 @@ export function useDocumentScrollScene(
   const pinnedSceneIndexRef = useRef<number | null>(null);
 
   const update = useCallback(() => {
-    const root = scrollRootRef?.current ?? null;
-    const useRoot = root && root.scrollHeight > root.clientHeight + 1;
-    const scrollRoot = useRoot ? root : null;
-    const el = scrollRoot ?? document.documentElement;
-    const p = readScrollProgress(scrollRoot);
+    const el = scrollRootRef?.current;
+    if (!el) return;
+
+    const p = progressForElement(el);
     const top = el.scrollTop;
     setScrollProgress(p);
 
@@ -75,19 +70,18 @@ export function useDocumentScrollScene(
   useLayoutEffect(() => {
     const tick = () => update();
     tick();
-    window.addEventListener("scroll", tick, { passive: true });
+
     window.addEventListener("resize", tick);
     const ro = new ResizeObserver(tick);
     if (document.body) ro.observe(document.body);
 
-    const root = scrollRootRef?.current ?? null;
+    const root = scrollRootRef?.current;
     if (root) {
       root.addEventListener("scroll", tick, { passive: true });
       ro.observe(root);
     }
 
     return () => {
-      window.removeEventListener("scroll", tick);
       window.removeEventListener("resize", tick);
       ro.disconnect();
       root?.removeEventListener("scroll", tick);
@@ -96,23 +90,18 @@ export function useDocumentScrollScene(
 
   const scrollToSceneIndex = useCallback(
     (k: number) => {
-      if (sceneCount <= 0) return;
+      const el = scrollRootRef?.current;
+      if (!el || sceneCount <= 0) return;
+
       const clamped = Math.max(0, Math.min(sceneCount - 1, k));
       pinnedSceneIndexRef.current = clamped;
       setActiveSceneIndex(clamped);
 
-      const root = scrollRootRef?.current ?? null;
-      const useRoot = root && root.scrollHeight > root.clientHeight + 1;
-      const el = useRoot ? root : document.documentElement;
       const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
       const targetTop =
         sceneCount <= 1 ? 0 : (clamped / sceneCount) * maxScroll;
 
-      if (useRoot && root) {
-        root.scrollTo({ top: targetTop, behavior: "smooth" });
-      } else {
-        window.scrollTo({ top: targetTop, behavior: "smooth" });
-      }
+      el.scrollTo({ top: targetTop, behavior: "smooth" });
     },
     [sceneCount, scrollRootRef],
   );

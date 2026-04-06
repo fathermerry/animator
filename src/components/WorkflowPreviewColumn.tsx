@@ -1,4 +1,4 @@
-import { panelHeadingClass } from "@/lib/panelHeading";
+import { panelHeadingClass, panelHeadingLabelClass } from "@/lib/panelHeading";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -36,17 +36,9 @@ export function WorkflowPreviewColumn({
       )}
     >
       {headerRight != null && headerRight !== false ? (
-        <div className="flex min-h-[1.25rem] min-w-0 items-center justify-between gap-3">
-          <p
-            className={cn(
-              "shrink-0",
-              panelHeadingClass,
-              headerClassName,
-            )}
-          >
-            {title}
-          </p>
-          <div className="min-w-0 shrink-0 text-base tabular-nums leading-none text-muted-foreground">
+        <div className="mt-4 flex min-w-0 items-baseline justify-between gap-3">
+          <p className={cn("shrink-0", panelHeadingLabelClass, headerClassName)}>{title}</p>
+          <div className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
             {headerRight}
           </div>
         </div>
