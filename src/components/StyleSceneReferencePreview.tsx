@@ -25,7 +25,7 @@ export function StyleSceneReferencePreview({ scene, className }: Props) {
           <img
             src={displaySrc}
             alt=""
-            className="absolute inset-0 h-full w-full object-contain"
+            className="absolute inset-0 h-full w-full object-cover object-center"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center p-4">

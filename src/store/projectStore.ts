@@ -354,6 +354,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         frameId,
         prompt,
         modelId,
+        aspectRatio: "16:9",
       });
       const src = (data.imageDataUrl ?? data.imageUrl)?.trim();
       if (src) {

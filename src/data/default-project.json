@@ -68,7 +68,7 @@
       "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 0,
       "title": "Hook / Bank counter",
-      "description": "Narrator at the lender's counter: document stack, warning icon, overwhelmed-but-hooked energy. Direct to camera.",
+      "description": "Wide-to-medium finance-branch counter: the Narrator faces the viewer while the Lender stands behind glass or a low partition; between them, a tall stack of forms and folders with a small warning or alert icon so the self-employed scrutiny bar reads instantly. Energy is urgent but hooked—overwhelmed, still leaning in. Use this as the scene's authoritative reference still: one clear focal pile, readable faces, broadcast contrast so every later frame matches this staging and palette.",
       "characterIds": [
         "C01",
         "C02"
@@ -82,7 +82,7 @@
       "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 1,
       "title": "Who counts as self-employed?",
-      "description": "Narrator beside income graphic; PAYE contrast. Lender signals ownership %. Clear educational framing.",
+      "description": "Educational wide layout: the Narrator beside a large ownership graphic (pie or band highlighting roughly 20–25%) while the Lender points at the chart; the Employee appears in a secondary panel or stage left with payslip simplicity for PAYE contrast. Optional small umbrella or payslip stack hints at six-month treatment without readable text. Calm diagram-led energy—this keyframe should lock how the scene balances labels, equity, and employed versus self-employed paths.",
       "characterIds": [
         "C01",
         "C02",
@@ -97,7 +97,7 @@
       "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 2,
       "title": "How lenders assess income",
-      "description": "Desk walkthrough: net profit, dividends, contractor math. Scale and funnel show how rules change the borrowing ceiling.",
+      "description": "Analyst desk with Narrator and Lender over a screen or printout: rolling net-profit years for sole traders, a split treatment card for limited companies (salary plus dividends versus profit after tax), and a contractor strip with day-rate × week math. Add a borrowing band or multiplier graphic suggesting a typical income multiple cap. Medium shot with charts as hero props; this still defines the 'structure changes the maths' look for the entire section.",
       "characterIds": [
         "C01",
         "C02"
@@ -111,7 +111,7 @@
       "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 3,
       "title": "The tax trap",
-      "description": "Accountant with SA302; tax vs borrowing trade-off. Slightly serious: declared income drives the offer.",
+      "description": "Tighter office beat: the Accountant lays out an SA302 and tax-year summaries while the Narrator locks onto the figures—slightly serious, advisory not preachy. A simple balance or seesaw motif can imply tax optimisation versus borrowing power without legible captions. Paper-forward, warm desk light; this reference still is the caution beat where declared income is the same number lenders use to size the loan.",
       "characterIds": [
         "C01",
         "C03"
@@ -125,7 +125,7 @@
       "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 4,
       "title": "Trading history timeline",
-      "description": "Lender traces 12 months → three years on a timeline. Beat on entity switches resetting some lenders' clocks.",
+      "description": "Narrator and Lender share a horizontal timeline with markers at twelve months, two years, and three years of accounts; optional extra statements or projection cards hover near the one-year band. A branch or caution icon can flag sole-trader-to-limited switches that reset some lenders' clocks. Infographic clarity over drama; this keyframe sets how trading history and timing read across the whole scene.",
       "characterIds": [
         "C01",
         "C02"
@@ -139,7 +139,7 @@
       "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 5,
       "title": "The document pile",
-      "description": "Table covered in SA302s, accounts, stacks. Accountant organises; narrator gets that sloppiness signals risk.",
+      "description": "Tabletop hero: ID, bank statements, deposit proof, paired SA302s and Tax Year Overviews, certified accounts, accountant certificate, and contractor contracts grouped in neat labelled clusters—substantial but organised, not sloppy chaos. The Accountant arranges while the Narrator engages the viewer on why messy files read as risk. This still anchors the 'paperwork you actually bring' energy for every shot in the scene.",
       "characterIds": [
         "C01",
         "C03"
@@ -153,7 +153,7 @@
       "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 6,
       "title": "Maximising your chances",
-      "description": "Credit meter, checklist: electoral roll, split accounts, no last-minute credit. Calm prep-before-you-apply vibe.",
+      "description": "Single-host medium shot: the Narrator alone beside a credit-health dial or meter, electoral-roll check, stepped deposit tiers, and icons for separated business versus personal accounts—plus a clear 'pause' or slash on new credit before applying. Optimistic prep mood, not scare tactics. This reference still should read as the checklist beat that every frame in the scene inherits.",
       "characterIds": [
         "C01"
       ],
@@ -166,7 +166,7 @@
       "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 7,
       "title": "Whole-of-market broker",
-      "description": "Broker with laptop: lender criteria side-by-side. Shop the market before hard searches.",
+      "description": "Consultation desk: the Broker's laptop shows a grid of lender logos or criteria columns with the Narrator leaning in—comparison arrows or a soft funnel suggest matching options before hard searches. Open, shop-the-market energy rather than a single bank poster. This keyframe is the visual contract for broker-led, whole-of-market staging across the scene.",
       "characterIds": [
         "C01",
         "C04"
@@ -180,7 +180,7 @@
       "projectId": "c8e4a1f3-9b2d-4a7e-bc6d-1f0e9d8c7b6a",
       "index": 8,
       "title": "Outro",
-      "description": "Warm sign-off to camera; checkmark and house reinforce takeaway and subscribe. Static hold.",
+      "description": "Warm medium close-up: the Narrator speaks straight to camera with a soft house or keys motif and a simple checkmark or completion icon in the background—closure and subscribe energy without literal on-screen text. Relaxed smile, static hero framing. This still is the relaxed end-card look target that every outro frame should match.",
       "characterIds": [
         "C01"
       ],

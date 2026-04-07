@@ -367,23 +367,25 @@ export function StylePageView({ step: _step }: Props) {
                             </span>
                             <span className="min-w-0 flex-1 truncate">{title}</span>
                           </button>
-                          <button
-                            type="button"
-                            className={cn(kitTileIconBtn, "shrink-0")}
-                            disabled={refGenerating}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void requestSceneReferenceRender(sc.id);
-                            }}
-                            aria-label={
-                              refGenerating
-                                ? "Generating scene reference…"
-                                : "Generate scene reference with AI"
-                            }
-                            aria-busy={refGenerating}
-                          >
-                            <Sparkles className="size-4" strokeWidth={2} aria-hidden />
-                          </button>
+                          {!refRaw ? (
+                            <button
+                              type="button"
+                              className={cn(kitTileIconBtn, "shrink-0")}
+                              disabled={refGenerating}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void requestSceneReferenceRender(sc.id);
+                              }}
+                              aria-label={
+                                refGenerating
+                                  ? "Generating scene reference…"
+                                  : "Generate scene reference with AI"
+                              }
+                              aria-busy={refGenerating}
+                            >
+                              <Sparkles className="size-4" strokeWidth={2} aria-hidden />
+                            </button>
+                          ) : null}
                           {refRaw ? (
                             <Button
                               type="button"

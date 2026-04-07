@@ -46,16 +46,34 @@ function resolveModel(modelId: unknown): ImageModel {
   return "gpt-image-1.5";
 }
 
-function sizeForModel(model: ImageModel): "1024x1024" | "512x512" | "256x256" {
-  if (model === "dall-e-2") return "1024x1024";
+type OpenAiImageSize =
+  | "1024x1024"
+  | "512x512"
+  | "256x256"
+  | "1536x1024"
+  | "1792x1024"
+  | "1024x1792";
+
+function resolveGenerateSize(
+  model: ImageModel,
+  aspectRatio: "1:1" | "16:9" | undefined,
+): OpenAiImageSize {
+  const wide = aspectRatio === "16:9";
+  if (model === "dall-e-2") {
+    return "1024x1024";
+  }
+  if (model === "dall-e-3") {
+    return wide ? "1792x1024" : "1024x1024";
+  }
+  // GPT Image models: landscape uses 1536×1024 (API widescreen preset).
+  if (isGptImageModel(model)) {
+    return wide ? "1536x1024" : "1024x1024";
+  }
   return "1024x1024";
 }
 
 /** Approximate list-price USD per image for the exact params we send to `images.generate`. OpenAI does not return dollars on this response. */
-function estimatedUsdForImageGeneration(
-  model: ImageModel,
-  size: "1024x1024" | "512x512" | "256x256",
-): number {
+function estimatedUsdForImageGeneration(model: ImageModel, size: OpenAiImageSize): number {
   if (model === "dall-e-2") {
     if (size === "256x256") return 0.016;
     if (size === "512x512") return 0.018;
@@ -63,19 +81,20 @@ function estimatedUsdForImageGeneration(
   }
   if (model === "dall-e-3") {
     // We only request `quality: "standard"` for DALL·E 3 today.
+    if (size === "1792x1024" || size === "1024x1792") return 0.08;
     return 0.04;
   }
   if (model === "gpt-image-1-mini") {
-    // GPT Image mini, medium quality, 1024×1024 — ballpark from OpenAI pricing.
+    if (size === "1536x1024") return 0.028;
     return 0.02;
   }
-  // gpt-image-1.5, medium quality, 1024×1024
+  if (size === "1536x1024") return 0.048;
   return 0.034;
 }
 
 function costForImageGeneration(args: {
   model: ImageModel;
-  size: "1024x1024" | "512x512" | "256x256";
+  size: OpenAiImageSize;
   usage?: { total_tokens?: number };
 }): {
   amount: number;
@@ -116,6 +135,7 @@ app.post("/api/render-frame", async (req, res) => {
       frameId?: string;
       prompt?: string;
       modelId?: string;
+      aspectRatio?: string;
     };
     const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
     const frameId = typeof body.frameId === "string" ? body.frameId.trim() : "";
@@ -139,7 +159,10 @@ app.post("/api/render-frame", async (req, res) => {
 
     const model = resolveModel(body.modelId);
     const openai = new OpenAI({ apiKey });
-    const size = sizeForModel(model);
+    const ar = body.aspectRatio?.trim();
+    const aspectRatio: "1:1" | "16:9" | undefined =
+      ar === "16:9" ? "16:9" : ar === "1:1" ? "1:1" : undefined;
+    const size = resolveGenerateSize(model, aspectRatio);
 
     // GPT Image models always return `b64_json`; `response_format` is DALL·E-only (400 if sent).
     const response = await openai.images.generate({
