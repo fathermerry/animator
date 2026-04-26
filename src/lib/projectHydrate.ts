@@ -51,19 +51,18 @@ function reviveTextStyle(raw: unknown, fallback: TextStyle): TextStyle {
 
 function reviveCharacterAsset(raw: unknown): KitAsset | null {
   if (!raw || typeof raw !== "object") return null;
-  const o = raw as Partial<KitAsset>;
+  const o = raw as Partial<KitAsset> & { imageSrcs?: unknown };
   const id = typeof o.id === "string" ? o.id.trim() : "";
   if (!id) return null;
   const name = typeof o.name === "string" ? o.name : "";
   const description = typeof o.description === "string" ? o.description : "";
   const srcRaw = typeof o.src === "string" ? o.src.trim() : "";
-  const src = srcRaw.length > 0 ? srcRaw : undefined;
-  let imageSrcs: string[] | undefined;
-  if (Array.isArray(o.imageSrcs)) {
-    const urls = o.imageSrcs
-      .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
-      .map((s) => s.trim());
-    imageSrcs = urls.length > 0 ? urls.slice(0, 5) : undefined;
+  let src = srcRaw.length > 0 ? srcRaw : undefined;
+  if (!src && Array.isArray(o.imageSrcs)) {
+    const first = o.imageSrcs.find(
+      (x: unknown): x is string => typeof x === "string" && x.trim().length > 0,
+    );
+    if (first) src = first.trim();
   }
   const width = typeof o.width === "number" && Number.isFinite(o.width) ? o.width : undefined;
   const height = typeof o.height === "number" && Number.isFinite(o.height) ? o.height : undefined;
@@ -72,7 +71,6 @@ function reviveCharacterAsset(raw: unknown): KitAsset | null {
     name,
     description,
     ...(src ? { src } : {}),
-    ...(imageSrcs ? { imageSrcs } : {}),
     ...(width !== undefined ? { width } : {}),
     ...(height !== undefined ? { height } : {}),
   };
@@ -160,11 +158,26 @@ function reviveRender(raw: unknown): Render | null {
   const r = raw as Partial<Render>;
   if (typeof r.id !== "string" || !r.id.trim()) return null;
   if (typeof r.projectId !== "string" || !r.projectId.trim()) return null;
-  const renderType: Render["type"] = r.type === "asset" ? "asset" : "frame";
+  const renderType: Render["type"] =
+    r.type === "asset" ||
+    r.type === "reference" ||
+    r.type === "narration" ||
+    r.type === "script" ||
+    r.type === "storyboard"
+      ? r.type
+      : "frame";
   const sceneIdRaw = typeof r.sceneId === "string" ? r.sceneId : "";
   if (renderType === "frame" && !sceneIdRaw.trim()) return null;
   const engine: Render["engine"] =
-    r.engine === "three" ? "three" : r.engine === "openai-image" ? "openai-image" : "remotion";
+    r.engine === "three"
+      ? "three"
+      : r.engine === "openai-image"
+        ? "openai-image"
+        : r.engine === "openai-audio"
+          ? "openai-audio"
+          : r.engine === "openai-text"
+            ? "openai-text"
+            : "remotion";
   const status =
     r.status === "processing" || r.status === "complete" || r.status === "failed" ? r.status : "pending";
   const model = typeof r.model === "string" && r.model.trim() ? r.model.trim() : undefined;
@@ -207,6 +220,11 @@ function reviveFrame(raw: unknown): Frame | null {
   const index = typeof f.index === "number" && Number.isFinite(f.index) ? Math.max(0, Math.floor(f.index)) : 0;
   const src = typeof f.src === "string" ? f.src : "";
   const description = typeof f.description === "string" ? f.description : "";
+  const durationSeconds =
+    typeof f.durationSeconds === "number" && Number.isFinite(f.durationSeconds) && f.durationSeconds > 0
+      ? f.durationSeconds
+      : undefined;
+  const kind = f.kind === "transition" ? "transition" : f.kind === "keyframe" ? "keyframe" : undefined;
   return {
     id: f.id,
     projectId: f.projectId,
@@ -215,6 +233,8 @@ function reviveFrame(raw: unknown): Frame | null {
     index,
     src,
     description,
+    ...(durationSeconds !== undefined ? { durationSeconds } : {}),
+    ...(kind ? { kind } : {}),
   };
 }
 
@@ -244,11 +264,21 @@ function reviveScene(raw: unknown, projectId: string): Scene | null {
     typeof s.durationSeconds === "number" && Number.isFinite(s.durationSeconds) && s.durationSeconds >= 0
       ? s.durationSeconds
       : 0;
+  const delaySeconds =
+    typeof s.delaySeconds === "number" && Number.isFinite(s.delaySeconds) && s.delaySeconds > 0
+      ? s.delaySeconds
+      : undefined;
+  const transition =
+    s.transition === "fade" || s.transition === "dissolve" || s.transition === "cut"
+      ? s.transition
+      : undefined;
+  const transitionSeconds =
+    typeof s.transitionSeconds === "number" && Number.isFinite(s.transitionSeconds) && s.transitionSeconds > 0
+      ? s.transitionSeconds
+      : undefined;
   const characterIds = Array.isArray(s.characterIds)
     ? s.characterIds.filter((x): x is string => typeof x === "string" && x.length > 0)
     : [];
-  const referenceImageSrcRaw = typeof s.referenceImageSrc === "string" ? s.referenceImageSrc.trim() : "";
-  const referenceImageSrc = referenceImageSrcRaw.length > 0 ? referenceImageSrcRaw : undefined;
   const backgroundColorRaw = typeof s.backgroundColor === "string" ? s.backgroundColor.trim() : "";
   const backgroundColor = backgroundColorRaw.length > 0 ? backgroundColorRaw : undefined;
   const backgroundImageSrcRaw =
@@ -267,11 +297,13 @@ function reviveScene(raw: unknown, projectId: string): Scene | null {
     description,
     voiceoverText,
     characterIds,
-    ...(referenceImageSrc ? { referenceImageSrc } : {}),
     ...(backgroundColor ? { backgroundColor } : {}),
     ...(backgroundImageSrc ? { backgroundImageSrc } : {}),
     ...(narrationAudioSrc ? { narrationAudioSrc } : {}),
     durationSeconds,
+    ...(delaySeconds !== undefined ? { delaySeconds } : {}),
+    ...(transition ? { transition } : {}),
+    ...(transitionSeconds !== undefined ? { transitionSeconds } : {}),
     createdAt: reviveDate(s.createdAt),
   };
 }
@@ -338,6 +370,7 @@ export function projectFromConfigJson(raw: unknown): HydratedProjectBundle {
     name: typeof o.name === "string" ? o.name : "Untitled",
     createdAt: reviveDate(o.createdAt),
     prompt: typeof o.prompt === "string" ? o.prompt : "",
+    script: typeof o.script === "string" ? o.script : undefined,
     styleConfigId,
     ...(fileLabel ? { fileLabel } : {}),
   };

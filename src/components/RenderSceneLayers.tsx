@@ -146,7 +146,7 @@ export function RenderSceneLayers({
           )}
         >
           {ordered.length === 0 ? (
-            <p className="archive-text px-2 py-3 text-sm text-muted-foreground">No scenes.</p>
+            <p className="archive-text px-2 py-3 text-sm text-muted-foreground">No shots.</p>
           ) : (
             <ul className="flex list-none flex-col gap-0 p-0" role="presentation">
               {ordered.map((scene) => {

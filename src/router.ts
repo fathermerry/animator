@@ -1,8 +1,17 @@
 /** Must stay aligned with {@link STEPS} slugs in `steps.ts`. */
-const WORKFLOW_STEP_SLUGS = new Set(["story", "style", "compose"]);
+const WORKFLOW_STEP_SLUGS = new Set(["studio"]);
 
 function normalizeWorkflowStepSlug(step: string): string {
-  if (step === "script") return "story";
+  if (
+    step === "story" ||
+    step === "script" ||
+    step === "style" ||
+    step === "assets" ||
+    step === "compose" ||
+    step === "render"
+  ) {
+    return "studio";
+  }
   return step;
 }
 
@@ -27,17 +36,13 @@ export function parseRoute(path: string): ParsedRoute {
   if (a === "renders") return { kind: "renders" };
 
   if (segments.length === 1) {
-    if (a === "assets") return { kind: "legacyWorkflow", stepSlug: "style" };
-    if (a === "render") return { kind: "legacyWorkflow", stepSlug: "compose" };
     const legacy = normalizeWorkflowStepSlug(a);
     if (WORKFLOW_STEP_SLUGS.has(legacy)) return { kind: "legacyWorkflow", stepSlug: legacy };
   }
 
   if (segments.length >= 2 && isUuidLike(a)) {
     const step = segments[1]!;
-    const normalized = normalizeWorkflowStepSlug(
-      step === "assets" ? "style" : step === "render" ? "compose" : step,
-    );
+    const normalized = normalizeWorkflowStepSlug(step);
     if (WORKFLOW_STEP_SLUGS.has(normalized)) {
       return { kind: "workflow", projectId: a, stepSlug: normalized };
     }
@@ -55,9 +60,10 @@ export function canonicalWorkflowPathIfNeeded(path: string): string | null {
   const segments = path.split("/").filter(Boolean);
   if (segments.length >= 2 && isUuidLike(segments[0]!)) {
     const projectId = segments[0]!;
-    if (segments[1] === "assets") return pathForProjectStep(projectId, "style");
-    if (segments[1] === "render") return pathForProjectStep(projectId, "compose");
-    if (segments[1] === "script") return pathForProjectStep(projectId, "story");
+    const normalized = normalizeWorkflowStepSlug(segments[1]!);
+    if (normalized !== segments[1] && WORKFLOW_STEP_SLUGS.has(normalized)) {
+      return pathForProjectStep(projectId, normalized);
+    }
   }
   return null;
 }

@@ -9,8 +9,8 @@ export type Cost = {
   breakdown: CostItem[];
 };
 
-/** Film frame still vs style-kit character/object still. */
-export type RenderTargetType = "frame" | "asset";
+/** Billable / trackable generation targets shown in cost activity. */
+export type RenderTargetType = "frame" | "asset" | "reference" | "narration" | "script" | "storyboard";
 
 /** When {@link Render.type} is `asset`, which kit row this render produced. */
 export type RenderKitTarget =
@@ -23,7 +23,7 @@ export type Render = {
   projectId: string;
   sceneId: string;
   type: RenderTargetType;
-  engine: "remotion" | "three" | "openai-image";
+  engine: "remotion" | "three" | "openai-image" | "openai-audio" | "openai-text";
   status: "pending" | "processing" | "complete" | "failed";
   cost: Cost;
   createdAt: Date;
@@ -46,6 +46,10 @@ export type Frame = {
   src: string;
   /** Staging copy for this still — shown under the scene title in the film and UI. */
   description: string;
+  /** Optional explicit hold length for this frame. Remaining scene time is split between frames without this. */
+  durationSeconds?: number;
+  /** Transition frames bridge beats rather than acting as primary keyframes. */
+  kind?: "keyframe" | "transition";
 };
 
 export type Scene = {
@@ -61,13 +65,16 @@ export type Scene = {
   /** Optional URL to generated narration audio (e.g. `/renders/{projectId}/narration-{sceneId}.mp3`). */
   narrationAudioSrc?: string;
   characterIds: string[];
-  /** One optional still defining target look for this scene’s frames (Style step). */
-  referenceImageSrc?: string;
   /** Optional plate color; falls back to the style kit background. */
   backgroundColor?: string;
   /** Optional plate image; falls back to the style kit background image. */
   backgroundImageSrc?: string;
   durationSeconds: number;
+  /** Optional pause before the scene starts. */
+  delaySeconds?: number;
+  /** Optional transition into this scene. */
+  transition?: "cut" | "fade" | "dissolve";
+  transitionSeconds?: number;
   createdAt: Date;
 };
 
@@ -79,5 +86,7 @@ export type Project = {
   createdAt: Date;
 
   prompt: string;
+  /** Confirmed/editable script generated from the raw story prompt. */
+  script?: string;
   styleConfigId: string;
 };

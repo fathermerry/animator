@@ -36,6 +36,8 @@ export function formatCost(amount: number, currency: string): string {
 
 export function formatEngine(engine: Render["engine"]): string {
   if (engine === "openai-image") return "OpenAI image";
+  if (engine === "openai-audio") return "OpenAI audio";
+  if (engine === "openai-text") return "OpenAI text";
   if (engine === "three") return "Three";
   return "Remotion";
 }

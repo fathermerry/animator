@@ -1,28 +1,38 @@
 import type { Cost } from "@/types/project";
 
-export type NarrationRequestBody = {
-  projectId: string;
-  sceneId: string;
-  text: string;
+export type StoryboardFrameDraft = {
+  description: string;
 };
 
-export type NarrationResponse = {
-  audioUrl: string;
+export type StoryboardSceneDraft = {
+  title: string;
+  description: string;
+  voiceoverText: string;
+  durationSeconds: number;
+  frames: StoryboardFrameDraft[];
+};
+
+export type StoryboardRequestBody = {
+  projectId: string;
+  story: string;
+};
+
+export type StoryboardResponse = {
+  scenes: StoryboardSceneDraft[];
   model: string;
   cost: Cost;
 };
 
-export async function requestSceneNarration(
-  body: NarrationRequestBody,
+export async function requestStoryStoryboard(
+  body: StoryboardRequestBody,
   signal?: AbortSignal,
-): Promise<NarrationResponse> {
-  const res = await fetch("/api/narration", {
+): Promise<StoryboardResponse> {
+  const res = await fetch("/api/storyboard", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       projectId: body.projectId,
-      sceneId: body.sceneId,
-      text: body.text,
+      story: body.story,
     }),
     signal,
   });
@@ -39,5 +49,5 @@ export async function requestSceneNarration(
     throw new Error(message || `HTTP ${res.status}`);
   }
 
-  return JSON.parse(text) as NarrationResponse;
+  return JSON.parse(text) as StoryboardResponse;
 }

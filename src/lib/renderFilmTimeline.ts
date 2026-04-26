@@ -22,6 +22,9 @@ export type FilmSegmentInput = {
   characters: KitAsset[];
   /** Resolved background plate for this segment’s scene (kit + per-scene overrides). */
   plate: Background;
+  transition?: Scene["transition"];
+  transitionSeconds?: number;
+  frameKind?: Frame["kind"];
 };
 
 function resolveKitAssets(ids: string[], pool: KitAsset[]): KitAsset[] {
@@ -34,15 +37,34 @@ function resolveKitAssets(ids: string[], pool: KitAsset[]): KitAsset[] {
 }
 
 /** Split scene length into per-frame durations (whole frames, sum = round(sceneSeconds * fps)). */
-function splitSceneDurationToFrames(sceneSeconds: number, frameCount: number, fps: number): number[] {
+function splitSceneDurationToFrames(
+  sceneSeconds: number,
+  sceneFrames: Frame[],
+  fps: number,
+): number[] {
+  const frameCount = sceneFrames.length;
   if (frameCount <= 0) return [];
   const total = Math.round(sceneSeconds * fps);
   if (total <= 0) {
     return Array.from({ length: frameCount }, () => 1);
   }
-  const base = Math.floor(total / frameCount);
-  const remainder = total - base * frameCount;
-  return Array.from({ length: frameCount }, (_, i) => Math.max(1, base + (i < remainder ? 1 : 0)));
+  const explicit = sceneFrames.map((f) =>
+    Number.isFinite(f.durationSeconds) && (f.durationSeconds ?? 0) > 0
+      ? Math.max(1, Math.round((f.durationSeconds ?? 0) * fps))
+      : 0,
+  );
+  const explicitTotal = explicit.reduce((acc, x) => acc + x, 0);
+  const flexibleCount = explicit.filter((x) => x === 0).length;
+  if (flexibleCount === 0) return explicit.map((x) => Math.max(1, x));
+  const remaining = Math.max(flexibleCount, total - explicitTotal);
+  const base = Math.floor(remaining / flexibleCount);
+  let remainder = remaining - base * flexibleCount;
+  return explicit.map((x) => {
+    if (x > 0) return x;
+    const dur = Math.max(1, base + (remainder > 0 ? 1 : 0));
+    remainder -= 1;
+    return dur;
+  });
 }
 
 export function buildRenderFilmTimeline(
@@ -57,10 +79,28 @@ export function buildRenderFilmTimeline(
   for (const scene of ordered) {
     const sceneFrames = framesForSceneSorted(frames, scene.id);
     const durSec = Number.isFinite(scene.durationSeconds) ? Math.max(0, scene.durationSeconds) : 0;
+    const delaySec = Number.isFinite(scene.delaySeconds) ? Math.max(0, scene.delaySeconds ?? 0) : 0;
     const chars = resolveKitAssets(scene.characterIds, assetBundle.characters);
 
     const title = scene.title.trim();
     const sceneBeat = scene.description.trim();
+    const plate = resolveSceneBackground(scene, assetBundle);
+
+    if (delaySec > 0) {
+      segments.push({
+        durationInFrames: Math.max(1, Math.round(delaySec * FILM_FPS)),
+        blank: true,
+        sceneId: scene.id,
+        frameId: null,
+        assetBundle,
+        sceneTitle: title,
+        frameDescription: "",
+        characters: chars,
+        plate,
+        transition: scene.transition,
+        transitionSeconds: scene.transitionSeconds,
+      });
+    }
 
     if (sceneFrames.length === 0) {
       const total = Math.max(1, Math.round(durSec * FILM_FPS));
@@ -73,12 +113,14 @@ export function buildRenderFilmTimeline(
         sceneTitle: title,
         frameDescription: sceneBeat,
         characters: chars,
-        plate: resolveSceneBackground(scene, assetBundle),
+        plate,
+        transition: scene.transition,
+        transitionSeconds: scene.transitionSeconds,
       });
       continue;
     }
 
-    const frameDurations = splitSceneDurationToFrames(durSec, sceneFrames.length, FILM_FPS);
+    const frameDurations = splitSceneDurationToFrames(durSec, sceneFrames, FILM_FPS);
 
     sceneFrames.forEach((fr, i) => {
       const durationInFrames = frameDurations[i] ?? 1;
@@ -87,7 +129,7 @@ export function buildRenderFilmTimeline(
       const stillSrc = generated ? fr.src.trim() : null;
       segments.push({
         durationInFrames,
-        blank: !generated,
+        blank: !stillSrc,
         sceneId: scene.id,
         frameId: fr.id,
         stillSrc,
@@ -95,7 +137,10 @@ export function buildRenderFilmTimeline(
         sceneTitle: title,
         frameDescription: frameText || sceneBeat,
         characters: chars,
-        plate: resolveSceneBackground(scene, assetBundle),
+        plate,
+        transition: scene.transition,
+        transitionSeconds: scene.transitionSeconds,
+        frameKind: fr.kind,
       });
     });
   }

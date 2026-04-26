@@ -1,8 +1,7 @@
 import { createStore } from "zustand/vanilla";
 
-import defaultProjectJson from "../data/default-project.json";
+import { buildDefaultProjectBundle } from "../data/defaultProjectSeed";
 import { buildFrameImagePrompt } from "../lib/buildFrameImagePrompt";
-import { buildSceneReferenceImagePrompt, sceneRefRenderFrameId } from "../lib/buildSceneReferenceImagePrompt";
 import {
   buildKitAssetImagePrompt,
   KIT_ASSET_RENDER_IMAGE_SIZE,
@@ -10,7 +9,6 @@ import {
   type KitAssetKind,
 } from "../lib/buildKitAssetImagePrompt";
 import { frameHasOutputImage } from "../lib/frameRenderStatus";
-import { KIT_ASSET_MAX_IMAGES, normalizeCharacterKitImageSrcs } from "../lib/kitAssetImages";
 import {
   DEFAULT_OPENAI_IMAGE_MODEL,
   type OpenAiImageModelId,
@@ -23,8 +21,11 @@ import {
   setActiveProjectId,
 } from "../lib/projectIndexedDb";
 import type { PersistableProjectSlice } from "../lib/projectPersistence";
-import { projectFromConfigJson } from "../lib/projectHydrate";
+import { requestSceneNarration } from "../lib/narrationApi";
 import { requestFrameImageRender } from "../lib/renderFrameApi";
+import { requestScriptGeneration } from "../lib/scriptApi";
+import { requestStoryStoryboard } from "../lib/storyboardApi";
+import { loadAudioDurationSeconds } from "../lib/useNarrationAudioDuration";
 import { navigate, pathForProjectStep } from "../router";
 import { SAMPLE_PROJECT_ID } from "../lib/sampleProject";
 import type { Frame, Project, Render, Scene } from "../types/project";
@@ -80,23 +81,26 @@ export type ProjectState = {
   scenes: Scene[];
   renders: Render[];
   frames: Frame[];
+  exportJobs: ExportJob[];
   /** Ephemeral UI: frames currently in a render pass. */
   renderingFrameIds: Record<string, true>;
   /** Last error message per frame from the image API (not persisted). */
   frameRenderErrors: Record<string, string>;
-  /** Ephemeral UI: style-kit batch generation in progress. */
-  generatingKitAssets: boolean;
+  /** Ephemeral UI: Studio batch re-render of all frame images in progress. */
+  renderingAllFrameImages: boolean;
   /** Ephemeral UI: which kit rows are currently generating (key = {@link kitAssetGeneratingKey}). */
   kitAssetGeneratingKeys: Record<string, true>;
   /** Last error per kit-asset render id from the image API (not persisted). */
   kitAssetRenderErrors: Record<string, string>;
-  /** Ephemeral UI: scene reference AI generation in progress (key = scene id). */
-  sceneReferenceGeneratingKeys: Record<string, true>;
-  /** Last error per scene id from scene reference image API (not persisted). */
-  sceneReferenceRenderErrors: Record<string, string>;
+  /** Ephemeral UI: narration generation in progress (key = scene id). */
+  narrationGeneratingKeys: Record<string, true>;
+  /** Last error per scene id from narration API (not persisted). */
+  narrationRenderErrors: Record<string, string>;
 
   ensureDraftProject: () => string;
   setPromptText: (text: string) => void;
+  setScriptText: (text: string) => void;
+  requestScriptGeneration: () => Promise<void>;
   updateStyle: (recipe: (bundle: AssetBundle) => AssetBundle) => void;
   patchScene: (sceneId: string, patch: Partial<Scene>) => void;
   patchFrame: (frameId: string, patch: Partial<Frame>) => void;
@@ -107,16 +111,23 @@ export type ProjectState = {
   resetSampleProject: () => Promise<void>;
   removeFrame: (frameId: string) => void;
   requestFrameRender: (frameId: string, modelId?: OpenAiImageModelId) => Promise<void>;
+  /** Generate images for frames that are empty or still using the placeholder (keyframes and transitions), in project order. */
   requestFullFilmRender: (modelId?: OpenAiImageModelId) => Promise<void>;
-  requestKitAssetsRender: (modelId?: OpenAiImageModelId) => Promise<void>;
+  requestExportJob: (modelId?: OpenAiImageModelId) => Promise<void>;
+  /** Re-run the image model for every project frame (keyframes and transitions), in scene order. */
+  requestRerenderAllFrames: (modelId?: OpenAiImageModelId) => Promise<void>;
   /** Generate one style-kit still (character or object) via the image API. */
   requestKitAssetRender: (
     kind: KitAssetKind,
     assetId: string,
     modelId?: OpenAiImageModelId,
   ) => Promise<void>;
-  /** Generate the Style-step scene reference still via the image API. */
-  requestSceneReferenceRender: (sceneId: string, modelId?: OpenAiImageModelId) => Promise<void>;
+  /** Convert the project prompt into scenes and frame shells via the text model. */
+  requestStoryCompose: () => Promise<void>;
+  /** Generate or regenerate scene narration from current `voiceoverText`. */
+  requestSceneNarrationRender: (sceneId: string) => Promise<void>;
+  /** Add a completed narration cost row after TTS generation. */
+  addNarrationRender: (sceneId: string, model: string, cost: Render["cost"], startedAt: Date) => void;
   cancelFrameRender: (frameId: string) => void;
 
   openProject: (id: string) => Promise<void>;
@@ -126,12 +137,24 @@ export type ProjectState = {
   deleteProject: (id: string) => Promise<void>;
 };
 
-const initialBundle = projectFromConfigJson(defaultProjectJson);
+export type ExportJob = {
+  id: string;
+  status: "queued" | "processing" | "complete" | "failed";
+  label: string;
+  createdAt: Date;
+  startedAt?: Date;
+  endedAt?: Date;
+  error?: string;
+};
+
+const initialBundle = buildDefaultProjectBundle();
 
 function initialState(): Omit<
   ProjectState,
   | "ensureDraftProject"
   | "setPromptText"
+  | "setScriptText"
+  | "requestScriptGeneration"
   | "updateStyle"
   | "patchScene"
   | "patchFrame"
@@ -142,9 +165,12 @@ function initialState(): Omit<
   | "removeFrame"
   | "requestFrameRender"
   | "requestFullFilmRender"
-  | "requestKitAssetsRender"
+  | "requestExportJob"
+  | "requestRerenderAllFrames"
   | "requestKitAssetRender"
-  | "requestSceneReferenceRender"
+  | "requestStoryCompose"
+  | "requestSceneNarrationRender"
+  | "addNarrationRender"
   | "cancelFrameRender"
   | "openProject"
   | "loadProjectById"
@@ -157,13 +183,14 @@ function initialState(): Omit<
     scenes: initialBundle.scenes,
     renders: initialBundle.renders,
     frames: initialBundle.frames,
+    exportJobs: [],
     renderingFrameIds: {},
     frameRenderErrors: {},
-    generatingKitAssets: false,
+    renderingAllFrameImages: false,
     kitAssetGeneratingKeys: {},
     kitAssetRenderErrors: {},
-    sceneReferenceGeneratingKeys: {},
-    sceneReferenceRenderErrors: {},
+    narrationGeneratingKeys: {},
+    narrationRenderErrors: {},
   };
 }
 
@@ -284,22 +311,10 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         if (idx === -1) return b;
         const prev = list[idx]!;
         const next = [...list];
-        const src = data.imageDataUrl ?? data.imageUrl;
-        const prevSrcs = normalizeCharacterKitImageSrcs(prev);
-        const newUrl = src;
-        const merged: string[] = [];
-        const seen = new Set<string>();
-        for (const u of [...prevSrcs, newUrl]) {
-          const t = typeof u === "string" ? u.trim() : "";
-          if (!t || seen.has(t)) continue;
-          seen.add(t);
-          merged.push(t);
-        }
-        const capped = merged.slice(-KIT_ASSET_MAX_IMAGES);
+        const src = (data.imageDataUrl ?? data.imageUrl)?.trim();
         next[idx] = {
           ...prev,
-          src: capped[0],
-          imageSrcs: capped.length > 0 ? capped : undefined,
+          ...(src ? { src } : {}),
           width: KIT_ASSET_RENDER_IMAGE_SIZE,
           height: KIT_ASSET_RENDER_IMAGE_SIZE,
         };
@@ -328,48 +343,42 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     }
   };
 
-  const runSceneReferenceImageRender = async (
-    sceneId: string,
-    modelId: OpenAiImageModelId,
-  ): Promise<void> => {
+  const runSceneNarrationRender = async (sceneId: string): Promise<void> => {
     const scene = get().scenes.find((s) => s.id === sceneId);
     if (!scene) return;
-    const project = get().project;
-    const bundle = selectResolvedStyleBundle(get());
-    const prompt = buildSceneReferenceImagePrompt(scene, bundle);
-    const frameId = sceneRefRenderFrameId(sceneId);
-
+    if (get().narrationGeneratingKeys[sceneId]) return;
+    const text = scene.voiceoverText?.trim();
+    if (!text) return;
     set((st) => {
-      const sceneReferenceRenderErrors = { ...st.sceneReferenceRenderErrors };
-      delete sceneReferenceRenderErrors[sceneId];
+      const narrationRenderErrors = { ...st.narrationRenderErrors };
+      delete narrationRenderErrors[sceneId];
       return {
-        sceneReferenceGeneratingKeys: { ...st.sceneReferenceGeneratingKeys, [sceneId]: true },
-        sceneReferenceRenderErrors,
+        narrationGeneratingKeys: { ...st.narrationGeneratingKeys, [sceneId]: true },
+        narrationRenderErrors,
       };
     });
-
+    const startedAt = new Date();
     try {
-      const data = await requestFrameImageRender({
-        projectId: project.id,
-        frameId,
-        prompt,
-        modelId,
-        aspectRatio: "16:9",
+      const data = await requestSceneNarration({
+        projectId: get().project.id,
+        sceneId,
+        text,
       });
-      const src = (data.imageDataUrl ?? data.imageUrl)?.trim();
-      if (src) {
-        get().patchScene(sceneId, { referenceImageSrc: src });
-      }
+      get().patchScene(sceneId, { narrationAudioSrc: data.audioUrl });
+      get().addNarrationRender(sceneId, data.model, data.cost, startedAt);
+      void loadAudioDurationSeconds(data.audioUrl).then((d) => {
+        if (d != null) get().patchScene(sceneId, { durationSeconds: Math.ceil(d) });
+      });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Render failed";
+      const msg = e instanceof Error ? e.message : "Narration failed";
       set((st) => ({
-        sceneReferenceRenderErrors: { ...st.sceneReferenceRenderErrors, [sceneId]: msg },
+        narrationRenderErrors: { ...st.narrationRenderErrors, [sceneId]: msg },
       }));
     } finally {
       set((st) => {
-        const sceneReferenceGeneratingKeys = { ...st.sceneReferenceGeneratingKeys };
-        delete sceneReferenceGeneratingKeys[sceneId];
-        return { sceneReferenceGeneratingKeys };
+        const narrationGeneratingKeys = { ...st.narrationGeneratingKeys };
+        delete narrationGeneratingKeys[sceneId];
+        return { narrationGeneratingKeys };
       });
     }
   };
@@ -381,7 +390,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
 
     loadDefaultProject: () => {
       const prev = get().project;
-      const fresh = projectFromConfigJson(defaultProjectJson);
+      const fresh = buildDefaultProjectBundle();
       const projectId = prev.id;
       set({
         project: {
@@ -395,11 +404,11 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         frames: fresh.frames.map((f) => ({ ...f, projectId })),
         renderingFrameIds: {},
         frameRenderErrors: {},
-        generatingKitAssets: false,
+        renderingAllFrameImages: false,
         kitAssetGeneratingKeys: {},
         kitAssetRenderErrors: {},
-        sceneReferenceGeneratingKeys: {},
-        sceneReferenceRenderErrors: {},
+        narrationGeneratingKeys: {},
+        narrationRenderErrors: {},
       });
     },
 
@@ -418,7 +427,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       }
       abortAllFrameRenders();
       const prev = get().project;
-      const fresh = projectFromConfigJson(defaultProjectJson);
+      const fresh = buildDefaultProjectBundle();
       const projectId = SAMPLE_PROJECT_ID;
       set({
         project: {
@@ -432,11 +441,11 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         frames: fresh.frames.map((f) => ({ ...f, projectId })),
         renderingFrameIds: {},
         frameRenderErrors: {},
-        generatingKitAssets: false,
+        renderingAllFrameImages: false,
         kitAssetGeneratingKeys: {},
         kitAssetRenderErrors: {},
-        sceneReferenceGeneratingKeys: {},
-        sceneReferenceRenderErrors: {},
+        narrationGeneratingKeys: {},
+        narrationRenderErrors: {},
       });
     },
 
@@ -447,6 +456,62 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
           prompt: text,
         },
       }));
+    },
+
+    setScriptText: (text) => {
+      set((s) => ({
+        project: {
+          ...s.project,
+          script: text,
+        },
+      }));
+    },
+
+    requestScriptGeneration: async () => {
+      const project = get().project;
+      const story = project.prompt.trim();
+      if (!story) return;
+      const startedAt = new Date();
+      const renderId = crypto.randomUUID();
+      const zeroCost: Render["cost"] = { amount: 0, currency: "USD", breakdown: [] };
+      const pendingRender: Render = {
+        id: renderId,
+        projectId: project.id,
+        sceneId: "",
+        type: "script",
+        engine: "openai-text",
+        status: "processing",
+        cost: zeroCost,
+        createdAt: startedAt,
+        startedAt,
+      };
+      set((s) => ({ renders: [...s.renders, pendingRender] }));
+      try {
+        const data = await requestScriptGeneration({
+          projectId: project.id,
+          story,
+        });
+        set((s) => ({
+          project: { ...s.project, script: data.script },
+          renders: s.renders.map((r) =>
+            r.id === renderId
+              ? {
+                  ...r,
+                  status: "complete" as const,
+                  model: data.model,
+                  cost: data.cost,
+                  endedAt: new Date(),
+                }
+              : r,
+          ),
+        }));
+      } catch (e: unknown) {
+        get().patchRender(renderId, {
+          status: "failed",
+          endedAt: new Date(),
+        });
+        throw e;
+      }
     },
 
     updateStyle: (recipe) => {
@@ -531,29 +596,33 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       await runFrameImageRender(frameId, { clearRenderingFlagWhenDone: true }, modelId);
     },
 
-    requestKitAssetsRender: async (modelIdParam) => {
-      if (get().generatingKitAssets) return;
+    requestRerenderAllFrames: async (modelIdParam) => {
+      if (get().renderingAllFrameImages) return;
       const modelId: OpenAiImageModelId =
         modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
-      const bundle = selectResolvedStyleBundle(get());
-      if (bundle.characters.length === 0) return;
+      const allFrames = get().frames;
+      if (allFrames.length === 0) return;
 
-      const initialKeys: Record<string, true> = {};
-      for (const a of bundle.characters) {
-        initialKeys[kitAssetGeneratingKey("characters", a.id)] = true;
-      }
-
-      set({
-        generatingKitAssets: true,
-        kitAssetGeneratingKeys: initialKeys,
-        kitAssetRenderErrors: {},
+      set({ renderingAllFrameImages: true });
+      set((st) => {
+        const renderingFrameIds = { ...st.renderingFrameIds };
+        const frameRenderErrors = { ...st.frameRenderErrors };
+        for (const f of allFrames) {
+          renderingFrameIds[f.id] = true;
+          delete frameRenderErrors[f.id];
+        }
+        return { renderingFrameIds, frameRenderErrors };
       });
       try {
-        await Promise.all(
-          bundle.characters.map((asset) => runKitAssetImageRender("characters", asset, modelId)),
-        );
+        for (const f of allFrames) {
+          await runFrameImageRender(f.id, { clearRenderingFlagWhenDone: false }, modelId);
+        }
       } finally {
-        set({ generatingKitAssets: false, kitAssetGeneratingKeys: {} });
+        set((st) => {
+          const renderingFrameIds = { ...st.renderingFrameIds };
+          for (const f of allFrames) delete renderingFrameIds[f.id];
+          return { renderingFrameIds, renderingAllFrameImages: false };
+        });
       }
     },
 
@@ -572,19 +641,141 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       await runKitAssetImageRender(kind, asset, modelId);
     },
 
-    requestSceneReferenceRender: async (sceneId, modelIdParam) => {
-      if (get().sceneReferenceGeneratingKeys[sceneId]) return;
-      const modelId: OpenAiImageModelId =
-        modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
-      await runSceneReferenceImageRender(sceneId, modelId);
+    requestStoryCompose: async () => {
+      const project = get().project;
+      const story = project.prompt.trim();
+      if (!story) return;
+      const startedAt = new Date();
+      const storyboardRenderId = crypto.randomUUID();
+      const zeroCost: Render["cost"] = { amount: 0, currency: "USD", breakdown: [] };
+      const pendingRender: Render = {
+        id: storyboardRenderId,
+        projectId: project.id,
+        sceneId: "",
+        type: "storyboard",
+        engine: "openai-text",
+        status: "processing",
+        cost: zeroCost,
+        createdAt: startedAt,
+        startedAt,
+      };
+      set((s) => ({ renders: [...s.renders, pendingRender] }));
+
+      try {
+        const data = await requestStoryStoryboard({
+          projectId: project.id,
+          story,
+        });
+        const nextScenes: Scene[] = [];
+        const nextFrames: Frame[] = [];
+        const nextRenders: Render[] = [];
+        const now = new Date();
+        data.scenes.forEach((sc, sceneIndex) => {
+          const sceneId = crypto.randomUUID();
+          nextScenes.push({
+            id: sceneId,
+            projectId: project.id,
+            index: sceneIndex,
+            title: sc.title,
+            description: sc.description,
+            voiceoverText: sc.voiceoverText,
+            characterIds: [],
+            durationSeconds: sc.durationSeconds,
+            createdAt: now,
+          });
+          sc.frames.forEach((fr, frameIndex) => {
+            const renderId = crypto.randomUUID();
+            const frameId = crypto.randomUUID();
+            nextRenders.push({
+              id: renderId,
+              projectId: project.id,
+              sceneId,
+              type: "frame",
+              engine: "remotion",
+              status: "complete",
+              cost: zeroCost,
+              createdAt: now,
+            });
+            nextFrames.push({
+              id: frameId,
+              projectId: project.id,
+              sceneId,
+              renderId,
+              index: frameIndex,
+              src: "",
+              description: fr.description,
+            });
+          });
+        });
+
+        set((s) => ({
+          scenes: nextScenes,
+          frames: nextFrames,
+          renders: [
+            ...s.renders.map((r) =>
+              r.id === storyboardRenderId
+                ? {
+                    ...r,
+                    status: "complete" as const,
+                    model: data.model,
+                    cost: data.cost,
+                    endedAt: new Date(),
+                  }
+                : r,
+            ),
+            ...nextRenders,
+          ],
+          renderingFrameIds: {},
+          frameRenderErrors: {},
+        }));
+        void (async () => {
+          const narrations = Promise.allSettled(nextScenes.map((sc) => runSceneNarrationRender(sc.id)));
+          for (const f of nextFrames) {
+            await runFrameImageRender(f.id, { clearRenderingFlagWhenDone: true }, DEFAULT_OPENAI_IMAGE_MODEL);
+          }
+          await narrations;
+        })();
+        navigate(pathForProjectStep(project.id, "studio"));
+      } catch (e: unknown) {
+        get().patchRender(storyboardRenderId, {
+          status: "failed",
+          endedAt: new Date(),
+        });
+        throw e;
+      }
+    },
+
+    requestSceneNarrationRender: async (sceneId) => {
+      await runSceneNarrationRender(sceneId);
+    },
+
+    addNarrationRender: (sceneId, model, cost, startedAt) => {
+      const project = get().project;
+      const endedAt = new Date();
+      const render: Render = {
+        id: crypto.randomUUID(),
+        projectId: project.id,
+        sceneId,
+        type: "narration",
+        engine: "openai-audio",
+        status: "complete",
+        model,
+        cost,
+        createdAt: startedAt,
+        startedAt,
+        endedAt,
+      };
+      set((s) => ({ renders: [...s.renders, render] }));
     },
 
     requestFullFilmRender: async (modelIdParam) => {
+      if (get().renderingAllFrameImages) return;
       const modelId: OpenAiImageModelId =
         modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
       const targets = get().frames.filter((f) => !frameHasOutputImage(f.src));
       if (targets.length === 0) return;
 
+      set({ renderingAllFrameImages: true });
       set((st) => {
         const renderingFrameIds = { ...st.renderingFrameIds };
         const frameRenderErrors = { ...st.frameRenderErrors };
@@ -594,16 +785,31 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         }
         return { renderingFrameIds, frameRenderErrors };
       });
-
-      for (const f of targets) {
-        await runFrameImageRender(f.id, { clearRenderingFlagWhenDone: false }, modelId);
+      try {
+        for (const f of targets) {
+          await runFrameImageRender(f.id, { clearRenderingFlagWhenDone: false }, modelId);
+        }
+      } finally {
+        set((st) => {
+          const renderingFrameIds = { ...st.renderingFrameIds };
+          for (const f of targets) delete renderingFrameIds[f.id];
+          return { renderingFrameIds, renderingAllFrameImages: false };
+        });
       }
+    },
 
-      set((st) => {
-        const renderingFrameIds = { ...st.renderingFrameIds };
-        for (const f of targets) delete renderingFrameIds[f.id];
-        return { renderingFrameIds };
-      });
+    requestExportJob: async (modelIdParam) => {
+      void modelIdParam;
+      const jobId = crypto.randomUUID();
+      const createdAt = new Date();
+      const label = get().project.name?.trim() || "Untitled export";
+      const job: ExportJob = {
+        id: jobId,
+        status: "queued",
+        label,
+        createdAt,
+      };
+      set((s) => ({ exportJobs: [job, ...s.exportJobs].slice(0, 20) }));
     },
 
     cancelFrameRender: (frameId) => {
@@ -638,11 +844,11 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         frames: slice.frames,
         renderingFrameIds: {},
         frameRenderErrors: {},
-        generatingKitAssets: false,
+        renderingAllFrameImages: false,
         kitAssetGeneratingKeys: {},
         kitAssetRenderErrors: {},
-        sceneReferenceGeneratingKeys: {},
-        sceneReferenceRenderErrors: {},
+        narrationGeneratingKeys: {},
+        narrationRenderErrors: {},
       });
       return true;
     },
@@ -650,12 +856,12 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     openProject: async (id) => {
       const ok = await get().loadProjectById(id);
       if (!ok) return;
-      navigate(pathForProjectStep(id, "story"));
+      navigate(pathForProjectStep(id, "studio"));
     },
 
     createNewProject: async () => {
       abortAllFrameRenders();
-      const template = projectFromConfigJson(defaultProjectJson);
+      const template = buildDefaultProjectBundle();
       const newProjectId = crypto.randomUUID();
       const styleConfigs = template.styleConfigs.map((c) => {
         const newStyleId = crypto.randomUUID();
@@ -692,13 +898,13 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         frames: slice.frames,
         renderingFrameIds: {},
         frameRenderErrors: {},
-        generatingKitAssets: false,
+        renderingAllFrameImages: false,
         kitAssetGeneratingKeys: {},
         kitAssetRenderErrors: {},
-        sceneReferenceGeneratingKeys: {},
-        sceneReferenceRenderErrors: {},
+        narrationGeneratingKeys: {},
+        narrationRenderErrors: {},
       });
-      navigate(pathForProjectStep(slice.project.id, "story"));
+      navigate(pathForProjectStep(slice.project.id, "studio"));
     },
 
     deleteProject: async (id) => {
@@ -717,11 +923,11 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         frames: sample.frames,
         renderingFrameIds: {},
         frameRenderErrors: {},
-        generatingKitAssets: false,
+        renderingAllFrameImages: false,
         kitAssetGeneratingKeys: {},
         kitAssetRenderErrors: {},
-        sceneReferenceGeneratingKeys: {},
-        sceneReferenceRenderErrors: {},
+        narrationGeneratingKeys: {},
+        narrationRenderErrors: {},
       });
     },
   };

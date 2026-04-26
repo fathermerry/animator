@@ -3,8 +3,8 @@ import type { ReactNode, Ref } from "react";
 import { cn } from "@/lib/utils";
 
 export type WorkflowStepLayoutProps = {
-  /** Ordered column content: length 2 (two panels) or 3 (three panels). Index 0 = left, 1 = middle (three only), last = right. */
-  panels: [ReactNode, ReactNode] | [ReactNode, ReactNode, ReactNode];
+  /** Column content: one (full width), two, or three. Index 0 = left; 1 = middle (three only); last = right. */
+  panels: [ReactNode] | [ReactNode, ReactNode] | [ReactNode, ReactNode, ReactNode];
   /** Ref on the first panel’s scroll shell. */
   firstPanelRef?: Ref<HTMLDivElement>;
   /** Extra classes on the first panel wrapper. */
@@ -26,9 +26,9 @@ export type WorkflowStepLayoutProps = {
 };
 
 /**
- * Workflow shell: **panels** and **count** only (2 or 3). Steps supply content per panel; no fixed
- * “preview” semantics. Primary and trailing columns scroll independently on `lg+`; outer `<main>` is
- * `overflow-hidden`. On narrow viewports panels stack.
+ * Workflow shell: one, two, or **panels**. Steps supply content; primary and trailing columns scroll
+ * independently on `lg+` when there are multiple; outer `<main>` is `overflow-hidden`. On narrow
+ * viewports, multi-column layouts stack.
  */
 export function WorkflowStepLayout({
   panels,
@@ -39,13 +39,33 @@ export function WorkflowStepLayout({
   equalWidthColumns = false,
   middleColumnWide = false,
 }: WorkflowStepLayoutProps) {
+  if (panels.length === 1) {
+    return (
+      <main
+        className={cn(
+          "flex min-h-0 w-full min-w-0 flex-1 flex-col justify-start overflow-hidden py-4 md:py-6 lg:h-full lg:min-h-0 lg:py-0",
+          className,
+        )}
+      >
+        <div
+          ref={firstPanelRef}
+          className={cn(
+            "flex min-h-0 min-w-0 w-full flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-4 md:px-8 lg:h-full lg:min-h-0 lg:pl-10 lg:pr-6",
+            primaryClassName,
+          )}
+        >
+          {panels[0]}
+        </div>
+      </main>
+    );
+  }
+
   const threeColumn = panels.length === 3;
   const primary = panels[0];
   const middle = threeColumn ? panels[1] : null;
   const lastPanel = threeColumn ? panels[2]! : panels[1]!;
 
-  /** Bottom inset on `lg+`. */
-  const columnContentPad = "lg:pb-4";
+  const columnContentPad = "";
   const threeColWide = Boolean(threeColumn && middleColumnWide);
   const threeColEqual = Boolean(threeColumn && equalWidthColumns && !threeColWide);
   const threeColumnPrimaryNarrow = threeColumn

@@ -16,8 +16,6 @@ export type KitAsset = {
   /** Characters: appearance / role for prompts. */
   description?: string;
   src?: string;
-  /** Characters: up to five reference images; `src` mirrors the first for compatibility. */
-  imageSrcs?: string[];
   width?: number;
   height?: number;
 };
@@ -80,12 +78,12 @@ function cloneDefaultKitAssets(list: KitAsset[]): KitAsset[] {
 
 /**
  * Default copy for `AssetBundle.description` (Style page + frame prompts).
- * Keep in sync with `assets.description` in `src/data/default-project.json`.
+ * Used when hydrating a project with no `styleConfigs` in the seed (see `createDefaultStyleConfig`).
  */
 export const DEFAULT_STYLE_KIT_DESCRIPTION =
   "UK finance YouTube explainer: 2D illustration with flat colour or soft cel-style shading — clear silhouettes, readable faces, broadcast-friendly contrast. Approachable and direct, not corporate-stiff. " +
   "Not photoreal photography, not glossy stock-ad stills, and not cinematic live-action or documentary office B-roll unless the scene copy explicitly calls for it. " +
-  "One clear focal idea per frame; same graphic language as the square style-kit asset thumbnails (characters and props feel like they belong to one channel).";
+  "One clear focal idea per frame; same graphic language as the square character thumbnails and scene keyframes (everything reads as one channel).";
 
 export function createDefaultAssetBundle(): AssetBundle {
   return {

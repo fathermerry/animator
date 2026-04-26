@@ -22,7 +22,7 @@ function coerceDate(d: Date | string): Date {
   return d instanceof Date ? d : new Date(String(d));
 }
 
-/** `all` = frame + style-kit / scene-reference image work in one list (cost rows may grow to include audio, etc.). */
+/** `all` = frame + style-kit image work in one list (cost rows may grow to include audio, etc.). */
 export type CostActivityScope = RenderTargetType | "all";
 
 export type CostActivityFloatingDockProps = {
@@ -136,6 +136,10 @@ export function CostActivityFloatingDock({
     (r: Render) => {
       if (renderRowLabel) return renderRowLabel(r);
       if (r.type === "asset") return "Kit render";
+      if (r.type === "reference") return "Reference";
+      if (r.type === "narration") return "Narration";
+      if (r.type === "script") return "Script";
+      if (r.type === "storyboard") return "Story plan";
       const n = globalFrameOrdinal(scenes, frames, r);
       return n != null ? `Frame ${n}` : "Frame —";
     },
@@ -209,6 +213,14 @@ export function CostActivityFloatingDock({
       <div className="flex flex-col gap-2 pb-0.5 pl-0.5">
         {r.type === "frame" ? (
           <DetailRow label="Frame">{ord != null ? String(ord) : "—"}</DetailRow>
+        ) : r.type === "reference" ? (
+          <DetailRow label="Target">Reference image</DetailRow>
+        ) : r.type === "narration" ? (
+          <DetailRow label="Target">Narration</DetailRow>
+        ) : r.type === "script" ? (
+          <DetailRow label="Target">Script</DetailRow>
+        ) : r.type === "storyboard" ? (
+          <DetailRow label="Target">Story plan</DetailRow>
         ) : (
           <DetailRow label="Target">Character / object</DetailRow>
         )}

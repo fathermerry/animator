@@ -411,7 +411,7 @@ export function CombinedNarrationPreview({ scenes, className }: Props) {
   if (ordered.length === 0) {
     return (
       <p className="text-sm text-muted-foreground" role="status">
-        No scenes yet.
+        No shots yet.
       </p>
     );
   }

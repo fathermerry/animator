@@ -9,25 +9,11 @@ export type Step = {
 
 export const STEPS: readonly Step[] = [
   {
-    slug: "story",
-    label: "Story",
-    title: "Story",
+    slug: "studio",
+    label: "Studio",
+    title: "Studio",
     body:
-      "Compose your film from scenes: add them manually or paste a full script. Set length, voiceover, and narration per scene before style and compose.",
-  },
-  {
-    slug: "style",
-    label: "Style",
-    title: "Style",
-    body:
-      "Visual direction and kit for the film: overall style description, world and character direction, typography, and transparent PNGs for the cast. Direction text guides the narrative model—pixels come from your kit; Remotion composes the animation.",
-  },
-  {
-    slug: "compose",
-    label: "Compose",
-    title: "Compose",
-    body:
-      "The construction layer. Takes project content and style kit and produces frames and sequences. Starts with text and geometry, grows toward richer elements over time.",
+      "One studio for story, script, keyframes, timing, and build preview.",
   },
 ] as const;
 

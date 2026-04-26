@@ -1,4 +1,4 @@
-import defaultProjectJson from "@/data/default-project.json";
+import { buildDefaultProjectBundle } from "@/data/defaultProjectSeed";
 import { idbKvDelete, idbKvGet, idbKvSet, openAnimatorDb, PROJECTS_STORE } from "@/lib/indexedDbKv";
 import { isStructuralFrameShellRender } from "@/lib/renderDisplay";
 import { projectFromConfigJson } from "@/lib/projectHydrate";
@@ -120,7 +120,14 @@ function coerceRenderCreatedAt(render: Render): Render {
     render.createdAt instanceof Date
       ? render.createdAt
       : new Date(String(render.createdAt));
-  const type = render.type === "asset" ? "asset" : "frame";
+  const type =
+    render.type === "asset" ||
+    render.type === "reference" ||
+    render.type === "narration" ||
+    render.type === "script" ||
+    render.type === "storyboard"
+      ? render.type
+      : "frame";
   const { startedAt: _st, endedAt: _en, ...rest } = render;
   const startedAt = coerceOptionalRenderDate(render.startedAt);
   const endedAt = coerceOptionalRenderDate(render.endedAt);
@@ -224,7 +231,7 @@ async function ensureSampleProjectSeeded(): Promise<void> {
   const existing = await projectStoreGet(SAMPLE_PROJECT_ID);
   if (existing) return;
 
-  const bundle = projectFromConfigJson(defaultProjectJson);
+  const bundle = buildDefaultProjectBundle();
   const slice: PersistableProjectSlice = {
     project: bundle.project,
     styleConfigs: bundle.styleConfigs,
@@ -261,7 +268,7 @@ export async function runProjectDbBootstrap(): Promise<PersistableProjectSlice> 
     slice = await getProjectSlice(SAMPLE_PROJECT_ID);
   }
   if (!slice) {
-    const bundle = projectFromConfigJson(defaultProjectJson);
+    const bundle = buildDefaultProjectBundle();
     return {
       project: bundle.project,
       styleConfigs: bundle.styleConfigs,

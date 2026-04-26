@@ -3,29 +3,22 @@ import { useStore } from "zustand/react";
 
 import { AppHeader } from "@/components/AppHeader";
 import { FloatingDockStack } from "@/components/FloatingDock";
-import { CostActivityFloatingDock } from "@/components/CostActivityFloatingDock";
+import { ExportActivityFloatingDock } from "@/components/ExportActivityFloatingDock";
 import { useArrowNavigation } from "@/hooks/useArrowNavigation";
 import { useHashPath } from "@/hooks/useHashPath";
 import { canonicalWorkflowPathIfNeeded, navigate, parseRoute, pathForProjectStep } from "@/router";
-import { STEPS, stepBySlug } from "@/steps";
+import { STEPS } from "@/steps";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
-import { ComposePageView } from "@/views/ComposePageView";
-import { StoryPageView } from "@/views/StoryPageView";
-import { StylePageView } from "@/views/StylePageView";
 import { HomePageView } from "@/views/HomePageView";
 import { CostOverviewPageView } from "@/views/CostOverviewPageView";
+import { StudioPageView } from "@/views/StudioPageView";
 import { cn } from "@/lib/utils";
 
 export default function App() {
   const path = useHashPath();
   const route = parseRoute(path);
-  useLayoutEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, [path]);
   const project = useStore(useProjectStore, selectCurrentProject);
-  const scenes = useStore(useProjectStore, (s) => s.scenes);
-  const frames = useStore(useProjectStore, (s) => s.frames);
-  const renders = useStore(useProjectStore, (s) => s.renders);
+  const exportJobs = useStore(useProjectStore, (s) => s.exportJobs);
   const loadProjectById = useStore(useProjectStore, (s) => s.loadProjectById);
 
   useArrowNavigation(path, project.id);
@@ -69,10 +62,7 @@ export default function App() {
   const currentSlug =
     route.kind === "workflow" || route.kind === "legacyWorkflow" ? route.stepSlug : null;
 
-  const isWorkflowStepPage =
-    currentSlug === "story" ||
-    currentSlug === "style" ||
-    currentSlug === "compose";
+  const isWorkflowStepPage = currentSlug === "studio";
 
   const isProjectsPage = route.kind === "home" || route.kind === "projects";
   const isRendersPage = route.kind === "renders";
@@ -102,7 +92,7 @@ export default function App() {
     } else if (isRendersPage) {
       title = "animator — Cost";
     } else if (currentSlug) {
-      const stepLabel = STEPS.find((s) => s.slug === currentSlug)?.label ?? "Step";
+      const stepLabel = STEPS.find((s) => s.slug === currentSlug)?.label ?? "Studio";
       title = `animator — ${stepLabel} — ${fileTitle}`;
     } else {
       title = `animator — ${fileTitle}`;
@@ -112,7 +102,7 @@ export default function App() {
 
   if (showNotFound) {
     return (
-      <div className="min-h-svh flex flex-col">
+      <div className="flex h-full min-h-0 flex-col overflow-y-auto">
         <AppHeader currentSlug={null} mainNav="projects" projectId={null} />
         <main className="mx-auto w-full max-w-xl px-6 pb-10 pt-14">
           <p className="text-muted-foreground">Page not found.</p>
@@ -123,7 +113,7 @@ export default function App() {
 
   if (showUrlProjectLoading) {
     return (
-      <div className="min-h-svh flex flex-col">
+      <div className="flex h-full min-h-0 flex-col overflow-y-auto">
         <AppHeader currentSlug={null} mainNav="projects" projectId={null} />
         <main className="mx-auto w-full max-w-xl px-6 pb-10 pt-14">
           <p className="text-muted-foreground">Loading project…</p>
@@ -133,13 +123,12 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-svh">
+    <div className="relative h-full min-h-0 overflow-hidden">
       <AppHeader currentSlug={currentSlug} mainNav={mainNav} projectId={mainNav ? null : project.id} />
-      {/* Height = viewport minus fixed header. Inner flex-1 min-h-0 fills so workflow columns align from the top (no vertical centering). */}
       <div
         className={cn(
-          "mt-14 box-border flex h-[calc(100svh-3.5rem)] min-h-0 w-full flex-col justify-start overflow-x-hidden lg:overflow-y-hidden",
-          isWorkflowStepPage ? "overflow-y-hidden" : "overflow-y-auto",
+          "absolute inset-x-0 bottom-0 top-14 box-border flex min-h-0 w-full flex-col justify-start overflow-x-hidden",
+          isWorkflowStepPage ? "overflow-y-hidden" : "overflow-y-auto overscroll-contain",
         )}
       >
         <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col justify-start basis-0">
@@ -147,23 +136,14 @@ export default function App() {
             <HomePageView />
           ) : isRendersPage ? (
             <CostOverviewPageView />
-          ) : currentSlug === "story" ? (
-            <StoryPageView step={stepBySlug("story")!} />
-          ) : currentSlug === "style" ? (
-            <StylePageView step={stepBySlug("style")!} />
-          ) : currentSlug === "compose" ? (
-            <ComposePageView step={stepBySlug("compose")!} />
+          ) : currentSlug === "studio" ? (
+            <StudioPageView />
           ) : null}
         </div>
       </div>
       {isWorkflowStepPage ? (
         <FloatingDockStack>
-          <CostActivityFloatingDock
-            renders={renders}
-            scenes={scenes}
-            frames={frames}
-            renderScope="all"
-          />
+          <ExportActivityFloatingDock jobs={exportJobs} />
         </FloatingDockStack>
       ) : null}
     </div>

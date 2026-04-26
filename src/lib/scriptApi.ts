@@ -1,28 +1,26 @@
 import type { Cost } from "@/types/project";
 
-export type NarrationRequestBody = {
+export type ScriptRequestBody = {
   projectId: string;
-  sceneId: string;
-  text: string;
+  story: string;
 };
 
-export type NarrationResponse = {
-  audioUrl: string;
+export type ScriptResponse = {
+  script: string;
   model: string;
   cost: Cost;
 };
 
-export async function requestSceneNarration(
-  body: NarrationRequestBody,
+export async function requestScriptGeneration(
+  body: ScriptRequestBody,
   signal?: AbortSignal,
-): Promise<NarrationResponse> {
-  const res = await fetch("/api/narration", {
+): Promise<ScriptResponse> {
+  const res = await fetch("/api/script", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       projectId: body.projectId,
-      sceneId: body.sceneId,
-      text: body.text,
+      story: body.story,
     }),
     signal,
   });
@@ -39,5 +37,5 @@ export async function requestSceneNarration(
     throw new Error(message || `HTTP ${res.status}`);
   }
 
-  return JSON.parse(text) as NarrationResponse;
+  return JSON.parse(text) as ScriptResponse;
 }

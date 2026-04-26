@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
-import { StyleSceneReferencePreview } from "@/components/StyleSceneReferencePreview";
 import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepPage } from "@/components/WorkflowStepPage";
 import { Button } from "@/components/ui/button";
@@ -10,10 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { panelHeadingAfterBlockClass, panelHeadingClass } from "@/lib/panelHeading";
 import { renumberCharacterKitIds } from "@/lib/kitAssetId";
 import { normalizeHex } from "@/lib/color";
+import { frameHasOutputImage } from "@/lib/frameRenderStatus";
 import { kitAssetDisplaySrc } from "@/lib/kitAssetDisplaySrc";
-import { normalizeCharacterKitImageSrcs } from "@/lib/kitAssetImages";
 import { validateBackgroundImageFile } from "@/lib/kitAssetPng";
 import { resolveSceneBackground } from "@/lib/sceneBackground";
+import { framesForSceneSorted } from "@/lib/sceneFrames";
 import { cn } from "@/lib/utils";
 import {
   kitAssetGeneratingKey,
@@ -21,7 +21,7 @@ import {
   useProjectStore,
 } from "@/store/projectStore";
 import type { Step } from "@/steps";
-import type { Scene } from "@/types/project";
+import type { Frame, Scene } from "@/types/project";
 import { createDefaultAssetBundle, type AssetBundle, type KitAsset } from "@/types/styleConfig";
 import { Popover } from "@base-ui/react/popover";
 import { Pencil, Sparkles, X } from "lucide-react";
@@ -49,17 +49,22 @@ const kitTileIconBtn =
 const kitTileActionsRow =
   "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 px-2 pt-2 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100";
 
+function firstKeyframeDisplaySrc(frames: Frame[], sceneId: string): string {
+  for (const f of framesForSceneSorted(frames, sceneId)) {
+    if (frameHasOutputImage(f.src)) return kitAssetDisplaySrc(f.src.trim());
+  }
+  return "";
+}
+
 export function StylePageView({ step: _step }: Props) {
   const ensureDraft = useStore(useProjectStore, (s) => s.ensureDraftProject);
   const updateStyle = useStore(useProjectStore, (s) => s.updateStyle);
   const patchScene = useStore(useProjectStore, (s) => s.patchScene);
-  const requestSceneReferenceRender = useStore(useProjectStore, (s) => s.requestSceneReferenceRender);
-  const sceneReferenceGeneratingKeys = useStore(useProjectStore, (s) => s.sceneReferenceGeneratingKeys);
-  const sceneReferenceRenderErrors = useStore(useProjectStore, (s) => s.sceneReferenceRenderErrors);
   const requestKitAssetRender = useStore(useProjectStore, (s) => s.requestKitAssetRender);
   const kitAssetGeneratingKeys = useStore(useProjectStore, (s) => s.kitAssetGeneratingKeys);
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
+  const frames = useStore(useProjectStore, (s) => s.frames);
 
   const sortedScenes = useMemo(() => [...scenes].sort((a, b) => a.index - b.index), [scenes]);
 
@@ -179,15 +184,6 @@ export function StylePageView({ step: _step }: Props) {
     patchScene(selectedSceneId, { backgroundImageSrc: undefined });
   };
 
-  const clearSceneReference = (sceneId: string) => {
-    patchScene(sceneId, { referenceImageSrc: undefined });
-    useProjectStore.setState((s) => {
-      const sceneReferenceRenderErrors = { ...s.sceneReferenceRenderErrors };
-      delete sceneReferenceRenderErrors[sceneId];
-      return { sceneReferenceRenderErrors };
-    });
-  };
-
   const backgroundColorHex = normalizeHex(resolvedScenePlate.color);
   const backgroundHexShown = backgroundHexDraft ?? backgroundColorHex;
 
@@ -212,7 +208,7 @@ export function StylePageView({ step: _step }: Props) {
     <div className="flex flex-col gap-4">
       <p className={panelHeadingAfterBlockClass}>Background</p>
       {!selectedScene ? (
-        <p className="archive-text text-sm text-muted-foreground">No scenes yet.</p>
+        <p className="archive-text text-sm text-muted-foreground">No shots yet.</p>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -335,11 +331,8 @@ export function StylePageView({ step: _step }: Props) {
               <ul className="flex min-h-0 list-none flex-col gap-0 overflow-y-auto p-1" role="list">
                 {sortedScenes.map((sc) => {
                   const title = sc.title.trim() || `Scene ${sc.index + 1}`;
-                  const refRaw = sc.referenceImageSrc?.trim() ?? "";
-                  const thumb = refRaw ? kitAssetDisplaySrc(refRaw) : "";
+                  const thumb = firstKeyframeDisplaySrc(frames, sc.id);
                   const isSelected = selectedSceneId === sc.id;
-                  const refGenerating = Boolean(sceneReferenceGeneratingKeys[sc.id]);
-                  const refError = sceneReferenceRenderErrors[sc.id];
                   return (
                     <li key={sc.id} className="list-none">
                       <div
@@ -355,56 +348,14 @@ export function StylePageView({ step: _step }: Props) {
                             onClick={() => setSelectedSceneId(sc.id)}
                             aria-pressed={isSelected}
                           >
-                            <span
-                              className={cn(
-                                "relative h-6 w-10 shrink-0 overflow-hidden rounded-[2px] bg-muted",
-                                refGenerating && "kit-tile-generating-bg",
-                              )}
-                            >
+                            <span className="relative h-6 w-10 shrink-0 overflow-hidden rounded-[2px] bg-muted">
                               {thumb ? (
                                 <img src={thumb} alt="" className="h-full w-full object-cover" />
                               ) : null}
                             </span>
                             <span className="min-w-0 flex-1 truncate">{title}</span>
                           </button>
-                          {!refRaw ? (
-                            <button
-                              type="button"
-                              className={cn(kitTileIconBtn, "shrink-0")}
-                              disabled={refGenerating}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void requestSceneReferenceRender(sc.id);
-                              }}
-                              aria-label={
-                                refGenerating
-                                  ? "Generating scene reference…"
-                                  : "Generate scene reference with AI"
-                              }
-                              aria-busy={refGenerating}
-                            >
-                              <Sparkles className="size-4" strokeWidth={2} aria-hidden />
-                            </button>
-                          ) : null}
-                          {refRaw ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="shrink-0 cursor-pointer text-sm"
-                              disabled={refGenerating}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                clearSceneReference(sc.id);
-                              }}
-                            >
-                              Clear
-                            </Button>
-                          ) : null}
                         </div>
-                        {refError ? (
-                          <p className="archive-text px-1 text-sm text-destructive">{refError}</p>
-                        ) : null}
                       </div>
                     </li>
                   );
@@ -437,12 +388,34 @@ export function StylePageView({ step: _step }: Props) {
                 />
               </>
             ) : (
-              <p className="archive-text text-sm text-muted-foreground">No scenes yet.</p>
+              <p className="archive-text text-sm text-muted-foreground">No shots yet.</p>
             )}
           </div>
         </>,
         <WorkflowPreviewColumn>
-          <StyleSceneReferencePreview scene={selectedScene} className="w-full shrink-0" />
+          <div className="flex w-full shrink-0 flex-col gap-2">
+            <p className={panelHeadingAfterBlockClass}>First keyframe</p>
+            <div className="relative aspect-video w-full overflow-hidden rounded-md border border-dashed border-border bg-card">
+              {selectedSceneId ? (
+                (() => {
+                  const kf = firstKeyframeDisplaySrc(frames, selectedSceneId);
+                  return kf ? (
+                    <img src={kf} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full min-h-[6rem] flex-col items-center justify-center p-3 text-center">
+                      <p className="archive-text text-sm text-muted-foreground">
+                        No keyframe image yet for this scene.
+                      </p>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="flex h-full min-h-[6rem] flex-col items-center justify-center p-3 text-center">
+                  <p className="archive-text text-sm text-muted-foreground">No scene selected.</p>
+                </div>
+              )}
+            </div>
+          </div>
           {sceneBackgroundEditor}
         </WorkflowPreviewColumn>,
       ]}
@@ -566,8 +539,7 @@ function KitThumbnailTile({
   onRemove: (id: string) => void;
 }) {
   const [broken, setBroken] = useState(false);
-  const kitImageSrcs = normalizeCharacterKitImageSrcs(asset);
-  const raw = kitImageSrcs[0] ?? "";
+  const raw = asset.src?.trim() ?? "";
   useEffect(() => {
     setBroken(false);
   }, [raw]);
@@ -577,7 +549,7 @@ function KitThumbnailTile({
   }, [isGenerating]);
 
   const displaySrc = kitAssetDisplaySrc(raw);
-  const hasKitImage = kitImageSrcs.length > 0;
+  const hasKitImage = raw.length > 0;
   const hasImage = hasKitImage && !broken;
   const showImage = hasImage && Boolean(displaySrc);
   const rowLabel = `${label} ${index + 1}`;
@@ -725,7 +697,6 @@ function KitThumbnailTile({
                         onClick={() =>
                           onPatch(asset.id, {
                             src: undefined,
-                            imageSrcs: undefined,
                             width: undefined,
                             height: undefined,
                           })

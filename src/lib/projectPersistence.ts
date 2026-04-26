@@ -31,6 +31,7 @@ export function migratePersistableProjectSlice(
     fileLabel: p.fileLabel,
     createdAt: p.createdAt,
     prompt: p.prompt,
+    script: typeof p.script === "string" ? p.script : undefined,
     styleConfigId: p.styleConfigId ?? p.assetsConfigId ?? "",
   };
   const rawStyleConfigs =
@@ -42,7 +43,14 @@ export function migratePersistableProjectSlice(
   const renders = slice.renders.map(
     (r): Render => ({
       ...r,
-      type: r.type === "asset" ? "asset" : "frame",
+      type:
+        r.type === "asset" ||
+        r.type === "reference" ||
+        r.type === "narration" ||
+        r.type === "script" ||
+        r.type === "storyboard"
+          ? r.type
+          : "frame",
     }),
   );
   return { project, styleConfigs, scenes: slice.scenes, renders, frames: slice.frames };
@@ -57,6 +65,7 @@ export function projectSliceToConfigJson(slice: PersistableProjectSlice): Record
     name: p.name,
     createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
     prompt: p.prompt,
+    ...(p.script ? { script: p.script } : {}),
     styleConfigId: p.styleConfigId,
     ...(p.fileLabel ? { fileLabel: p.fileLabel } : {}),
     styleConfigs: slice.styleConfigs,

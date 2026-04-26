@@ -9,6 +9,7 @@ import { WorkflowPreviewColumn } from "@/components/WorkflowPreviewColumn";
 import { WorkflowStepPage } from "@/components/WorkflowStepPage";
 import { formatDurationMmSs } from "@/lib/filmTime";
 import { panelHeadingClass } from "@/lib/panelHeading";
+import { captionCueForVoiceoverSync } from "@/lib/filmPreviewCaptions";
 import {
   buildRenderFilmTimeline,
   FILM_FPS,
@@ -17,6 +18,7 @@ import {
   getFrameIdAtFilmGlobalFrame,
   getPlaybackContextAtFilmGlobalFrame,
 } from "@/lib/renderFilmTimeline";
+import { useNarrationFilmSync } from "@/lib/useNarrationFilmSync";
 import { cn } from "@/lib/utils";
 import { selectResolvedStyleBundle, useProjectStore } from "@/store/projectStore";
 import type { Step } from "@/steps";
@@ -69,6 +71,19 @@ export function ComposePageView({ step: _step }: Props) {
 
   const narrationSrc = editScene?.narrationAudioSrc?.trim() ?? "";
 
+  const outsideCaption = useMemo(() => {
+    const vo = editScene?.voiceoverText?.trim() ?? "";
+    if (!vo) return undefined;
+    const ratio =
+      playbackWithin && playbackWithin.sceneFilmDurationSeconds > 0
+        ? Math.min(
+            1,
+            Math.max(0, playbackWithin.elapsedInSceneSeconds / playbackWithin.sceneFilmDurationSeconds),
+          )
+        : 0;
+    return captionCueForVoiceoverSync(vo, ratio);
+  }, [editScene?.voiceoverText, playbackWithin]);
+
   useEffect(() => {
     const audio = narrationAudioRef.current;
     if (!audio) return;
@@ -85,34 +100,7 @@ export function ComposePageView({ step: _step }: Props) {
     }
   }, [narrationSrc]);
 
-  useEffect(() => {
-    const audio = narrationAudioRef.current;
-    if (!audio || !narrationSrc || !playbackWithin) return;
-    const ratio =
-      playbackWithin.sceneFilmDurationSeconds > 0
-        ? Math.min(
-            1,
-            Math.max(0, playbackWithin.elapsedInSceneSeconds / playbackWithin.sceneFilmDurationSeconds),
-          )
-        : 0;
-    const apply = () => {
-      if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
-      const target = ratio * audio.duration;
-      if (Math.abs(audio.currentTime - target) > 0.12) {
-        audio.currentTime = target;
-      }
-      if (filmPlaying) {
-        void audio.play().catch(() => {});
-      } else {
-        audio.pause();
-      }
-    };
-    if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
-      apply();
-    } else {
-      audio.addEventListener("loadeddata", apply, { once: true });
-    }
-  }, [filmGlobalFrame, narrationSrc, playbackWithin, filmPlaying]);
+  useNarrationFilmSync(narrationAudioRef, narrationSrc, playbackWithin, filmGlobalFrame, filmPlaying);
 
   const seekFilmToFrame = useCallback(
     (frameId: string) => {
@@ -178,12 +166,13 @@ export function ComposePageView({ step: _step }: Props) {
             globalFrame={filmGlobalFrame}
             onGlobalFrameChange={setFilmGlobalFrame}
             onPlayingChange={setFilmPlaying}
+            outsideCaption={outsideCaption}
           />
-          <p className="min-w-0 text-sm leading-relaxed text-muted-foreground">
-            {editScene?.voiceoverText?.trim()
-              ? editScene.voiceoverText.trim()
-              : "No voiceover for this scene."}
-          </p>
+          {!editScene?.voiceoverText?.trim() && editScene ? (
+            <p className="min-w-0 text-sm leading-relaxed text-muted-foreground">
+              No voiceover for this scene.
+            </p>
+          ) : null}
           <audio ref={narrationAudioRef} className="hidden" preload="auto" aria-hidden />
         </WorkflowPreviewColumn>,
         ]}

@@ -13,6 +13,8 @@ export async function hydrateProjectFromStorage(): Promise<void> {
       frames: slice.frames,
       renderingFrameIds: {},
       frameRenderErrors: {},
+      narrationGeneratingKeys: {},
+      narrationRenderErrors: {},
     });
   } catch (e) {
     console.error("Could not restore saved project from storage", e);

@@ -34,6 +34,9 @@ type Props = {
   onGlobalFrameChange?: (globalFrame: number) => void;
   /** Fired when Remotion play/pause state changes. */
   onPlayingChange?: (playing: boolean) => void;
+  playbackDisabled?: boolean;
+  /** Caption below the picture (e.g. narration cue synced to the same timeline as audio). */
+  outsideCaption?: string;
 };
 
 export function RenderFilmPreview({
@@ -46,6 +49,8 @@ export function RenderFilmPreview({
   globalFrame,
   onGlobalFrameChange,
   onPlayingChange,
+  playbackDisabled = false,
+  outsideCaption,
 }: Props) {
   const localRef = useRef<PlayerRef>(null);
   const playerRef = filmPlayerRef ?? localRef;
@@ -117,8 +122,9 @@ export function RenderFilmPreview({
   }, [hasTimeline, totalFrames, stillSignature, onGlobalFrameChange]);
 
   const togglePlay = useCallback(() => {
+    if (playbackDisabled) return;
     playerRef.current?.toggle();
-  }, []);
+  }, [playbackDisabled]);
 
   const onScrub = useCallback(
     (next: number) => {
@@ -150,7 +156,7 @@ export function RenderFilmPreview({
             <img src={bgSrc} alt="" className="absolute inset-0 z-[1] h-full w-full object-cover" />
           ) : null}
           <div className="absolute inset-0 z-[2] flex items-center justify-center p-4">
-            <p className="text-base text-muted-foreground">No scenes to preview</p>
+            <p className="text-base text-muted-foreground">Nothing to preview yet</p>
           </div>
         </div>
       </div>
@@ -180,13 +186,25 @@ export function RenderFilmPreview({
         />
       </div>
 
+      {outsideCaption != null && outsideCaption.trim() !== "" ? (
+        <p
+          className="mx-auto w-full max-w-[min(100%,42rem)] rounded-md border border-white/10 bg-black/88 px-4 py-2.5 text-center text-sm font-medium leading-snug tracking-wide text-white shadow-md [text-wrap:balance]"
+          role="status"
+          aria-live="polite"
+        >
+          {outsideCaption.trim()}
+        </p>
+      ) : null}
+
       <div className="flex w-full min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={togglePlay}
+          disabled={playbackDisabled}
           className={cn(
             "flex size-9 shrink-0 items-center justify-center rounded-none border border-border bg-background text-foreground",
             "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-background",
           )}
           aria-label={playing ? "Pause" : "Play"}
         >
@@ -205,12 +223,13 @@ export function RenderFilmPreview({
 
         <input
           type="range"
-          className="h-2 min-w-0 flex-1 cursor-pointer accent-foreground"
+          className="h-2 min-w-0 flex-1 cursor-pointer accent-foreground disabled:cursor-not-allowed disabled:opacity-45"
           min={0}
           max={maxFrame}
           step={1}
           value={scrubFrame}
           onChange={(e) => onScrub(Number(e.target.value))}
+          disabled={playbackDisabled}
           aria-label="Scrub timeline"
           aria-valuemin={0}
           aria-valuemax={maxFrame}

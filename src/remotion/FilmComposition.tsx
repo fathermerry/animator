@@ -129,28 +129,18 @@ function CenteredAssetLine({
   );
 }
 
-function GeneratedStillBackdrop({ src }: { src: string }) {
-  return (
-    <>
-      <AbsoluteFill style={{ width: W, height: H, zIndex: 0 }}>
-        <Img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      </AbsoluteFill>
-      <AbsoluteFill
-        style={{
-          width: W,
-          height: H,
-          zIndex: 1,
-          background:
-            "linear-gradient(180deg, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.12) 42%, rgba(0,0,0,0.62) 100%)",
-        }}
-      />
-    </>
-  );
-}
-
 function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
   const { assetBundle, sceneTitle, frameDescription, characters } = segment;
   const still = segment.stillSrc?.trim() ?? "";
+
+  /** Generated keyframe: show only the image (no titles, staging copy, or kit overlay). */
+  if (still) {
+    return (
+      <AbsoluteFill style={{ width: W, height: H }}>
+        <Img src={still} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </AbsoluteFill>
+    );
+  }
 
   const titleTs = textStyleForTitle(assetBundle);
   const bodyTs = textStyleForBody(assetBundle);
@@ -190,7 +180,7 @@ function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
 
   return (
     <AbsoluteFill style={{ width: W, height: H }}>
-      {still ? <GeneratedStillBackdrop src={still} /> : <PlateLayer background={segment.plate} />}
+      <PlateLayer background={segment.plate} />
       <AbsoluteFill
         style={{
           width: W,

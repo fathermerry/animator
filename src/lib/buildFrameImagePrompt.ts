@@ -16,8 +16,6 @@ export type FrameImageContext = {
   sceneDescription: string;
   frameDescription: string;
   characters: { id: string; name: string; description?: string }[];
-  /** True when the scene has a reference still set on the Style step (image not embedded in prompt). */
-  hasSceneReferenceImage: boolean;
   backgroundColor: string;
   textStyleHints: string[];
   /** Overall style direction from the Style step. */
@@ -37,7 +35,6 @@ function resolveKitAssets(ids: string[], pool: KitAsset[]): KitAsset[] {
 /** Structured context for one film still (scene + frame + style kit). */
 export function buildFrameImageContext(scene: Scene, frame: Frame, bundle: AssetBundle): FrameImageContext {
   const chars = resolveKitAssets(scene.characterIds, bundle.characters);
-  const ref = scene.referenceImageSrc?.trim() ?? "";
   return {
     sceneTitle: scene.title.trim(),
     sceneDescription: scene.description.trim(),
@@ -47,7 +44,6 @@ export function buildFrameImageContext(scene: Scene, frame: Frame, bundle: Asset
       name: c.name.trim(),
       ...(c.description?.trim() ? { description: c.description.trim() } : {}),
     })),
-    hasSceneReferenceImage: ref.length > 0,
     backgroundColor: resolveSceneBackground(scene, bundle).color?.trim() || "#0a0a0a",
     textStyleHints: bundle.textStyles.map((t) => t.instructions.trim()).filter(Boolean),
     styleDescription: bundle.description.trim(),
@@ -110,14 +106,6 @@ export function frameImagePromptFromContext(ctx: FrameImageContext): string {
       lines.push(`- ${c.name} (${c.id})${desc}`);
     }
   }
-
-  lines.push(
-    "",
-    "## Scene reference (visual target)",
-    ctx.hasSceneReferenceImage
-      ? "This scene has a reference still on the Style step — match its composition energy, palette, line weight, and illustration language for every generated frame in this scene. Treat it as the authoritative look target for this beat (do not ignore it in favor of unrelated stock or live-action styles)."
-      : "(No scene reference image set on the Style step — rely on the style contract and cast descriptions above.)",
-  );
 
   lines.push(
     "",

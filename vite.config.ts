@@ -10,6 +10,10 @@ const srcDir = fileURLToPath(new URL("./src", import.meta.url));
 export default defineConfig({
   root: ".",
   base: "./",
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.ts"],
+  },
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
