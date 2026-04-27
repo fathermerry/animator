@@ -23,6 +23,7 @@ import {
 import type { PersistableProjectSlice } from "../lib/projectPersistence";
 import { requestSceneNarration } from "../lib/narrationApi";
 import { requestFrameImageRender } from "../lib/renderFrameApi";
+import { buildRenderFilmTimeline } from "../lib/renderFilmTimeline";
 import { renderTargetProviderFromEngine, targetMediaTypeFromEngine } from "../lib/renderDisplay";
 import { requestScriptGeneration } from "../lib/scriptApi";
 import { requestStoryStoryboard } from "../lib/storyboardApi";
@@ -146,6 +147,8 @@ export type ExportJob = {
   startedAt?: Date;
   endedAt?: Date;
   error?: string;
+  /** App path to the finished MP4 (e.g. `/exports/…mp4`); play or save via same origin. */
+  downloadPath?: string;
 };
 
 const initialBundle = buildDefaultProjectBundle();
@@ -872,14 +875,84 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       void modelIdParam;
       const jobId = crypto.randomUUID();
       const createdAt = new Date();
+      const startedAt = new Date();
       const label = get().project.name?.trim() || "Untitled export";
       const job: ExportJob = {
         id: jobId,
-        status: "queued",
+        status: "processing",
         label,
         createdAt,
+        startedAt,
       };
       set((s) => ({ exportJobs: [job, ...s.exportJobs].slice(0, 20) }));
+      const run = async () => {
+        try {
+          const { segments, totalFrames } = buildRenderFilmTimeline(
+            get().scenes,
+            get().frames,
+            get().renders,
+            selectResolvedStyleBundle(get()),
+          );
+          if (totalFrames <= 0 || segments.length === 0) {
+            throw new Error("Nothing to export — add scenes and timing first.");
+          }
+          const assetBaseUrl = window.location.origin;
+          const fileLabel = get().project.name?.trim() || "film";
+          const scenes = get().scenes.map((s) => ({
+            id: s.id,
+            ...(s.narrationAudioSrc?.trim()
+              ? { narrationAudioSrc: s.narrationAudioSrc.trim() }
+              : {}),
+          }));
+          const res = await fetch("/api/export-film", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ segments, scenes, assetBaseUrl, fileLabel }),
+          });
+          const text = await res.text();
+          if (!res.ok) {
+            let message = text;
+            try {
+              const j = JSON.parse(text) as { error?: string };
+              if (typeof j.error === "string" && j.error.trim()) message = j.error.trim();
+            } catch {
+              /* use raw */
+            }
+            throw new Error(message);
+          }
+          const { publicPath } = JSON.parse(text) as { publicPath?: string };
+          if (typeof publicPath !== "string" || !publicPath.startsWith("/")) {
+            throw new Error("Invalid export response");
+          }
+          const endedAt = new Date();
+          set((s) => ({
+            exportJobs: s.exportJobs.map((j) =>
+              j.id === jobId
+                ? { ...j, status: "complete" as const, endedAt, downloadPath: publicPath, error: undefined }
+                : j,
+            ),
+          }));
+          const a = document.createElement("a");
+          a.href = new URL(publicPath, window.location.origin).href;
+          a.download = publicPath.split("/").pop() ?? "film.mp4";
+          a.rel = "noopener";
+          a.target = "_blank";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } catch (e: unknown) {
+          const err = e instanceof Error ? e.message : "Export failed";
+          const endedAt = new Date();
+          set((s) => ({
+            exportJobs: s.exportJobs.map((j) =>
+              j.id === jobId
+                ? { ...j, status: "failed" as const, endedAt, error: err, downloadPath: undefined }
+                : j,
+            ),
+          }));
+        }
+      };
+      void run();
     },
 
     cancelFrameRender: (frameId) => {

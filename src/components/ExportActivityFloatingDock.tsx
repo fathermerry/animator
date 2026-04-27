@@ -87,8 +87,25 @@ export function ExportActivityFloatingDock({ jobs }: { jobs: readonly ExportJob[
                   </span>
                 </div>
                 <p className="mt-0.5 truncate pl-4 text-xs text-muted-foreground">
-                  {job.error ?? statusLabel(job.status)}
+                  {job.error ??
+                    (job.status === "complete" && job.downloadPath
+                      ? "Saved — use the link to open or download again"
+                      : statusLabel(job.status))}
                 </p>
+                {job.status === "complete" && job.downloadPath ? (
+                  <a
+                    className="ml-4 mt-0.5 inline-block text-xs font-medium text-primary underline-offset-2 hover:underline"
+                    href={
+                      typeof window === "undefined"
+                        ? job.downloadPath
+                        : new URL(job.downloadPath, window.location.origin).href
+                    }
+                    download
+                    rel="noopener noreferrer"
+                  >
+                    {job.downloadPath.split("/").pop() ?? "Download"}
+                  </a>
+                ) : null}
               </li>
             ))}
           </ul>

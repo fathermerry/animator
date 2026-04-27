@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 import OpenAI from "openai";
 
 import { SAMPLE_PROJECT_ID } from "../src/lib/sampleProject.ts";
+import type { FilmSegmentInput } from "../src/lib/renderFilmTimeline.ts";
+import { renderFilmToMp4 } from "./renderFilmExport.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -226,6 +228,48 @@ function safeSegment(id: string): string {
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
+
+app.post("/api/export-film", async (req, res) => {
+  try {
+    const body = req.body as {
+      segments?: unknown;
+      scenes?: unknown;
+      assetBaseUrl?: string;
+      fileLabel?: string;
+    };
+    const assetBaseUrl = typeof body.assetBaseUrl === "string" ? body.assetBaseUrl.trim() : "";
+    const fileLabel = typeof body.fileLabel === "string" ? body.fileLabel.trim() : "film";
+    if (!assetBaseUrl.startsWith("http://") && !assetBaseUrl.startsWith("https://")) {
+      res.status(400).json({ error: "assetBaseUrl must be an http(s) origin" });
+      return;
+    }
+    if (!Array.isArray(body.segments) || body.segments.length === 0) {
+      res.status(400).json({ error: "segments is required" });
+      return;
+    }
+    const scenesIn = Array.isArray(body.scenes) ? body.scenes : [];
+    const scenes = scenesIn
+      .filter((x) => x && typeof x === "object")
+      .map((x) => {
+        const o = x as { id?: unknown; narrationAudioSrc?: unknown };
+        const id = typeof o.id === "string" ? o.id : "";
+        const narration =
+          typeof o.narrationAudioSrc === "string" ? o.narrationAudioSrc : undefined;
+        return { id, ...(narration != null && narration.length > 0 ? { narrationAudioSrc: narration } : {}) };
+      });
+    const result = await renderFilmToMp4({
+      segments: body.segments as FilmSegmentInput[],
+      scenes,
+      assetBaseUrl,
+      fileLabel: fileLabel || "film",
+    });
+    res.json({ publicPath: result.publicPath });
+  } catch (e: unknown) {
+    console.error(e);
+    const message = e instanceof Error ? e.message : "Export failed";
+    res.status(500).json({ error: message });
+  }
+});
 
 /** Serve generated stills and other `public/` files (same tree the render handler writes into). */
 app.use(express.static(path.join(repoRoot, "public")));

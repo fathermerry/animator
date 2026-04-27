@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { AppHeader } from "@/components/AppHeader";
+import { StoryNextProvider } from "@/context/StoryNextProvider";
 import { useArrowNavigation } from "@/hooks/useArrowNavigation";
 import { useHashPath } from "@/hooks/useHashPath";
 import { canonicalWorkflowPathIfNeeded, navigate, parseRoute, pathForProjectStep } from "@/router";
@@ -121,27 +122,38 @@ export default function App() {
     );
   }
 
-  return (
-    <div className="relative h-full min-h-0 overflow-hidden">
-      <AppHeader currentSlug={currentSlug} mainNav={mainNav} projectId={mainNav ? null : project.id} />
-      <div
-        className={cn(
-          "absolute inset-x-0 bottom-0 top-14 box-border flex min-h-0 w-full flex-col justify-start overflow-x-hidden",
-          composeLocksMainScroll ? "overflow-y-hidden" : "overflow-y-auto overscroll-contain",
-        )}
-      >
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col justify-start basis-0">
-          {isProjectsPage ? (
-            <HomePageView />
-          ) : isRendersPage ? (
-            <CostOverviewPageView />
-          ) : currentSlug === "story" ? (
-            <StoryPageView />
-          ) : currentSlug === "compose" ? (
-            <ComposePageView />
-          ) : null}
+  if (isProjectsPage || isRendersPage) {
+    return (
+      <div className="relative h-full min-h-0 overflow-hidden">
+        <AppHeader currentSlug={null} mainNav={mainNav} projectId={null} />
+        <div className="absolute inset-x-0 bottom-0 top-14 box-border flex min-h-0 w-full flex-col justify-start overflow-x-hidden overflow-y-auto overscroll-contain">
+          <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col justify-start basis-0">
+            {isProjectsPage ? <HomePageView /> : <CostOverviewPageView />}
+          </div>
         </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <StoryNextProvider>
+      <div className="relative h-full min-h-0 overflow-hidden">
+        <AppHeader currentSlug={currentSlug} mainNav={null} projectId={project.id} />
+        <div
+          className={cn(
+            "absolute inset-x-0 bottom-0 top-14 box-border flex min-h-0 w-full flex-col justify-start overflow-x-hidden",
+            composeLocksMainScroll ? "overflow-y-hidden" : "overflow-y-auto overscroll-contain",
+          )}
+        >
+          <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col justify-start basis-0">
+            {currentSlug === "story" ? (
+              <StoryPageView />
+            ) : currentSlug === "compose" ? (
+              <ComposePageView />
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </StoryNextProvider>
   );
 }

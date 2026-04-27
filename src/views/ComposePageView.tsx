@@ -23,16 +23,10 @@ import {
 } from "@/lib/renderFilmTimeline";
 import { framesForSceneSorted } from "@/lib/sceneFrames";
 import { useNarrationFilmSync } from "@/lib/useNarrationFilmSync";
-import { pathForProjectStep, navigate } from "@/router";
 import { cn } from "@/lib/utils";
-import {
-  selectCurrentProject,
-  selectResolvedStyleBundle,
-  useProjectStore,
-} from "@/store/projectStore";
+import { selectResolvedStyleBundle, useProjectStore } from "@/store/projectStore";
 
 export function ComposePageView() {
-  const project = useStore(useProjectStore, selectCurrentProject);
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const frames = useStore(useProjectStore, (s) => s.frames);
@@ -43,16 +37,6 @@ export function ComposePageView() {
   const narrationGeneratingKeys = useStore(useProjectStore, (s) => s.narrationGeneratingKeys);
   const narrationRenderErrors = useStore(useProjectStore, (s) => s.narrationRenderErrors);
   const patchFrame = useStore(useProjectStore, (s) => s.patchFrame);
-  const requestExportJob = useStore(useProjectStore, (s) => s.requestExportJob);
-
-  const goStory = useCallback(
-    () => navigate(pathForProjectStep(project.id, "story")),
-    [project.id],
-  );
-  const goCompose = useCallback(
-    () => navigate(pathForProjectStep(project.id, "compose")),
-    [project.id],
-  );
 
   const orderedScenes = useMemo(() => [...scenes].sort((a, b) => a.index - b.index), [scenes]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
@@ -442,7 +426,7 @@ export function ComposePageView() {
     );
 
   const buildPanel = (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 pt-3 md:pt-5">
       <RenderFilmPreview
         assetBundle={assetBundle}
         scenes={orderedScenes}
@@ -636,48 +620,6 @@ export function ComposePageView() {
   return (
     <>
       <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="shrink-0 px-4 py-2 md:px-6 md:py-2.5">
-          <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-            <div
-              className="inline-flex w-fit max-w-full shrink-0 gap-0.5 rounded-lg border border-border/60 bg-muted/30 p-0.5"
-              role="tablist"
-              aria-label="Story and compose"
-            >
-              <Button
-                type="button"
-                role="tab"
-                id="tab-compose-story"
-                aria-selected={false}
-                variant="ghost"
-                className="h-8 min-w-0 cursor-pointer gap-1.5 rounded-md px-3"
-                onClick={goStory}
-              >
-                Story
-              </Button>
-              <Button
-                type="button"
-                role="tab"
-                id="tab-compose-compose"
-                aria-selected
-                variant="secondary"
-                className="h-8 min-w-0 cursor-pointer gap-1.5 rounded-md px-2.5 sm:px-3"
-                onClick={goCompose}
-              >
-                Compose
-              </Button>
-            </div>
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 cursor-pointer"
-                onClick={() => void requestExportJob()}
-              >
-                Export
-              </Button>
-            </div>
-          </div>
-        </div>
         <WorkflowStepPage
           className="min-h-0 flex-1"
           primaryClassName="gap-3 bg-background px-3 py-2 md:px-3 lg:basis-auto lg:max-w-[14rem] lg:flex-none lg:shrink-0 lg:border-r lg:border-border/60 lg:px-2.5 lg:py-2"

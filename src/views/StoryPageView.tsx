@@ -1,18 +1,10 @@
-import {
-  ArrowUp,
-  Check,
-  ChevronRight,
-  Loader2,
-  Pencil,
-  RotateCcw,
-} from "lucide-react";
+import { ArrowUp, Check, Loader2, Pencil, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { frameHasOutputImage } from "@/lib/frameRenderStatus";
 import {
   TRANSITION_TYPES,
   markdownToStoryBlocks,
@@ -21,7 +13,7 @@ import {
   type TransitionType,
 } from "@/lib/storyMarkdown";
 import { cn } from "@/lib/utils";
-import { pathForProjectStep, navigate } from "@/router";
+import { useStoryNextContext } from "@/context/StoryNextProvider";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 
 type AiActionState = "idle" | "rolling" | "editing" | "done";
@@ -84,14 +76,9 @@ function applyAiEdit(blocks: StoryBlock[], command: string): { blocks: StoryBloc
 export function StoryPageView() {
   const project = useStore(useProjectStore, selectCurrentProject);
   const setPromptText = useStore(useProjectStore, (s) => s.setPromptText);
-  const requestStoryCompose = useStore(useProjectStore, (s) => s.requestStoryCompose);
-  const scenes = useStore(useProjectStore, (s) => s.scenes);
-  const renderingAllFrameImages = useStore(useProjectStore, (s) => s.renderingAllFrameImages);
+  const { flowError } = useStoryNextContext();
 
   const blocks = useMemo(() => markdownToStoryBlocks(project.prompt), [project.prompt]);
-  const orderedScenes = useMemo(() => [...scenes].sort((a, b) => a.index - b.index), [scenes]);
-  const [preparingScenes, setPreparingScenes] = useState(false);
-  const [flowError, setFlowError] = useState<string | null>(null);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [aiInput, setAiInput] = useState("");
   const [aiActionState, setAiActionState] = useState<AiActionState>("idle");
@@ -119,52 +106,6 @@ export function StoryPageView() {
       writeBlocks(next);
     },
     [blocks, writeBlocks],
-  );
-
-  const prepareScenes = useCallback(async (): Promise<boolean> => {
-    if (preparingScenes || !project.prompt.trim()) return true;
-    setFlowError(null);
-    setPreparingScenes(true);
-    try {
-      await requestStoryCompose();
-      return true;
-    } catch (e: unknown) {
-      setFlowError(e instanceof Error ? e.message : "Scene prep failed");
-      return false;
-    } finally {
-      setPreparingScenes(false);
-    }
-  }, [preparingScenes, project.prompt, requestStoryCompose]);
-
-  const storyNextBusy = preparingScenes || renderingAllFrameImages;
-
-  const onStoryNext = useCallback(async () => {
-    setFlowError(null);
-    if (project.prompt.trim() && orderedScenes.length === 0) {
-      const composeOk = await prepareScenes();
-      if (!composeOk) return;
-    } else {
-      const snap = useProjectStore.getState();
-      const missing = snap.frames.some((f) => !frameHasOutputImage(f.src));
-      if (snap.frames.length > 0 && !snap.renderingAllFrameImages && missing) {
-        try {
-          await snap.requestFullFilmRender();
-        } catch (e: unknown) {
-          setFlowError(e instanceof Error ? e.message : "Keyframe generation failed");
-          return;
-        }
-      }
-    }
-    navigate(pathForProjectStep(project.id, "compose"));
-  }, [project.id, project.prompt, orderedScenes.length, prepareScenes]);
-
-  const goStory = useCallback(
-    () => navigate(pathForProjectStep(project.id, "story")),
-    [project.id],
-  );
-  const goCompose = useCallback(
-    () => navigate(pathForProjectStep(project.id, "compose")),
-    [project.id],
   );
 
   const runAiEdit = useCallback(() => {
@@ -207,57 +148,13 @@ export function StoryPageView() {
 
   return (
     <div className="flex w-full min-w-0 flex-col">
-      <header className="sticky top-0 z-10 shrink-0 py-2 md:py-2.5">
-        <div className="flex w-full min-w-0 flex-col gap-2 px-4 md:px-6">
-          <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-            <div
-              className="inline-flex w-fit max-w-full shrink-0 gap-0.5 rounded-lg border border-border/60 bg-muted/30 p-0.5"
-              role="tablist"
-              aria-label="Story and compose"
-            >
-              <Button
-                type="button"
-                role="tab"
-                id="tab-story"
-                aria-selected
-                variant="secondary"
-                className="h-8 min-w-0 cursor-pointer gap-1.5 rounded-md px-3"
-                onClick={goStory}
-              >
-                Story
-              </Button>
-              <Button
-                type="button"
-                role="tab"
-                id="tab-compose"
-                aria-selected={false}
-                variant="ghost"
-                className="h-8 min-w-0 cursor-pointer gap-1.5 rounded-md px-2.5 sm:px-3"
-                onClick={goCompose}
-              >
-                Compose
-              </Button>
-            </div>
-            <div className="flex min-w-0 flex-1 justify-end">
-              <Button
-                type="button"
-                onClick={() => void onStoryNext()}
-                disabled={storyNextBusy}
-                className="h-9 cursor-pointer gap-1.5 disabled:cursor-not-allowed"
-              >
-                {storyNextBusy ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
-                Next
-                <ChevronRight className="size-4 shrink-0" aria-hidden />
-              </Button>
-            </div>
-          </div>
-          {flowError ? (
-            <p className="min-w-0 text-sm text-destructive" role="alert">
-              {flowError}
-            </p>
-          ) : null}
+      {flowError ? (
+        <div className="sticky top-0 z-10 shrink-0 border-b border-border/50 bg-background/90 px-4 py-2 backdrop-blur sm:px-6">
+          <p className="min-w-0 text-sm text-destructive" role="alert">
+            {flowError}
+          </p>
         </div>
-      </header>
+      ) : null}
 
       <main className="mx-auto w-full max-w-3xl px-4 pb-40 pt-3 md:px-8 md:pb-44 md:pt-5">
         <div className="flex flex-col gap-2">
@@ -321,7 +218,7 @@ export function StoryPageView() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") runAiEdit();
               }}
-              placeholder="Ask for a change..."
+              placeholder="Edit your story"
               disabled={aiActionState === "rolling" || aiActionState === "editing"}
               aria-label="Script change request"
               className="h-9 border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0 dark:bg-transparent"
@@ -370,8 +267,35 @@ function StoryBlockRow({
   onDone: () => void;
   onPatch: (patch: Partial<StoryBlock>) => void;
 }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!editing) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const node = rowRef.current;
+      if (!node || node.contains(e.target as Node)) return;
+      onDone();
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onDone();
+      }
+    };
+
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [editing, onDone]);
+
   return (
     <div
+      ref={rowRef}
       className={cn(
         "group rounded-md border px-3 py-2 transition-colors",
         changed ? "border-foreground bg-muted/45" : "border-transparent hover:border-border hover:bg-muted/20",
@@ -385,7 +309,7 @@ function StoryBlockRow({
       >
         <div className="min-w-0 flex-1">
           {editing ? (
-            <BlockEditor block={block} onPatch={onPatch} onDone={onDone} />
+            <BlockEditor block={block} onPatch={onPatch} />
           ) : (
             <button
               type="button"
@@ -455,26 +379,23 @@ function BlockPreview({ block }: { block: StoryBlock }) {
 function BlockEditor({
   block,
   onPatch,
-  onDone,
 }: {
   block: StoryBlock;
   onPatch: (patch: Partial<StoryBlock>) => void;
-  onDone: () => void;
 }) {
   if (block.type === "timestamp") {
     return (
-      <div className="grid gap-2 sm:grid-cols-[1fr_5.5rem_5.5rem_auto]">
+      <div className="grid gap-2 sm:grid-cols-[1fr_5.5rem_5.5rem]">
         <Input value={block.title} onChange={(e) => onPatch({ title: e.target.value })} aria-label="Timestamp title" />
         <Input value={block.start} onChange={(e) => onPatch({ start: e.target.value })} aria-label="Start time" />
         <Input value={block.end} onChange={(e) => onPatch({ end: e.target.value })} aria-label="End time" />
-        <DoneButton onDone={onDone} />
       </div>
     );
   }
 
   if (block.type === "transition") {
     return (
-      <div className="grid gap-2 sm:grid-cols-[8rem_6rem_auto]">
+      <div className="grid gap-2 sm:grid-cols-[8rem_6rem]">
         <select
           value={block.transitionType}
           onChange={(e) => onPatch({ transitionType: e.target.value as TransitionType })}
@@ -492,34 +413,16 @@ function BlockEditor({
           onChange={(e) => onPatch({ delay: e.target.value })}
           aria-label="Transition delay seconds"
         />
-        <DoneButton onDone={onDone} />
       </div>
     );
   }
 
   return (
-    <div className="flex gap-2">
-      <Textarea
-        value={block.text}
-        onChange={(e) => onPatch({ text: e.target.value })}
-        className="min-h-20 resize-y"
-        aria-label={`${block.type} text`}
-      />
-      <DoneButton onDone={onDone} />
-    </div>
-  );
-}
-
-function DoneButton({ onDone }: { onDone: () => void }) {
-  return (
-    <Button
-      type="button"
-      size="icon"
-      className="size-8 shrink-0 cursor-pointer"
-      onClick={onDone}
-      aria-label="Finish editing block"
-    >
-      <Check className="size-4" aria-hidden />
-    </Button>
+    <Textarea
+      value={block.text}
+      onChange={(e) => onPatch({ text: e.target.value })}
+      className="min-h-20 w-full resize-y"
+      aria-label={`${block.type} text`}
+    />
   );
 }
