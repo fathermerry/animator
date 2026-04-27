@@ -1,4 +1,4 @@
-import { Home } from "lucide-react";
+import { Home, Settings2 } from "lucide-react";
 import { useStore } from "zustand/react";
 
 import { MainAppNav } from "@/components/MainAppNav";
@@ -18,7 +18,6 @@ type Props = {
 export function AppHeader({ currentSlug, mainNav, projectId }: Props) {
   const project = useStore(useProjectStore, selectCurrentProject);
   const createNewProject = useStore(useProjectStore, (s) => s.createNewProject);
-  const requestExportJob = useStore(useProjectStore, (s) => s.requestExportJob);
   const fileLabel = project?.fileLabel?.trim() || project?.name?.trim() || "Untitled";
   const titleValue = project.name.trim() === "Untitled" && project.fileLabel?.trim()
     ? project.fileLabel.trim()
@@ -76,8 +75,16 @@ export function AppHeader({ currentSlug, mainNav, projectId }: Props) {
             New project
           </Button>
         ) : mainNav === "renders" ? null : inWorkflow ? (
-          <Button type="button" variant="outline" className="cursor-pointer" onClick={() => void requestExportJob()}>
-            Export
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0 cursor-default"
+            aria-label="Project settings"
+            title="Project settings"
+            onClick={() => {}}
+          >
+            <Settings2 className="size-4" aria-hidden />
           </Button>
         ) : null}
       </div>

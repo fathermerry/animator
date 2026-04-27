@@ -39,13 +39,11 @@ export function ComposePageView() {
   const renders = useStore(useProjectStore, (s) => s.renders);
   const renderingFrameIds = useStore(useProjectStore, (s) => s.renderingFrameIds);
   const frameRenderErrors = useStore(useProjectStore, (s) => s.frameRenderErrors);
-  const requestStoryCompose = useStore(useProjectStore, (s) => s.requestStoryCompose);
   const requestFrameRender = useStore(useProjectStore, (s) => s.requestFrameRender);
   const narrationGeneratingKeys = useStore(useProjectStore, (s) => s.narrationGeneratingKeys);
   const narrationRenderErrors = useStore(useProjectStore, (s) => s.narrationRenderErrors);
   const patchFrame = useStore(useProjectStore, (s) => s.patchFrame);
-  const renderingAllFrameImages = useStore(useProjectStore, (s) => s.renderingAllFrameImages);
-  const requestFullFilmRender = useStore(useProjectStore, (s) => s.requestFullFilmRender);
+  const requestExportJob = useStore(useProjectStore, (s) => s.requestExportJob);
 
   const goStory = useCallback(
     () => navigate(pathForProjectStep(project.id, "story")),
@@ -58,8 +56,6 @@ export function ComposePageView() {
 
   const orderedScenes = useMemo(() => [...scenes].sort((a, b) => a.index - b.index), [scenes]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [preparingScenes, setPreparingScenes] = useState(false);
-  const [flowError, setFlowError] = useState<string | null>(null);
   const [filmGlobalFrame, setFilmGlobalFrame] = useState(0);
   const [filmPlaying, setFilmPlaying] = useState(false);
   const [frameReplaceErrors, setFrameReplaceErrors] = useState<Record<string, string>>({});
@@ -183,10 +179,6 @@ export function ComposePageView() {
     () => buildRenderFilmTimeline(orderedScenes, frames, renders, assetBundle),
     [orderedScenes, frames, renders, assetBundle],
   );
-  const hasAnyMissingFrameImage = useMemo(
-    () => frames.some((f) => !frameHasOutputImage(f.src)),
-    [frames],
-  );
   const playbackWithin = useMemo(
     () => getFilmPlaybackWithinScene(filmGlobalFrame, orderedScenes, frames, renders, assetBundle),
     [filmGlobalFrame, orderedScenes, frames, renders, assetBundle],
@@ -271,31 +263,6 @@ export function ComposePageView() {
     [orderedScenes, frames, renders, assetBundle, handleFilmGlobalFrameChange],
   );
 
-  const prepareScenes = useCallback(async (): Promise<boolean> => {
-    if (preparingScenes || !project.prompt.trim()) return true;
-    setFlowError(null);
-    setPreparingScenes(true);
-    try {
-      await requestStoryCompose();
-      return true;
-    } catch (e: unknown) {
-      setFlowError(e instanceof Error ? e.message : "Scene prep failed");
-      return false;
-    } finally {
-      setPreparingScenes(false);
-    }
-  }, [preparingScenes, project.prompt, requestStoryCompose]);
-
-  const createMissingKeyframeImages = useCallback(async () => {
-    if (frames.length === 0 || renderingAllFrameImages || !hasAnyMissingFrameImage) return;
-    setFlowError(null);
-    try {
-      await requestFullFilmRender();
-    } catch (e: unknown) {
-      setFlowError(e instanceof Error ? e.message : "Keyframe generation failed");
-    }
-  }, [frames.length, hasAnyMissingFrameImage, renderingAllFrameImages, requestFullFilmRender]);
-
   const onKeyframeFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -321,9 +288,8 @@ export function ComposePageView() {
         <p className={panelHeadingClass}>Film</p>
         <p className="text-sm leading-relaxed text-muted-foreground">
           You do not have any shots yet. Write your story in the{" "}
-          <span className="font-medium text-foreground">Story</span> view, or use{" "}
-          <span className="font-medium text-foreground">Create shots</span> in the bar at the top of
-          this view, to generate beats, narration, and keyframes.
+          <span className="font-medium text-foreground">Story</span> view, then return here to
+          arrange keyframes and export your film.
         </p>
       </div>
     ) : (
@@ -491,12 +457,9 @@ export function ComposePageView() {
         outsideCaption={outsideCaption}
         belowVideo={
           totalFrames > 0 ? (
-            <div className="flex w-full justify-end text-xs font-medium tabular-nums text-muted-foreground">
-              <span>
-                {formatDurationMmSs(filmGlobalFrame / FILM_FPS)}
-                <span className="text-muted-foreground/70"> / </span>
-                {formatDurationMmSs(totalFrames / FILM_FPS)}
-              </span>
+            <div className="flex w-full justify-between text-xs font-medium tabular-nums text-muted-foreground">
+              <span>{formatDurationMmSs(filmGlobalFrame / FILM_FPS)}</span>
+              <span>{formatDurationMmSs(totalFrames / FILM_FPS)}</span>
             </div>
           ) : null
         }
@@ -707,38 +670,11 @@ export function ComposePageView() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void prepareScenes()}
-                disabled={preparingScenes || !project.prompt.trim()}
-                className="h-9 cursor-pointer gap-2 disabled:cursor-not-allowed"
+                className="h-9 cursor-pointer"
+                onClick={() => void requestExportJob()}
               >
-                {preparingScenes ? (
-                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-                ) : (
-                  <Sparkles className="size-4 shrink-0" aria-hidden />
-                )}
-                {preparingScenes ? "Creating shots…" : "Create shots"}
+                Export
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void createMissingKeyframeImages()}
-                disabled={
-                  frames.length === 0 || renderingAllFrameImages || !hasAnyMissingFrameImage
-                }
-                className="h-9 cursor-pointer gap-2 disabled:cursor-not-allowed"
-              >
-                {renderingAllFrameImages ? (
-                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-                ) : (
-                  <Sparkles className="size-4 shrink-0" aria-hidden />
-                )}
-                {renderingAllFrameImages ? "Creating keyframes…" : "Create keyframes"}
-              </Button>
-              {flowError ? (
-                <p className="min-w-0 text-sm text-destructive" role="alert">
-                  {flowError}
-                </p>
-              ) : null}
             </div>
           </div>
         </div>
