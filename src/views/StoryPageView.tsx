@@ -207,7 +207,7 @@ export function StoryPageView() {
 
   return (
     <div className="flex w-full min-w-0 flex-col">
-      <header className="sticky top-0 z-10 shrink-0 py-2.5 md:py-3">
+      <header className="sticky top-0 z-10 shrink-0 py-2 md:py-2.5">
         <div className="flex w-full min-w-0 flex-col gap-2 px-4 md:px-6">
           <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div
@@ -259,7 +259,7 @@ export function StoryPageView() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-4 pb-40 pt-8 md:px-8 md:pb-44 md:pt-12">
+      <main className="mx-auto w-full max-w-3xl px-4 pb-40 pt-3 md:px-8 md:pb-44 md:pt-5">
         <div className="flex flex-col gap-2">
           {blocks.length > 0 ? (
             blocks.map((block) => (
