@@ -2,8 +2,6 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { AppHeader } from "@/components/AppHeader";
-import { FloatingDockStack } from "@/components/FloatingDock";
-import { ExportActivityFloatingDock } from "@/components/ExportActivityFloatingDock";
 import { useArrowNavigation } from "@/hooks/useArrowNavigation";
 import { useHashPath } from "@/hooks/useHashPath";
 import { canonicalWorkflowPathIfNeeded, navigate, parseRoute, pathForProjectStep } from "@/router";
@@ -18,7 +16,6 @@ export default function App() {
   const path = useHashPath();
   const route = parseRoute(path);
   const project = useStore(useProjectStore, selectCurrentProject);
-  const exportJobs = useStore(useProjectStore, (s) => s.exportJobs);
   const loadProjectById = useStore(useProjectStore, (s) => s.loadProjectById);
 
   useArrowNavigation(path, project.id);
@@ -141,11 +138,6 @@ export default function App() {
           ) : null}
         </div>
       </div>
-      {isWorkflowStepPage ? (
-        <FloatingDockStack>
-          <ExportActivityFloatingDock jobs={exportJobs} />
-        </FloatingDockStack>
-      ) : null}
     </div>
   );
 }

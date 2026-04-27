@@ -120,67 +120,6 @@ export function RenderSceneFrameDetails({
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="render-scene-delay" className="text-sm text-muted-foreground">
-              Delay
-            </Label>
-            <Input
-              id="render-scene-delay"
-              type="number"
-              min={0}
-              step={0.1}
-              value={Number.isFinite(scene.delaySeconds) ? scene.delaySeconds ?? 0 : 0}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                onPatchScene(scene.id, {
-                  delaySeconds: Number.isFinite(v) && v > 0 ? v : undefined,
-                });
-              }}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="render-scene-transition" className="text-sm text-muted-foreground">
-              Transition
-            </Label>
-            <select
-              id="render-scene-transition"
-              value={scene.transition ?? "cut"}
-              onChange={(e) =>
-                onPatchScene(scene.id, {
-                  transition: e.target.value as Scene["transition"],
-                })
-              }
-              className={cn(
-                "h-9 rounded-lg border border-input bg-transparent px-2.5 text-base shadow-xs outline-none",
-                "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30",
-              )}
-            >
-              <option value="cut">Cut</option>
-              <option value="fade">Fade</option>
-              <option value="dissolve">Dissolve</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="render-scene-transition-dur" className="text-sm text-muted-foreground">
-              Transition sec
-            </Label>
-            <Input
-              id="render-scene-transition-dur"
-              type="number"
-              min={0}
-              step={0.1}
-              value={Number.isFinite(scene.transitionSeconds) ? scene.transitionSeconds ?? 0 : 0}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                onPatchScene(scene.id, {
-                  transitionSeconds: Number.isFinite(v) && v > 0 ? v : undefined,
-                });
-              }}
-            />
-          </div>
-        </div>
-
         {frame ? (
           <div className="grid grid-cols-1 gap-3 border-t border-border pt-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">

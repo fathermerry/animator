@@ -52,6 +52,30 @@ export function modelDisplayLabel(modelId: string | undefined): string {
   return o?.label ?? modelId;
 }
 
+/**
+ * One-line description of billable work for cost tables (e.g. keyframe vs narration), optionally scoped by scene title.
+ * Matches the phrasing used in cost activity, without a global frame index (cross-project lists have no frame list).
+ */
+export function formatCostListTarget(
+  r: Render,
+  sceneTitle: string | null | undefined,
+): string {
+  const kind: string =
+    r.type === "narration"
+      ? "Narration"
+      : r.type === "frame"
+        ? "Keyframe image"
+        : r.type === "asset"
+          ? "Kit image"
+          : r.type === "reference"
+            ? "Reference"
+            : r.type === "script"
+              ? "Script"
+              : "Story plan";
+  const scene = typeof sceneTitle === "string" ? sceneTitle.trim() : "";
+  return scene.length > 0 ? `${kind} · ${scene}` : kind;
+}
+
 /** Compact timestamp for render lists (floating dock, tables). */
 export function formatRenderListTimestamp(createdAt: Date): string {
   return createdAt.toLocaleString(undefined, {

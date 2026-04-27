@@ -197,7 +197,7 @@ function initialState(): Omit<
 export const useProjectStore = createStore<ProjectState>((set, get) => {
   const runFrameImageRender = async (
     frameId: string,
-    options: { clearRenderingFlagWhenDone: boolean },
+    options: { clearRenderingFlagWhenDone: boolean; force?: boolean },
     modelId: OpenAiImageModelId,
   ): Promise<void> => {
     const frame = get().frames.find((f) => f.id === frameId);
@@ -205,6 +205,10 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     const scene = get().scenes.find((sc) => sc.id === frame.sceneId);
     const render = get().renders.find((r) => r.id === frame.renderId && r.type === "frame");
     if (!scene || !render) return;
+
+    if (!options.force && frameHasOutputImage(frame.src)) {
+      return;
+    }
 
     const signal = takeSignalForFrame(frameId);
 
@@ -593,7 +597,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     requestFrameRender: async (frameId, modelIdParam) => {
       const modelId: OpenAiImageModelId =
         modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
-      await runFrameImageRender(frameId, { clearRenderingFlagWhenDone: true }, modelId);
+      await runFrameImageRender(frameId, { clearRenderingFlagWhenDone: true, force: true }, modelId);
     },
 
     requestRerenderAllFrames: async (modelIdParam) => {
@@ -615,7 +619,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       });
       try {
         for (const f of allFrames) {
-          await runFrameImageRender(f.id, { clearRenderingFlagWhenDone: false }, modelId);
+          await runFrameImageRender(f.id, { clearRenderingFlagWhenDone: false, force: true }, modelId);
         }
       } finally {
         set((st) => {

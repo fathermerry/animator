@@ -11,12 +11,15 @@ import { formatDurationMmSs } from "@/lib/filmTime";
 import { frameHasOutputImage } from "@/lib/frameRenderStatus";
 import { validateBackgroundImageFile } from "@/lib/kitAssetPng";
 import { kitAssetDisplaySrc } from "@/lib/kitAssetDisplaySrc";
-import { panelHeadingAfterBlockClass, panelHeadingClass } from "@/lib/panelHeading";
+import { panelHeadingClass } from "@/lib/panelHeading";
 import { captionCueForVoiceoverSync } from "@/lib/filmPreviewCaptions";
 import {
   buildRenderFilmTimeline,
   FILM_FPS,
   getFilmPlaybackWithinScene,
+  getFilmStartFrameIndexForFrame,
+  getFilmStartFrameIndexForScene,
+  getPlaybackContextAtFilmGlobalFrame,
 } from "@/lib/renderFilmTimeline";
 import { framesForSceneSorted } from "@/lib/sceneFrames";
 import { useNarrationFilmSync } from "@/lib/useNarrationFilmSync";
@@ -26,8 +29,6 @@ import {
   selectResolvedStyleBundle,
   useProjectStore,
 } from "@/store/projectStore";
-import type { Scene } from "@/types/project";
-
 export function StudioPageView() {
   const project = useStore(useProjectStore, selectCurrentProject);
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
@@ -41,7 +42,6 @@ export function StudioPageView() {
   const requestFrameRender = useStore(useProjectStore, (s) => s.requestFrameRender);
   const narrationGeneratingKeys = useStore(useProjectStore, (s) => s.narrationGeneratingKeys);
   const narrationRenderErrors = useStore(useProjectStore, (s) => s.narrationRenderErrors);
-  const patchScene = useStore(useProjectStore, (s) => s.patchScene);
   const patchFrame = useStore(useProjectStore, (s) => s.patchFrame);
   const renderingAllFrameImages = useStore(useProjectStore, (s) => s.renderingAllFrameImages);
   const requestFullFilmRender = useStore(useProjectStore, (s) => s.requestFullFilmRender);
@@ -152,25 +152,33 @@ export function StudioPageView() {
     [frames, selectedSceneId],
   );
 
-  const previewScenes = useMemo(() => (selectedScene ? [selectedScene] : []), [selectedScene]);
-  const previewFrames = selectedSceneFrames;
   const { totalFrames } = useMemo(
-    () => buildRenderFilmTimeline(previewScenes, previewFrames, renders, assetBundle),
-    [previewScenes, previewFrames, renders, assetBundle],
+    () => buildRenderFilmTimeline(orderedScenes, frames, renders, assetBundle),
+    [orderedScenes, frames, renders, assetBundle],
   );
   const hasAnyMissingFrameImage = useMemo(
     () => frames.some((f) => !frameHasOutputImage(f.src)),
     [frames],
   );
   const playbackWithin = useMemo(
-    () => getFilmPlaybackWithinScene(filmGlobalFrame, previewScenes, previewFrames, renders, assetBundle),
-    [filmGlobalFrame, previewScenes, previewFrames, renders, assetBundle],
+    () => getFilmPlaybackWithinScene(filmGlobalFrame, orderedScenes, frames, renders, assetBundle),
+    [filmGlobalFrame, orderedScenes, frames, renders, assetBundle],
   );
-  const narrationSrc = selectedScene?.narrationAudioSrc?.trim() ?? "";
-  const canPlayPreview = Boolean(narrationSrc && totalFrames > 0);
+
+  const { sceneId: playheadSceneId } = useMemo(
+    () => getPlaybackContextAtFilmGlobalFrame(filmGlobalFrame, orderedScenes, frames, renders, assetBundle),
+    [filmGlobalFrame, orderedScenes, frames, renders, assetBundle],
+  );
+
+  const playheadScene = useMemo(
+    () => (playheadSceneId ? orderedScenes.find((s) => s.id === playheadSceneId) ?? null : null),
+    [orderedScenes, playheadSceneId],
+  );
+
+  const narrationSrc = playheadScene?.narrationAudioSrc?.trim() ?? "";
 
   const outsideCaption = useMemo(() => {
-    const vo = selectedScene?.voiceoverText?.trim() ?? "";
+    const vo = playheadScene?.voiceoverText?.trim() ?? "";
     if (!vo) return undefined;
     const ratio =
       playbackWithin && playbackWithin.sceneFilmDurationSeconds > 0
@@ -180,19 +188,13 @@ export function StudioPageView() {
           )
         : 0;
     return captionCueForVoiceoverSync(vo, ratio);
-  }, [selectedScene?.voiceoverText, playbackWithin]);
+  }, [playheadScene?.voiceoverText, playbackWithin]);
 
   const sceneHasKeyframeWork = useCallback(
     (sceneId: string) =>
       frames.some((f) => f.sceneId === sceneId && Boolean(renderingFrameIds[f.id])),
     [frames, renderingFrameIds],
   );
-
-  useEffect(() => {
-    setFilmGlobalFrame(0);
-    setFilmPlaying(false);
-    narrationAudioRef.current?.pause();
-  }, [selectedSceneId]);
 
   useEffect(() => {
     const audio = narrationAudioRef.current;
@@ -211,6 +213,36 @@ export function StudioPageView() {
   }, [narrationSrc]);
 
   useNarrationFilmSync(narrationAudioRef, narrationSrc, playbackWithin, filmGlobalFrame, filmPlaying);
+
+  const handleFilmGlobalFrameChange = useCallback(
+    (f: number) => {
+      setFilmGlobalFrame(f);
+      const ctx = getPlaybackContextAtFilmGlobalFrame(f, orderedScenes, frames, renders, assetBundle);
+      if (ctx.sceneId) setSelectedSceneId(ctx.sceneId);
+    },
+    [orderedScenes, frames, renders, assetBundle],
+  );
+
+  const seekFilmToFrame = useCallback(
+    (frameId: string) => {
+      const idx = getFilmStartFrameIndexForFrame(frameId, orderedScenes, frames, renders, assetBundle);
+      if (idx == null) return;
+      filmPlayerRef.current?.seekTo(idx);
+      handleFilmGlobalFrameChange(idx);
+    },
+    [orderedScenes, frames, renders, assetBundle, handleFilmGlobalFrameChange],
+  );
+
+  const seekFilmToScene = useCallback(
+    (sceneId: string) => {
+      const idx = getFilmStartFrameIndexForScene(sceneId, orderedScenes, frames, renders, assetBundle);
+      if (idx == null) return;
+      filmPlayerRef.current?.seekTo(idx);
+      setFilmPlaying(false);
+      handleFilmGlobalFrameChange(idx);
+    },
+    [orderedScenes, frames, renders, assetBundle, handleFilmGlobalFrameChange],
+  );
 
   const prepareScenes = useCallback(async (): Promise<boolean> => {
     if (preparingScenes || !project.prompt.trim()) return true;
@@ -242,13 +274,11 @@ export function StudioPageView() {
   const onStoryNext = useCallback(async () => {
     setFlowError(null);
     setStudioMode("film");
-    let ranStoryCompose = false;
-    if (project.prompt.trim()) {
+    if (project.prompt.trim() && orderedScenes.length === 0) {
       const composeOk = await prepareScenes();
       if (!composeOk) return;
-      ranStoryCompose = true;
+      return;
     }
-    if (ranStoryCompose) return;
     const snap = useProjectStore.getState();
     const missing = snap.frames.some((f) => !frameHasOutputImage(f.src));
     if (snap.frames.length > 0 && !snap.renderingAllFrameImages && missing) {
@@ -258,7 +288,7 @@ export function StudioPageView() {
         setFlowError(e instanceof Error ? e.message : "Keyframe generation failed");
       }
     }
-  }, [project.prompt, prepareScenes]);
+  }, [project.prompt, orderedScenes.length, prepareScenes]);
 
   const onKeyframeFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -311,144 +341,133 @@ export function StudioPageView() {
         </p>
       </div>
     ) : (
-      <div className="grid h-full min-h-0 grid-rows-[1fr_auto_1fr] gap-4">
-        <section className="flex min-h-0 flex-col gap-2 overflow-hidden">
-          <p className={panelHeadingClass}>Shots</p>
-          <div className="-mx-4 min-h-0 flex-1 overflow-y-auto px-4">
-            <ul className="list-none p-0" role="list">
-              {orderedScenes.map((sc, i) => {
-                const title = sc.title.trim() || `Shot ${i + 1}`;
-                const selected = selectedSceneId === sc.id;
-                const audioError = narrationRenderErrors[sc.id];
-                const keyframeBusy = sceneHasKeyframeWork(sc.id);
-                const audioGenerating = Boolean(narrationGeneratingKeys[sc.id]);
-                const shotGenerating = keyframeBusy || audioGenerating;
-                return (
-                  <li key={sc.id} className="list-none">
-                    <div className={cn("rounded-md px-2 py-1.5", selected && "bg-muted/80")}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSceneId(sc.id)}
-                        className="flex w-full min-w-0 cursor-pointer items-center gap-2 text-left"
-                        aria-busy={shotGenerating}
-                      >
-                        <span className="w-6 shrink-0 text-center text-[13px] tabular-nums text-muted-foreground">
-                          {i + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-base">{title}</span>
-                        <span className="flex w-[4.5rem] shrink-0 justify-end tabular-nums">
-                          {shotGenerating ? (
-                            <Loader2
-                              className="size-4 animate-spin text-muted-foreground"
-                              aria-label="Generating image or audio"
-                            />
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              {formatDurationMmSs(sc.durationSeconds)}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                      {audioError ? (
-                        <p className="pl-8 text-sm text-destructive" role="alert">
-                          {audioError}
-                        </p>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </section>
-
-        <div className="-mx-4 border-t border-border/60" aria-hidden />
-
-        <section className="-mx-4 min-h-0 overflow-y-auto px-4">
-          <div className="flex min-h-0 flex-col gap-4">
-            <div className="flex min-h-0 flex-col gap-2">
-              <p className={panelHeadingAfterBlockClass}>Shot prompt</p>
-              {selectedScene ? (
-                <Textarea
-                  value={selectedScene.description}
-                  onChange={(e) => patchScene(selectedScene.id, { description: e.target.value })}
-                  className="min-h-[7rem] resize-y text-base leading-snug"
-                  aria-label="Shot prompt"
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">Select a shot.</p>
-              )}
-            </div>
-
-          <div className="flex min-h-0 flex-col gap-2">
-            <p className={panelHeadingAfterBlockClass}>Keyframes</p>
-            <input
-              ref={keyframeFileInputRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              aria-hidden
-              onChange={(e) => void onKeyframeFileChange(e)}
-            />
-            {selectedSceneFrames.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No keyframes in this shot.</p>
-            ) : (
-              <ul className="flex list-none flex-col gap-1.5 p-0" role="list">
-                {selectedSceneFrames.map((frame, i) => {
-                  const busy = Boolean(renderingFrameIds[frame.id]);
-                  const err = frameRenderErrors[frame.id];
-                  const hasImg = frameHasOutputImage(frame.src);
-                  const thumbSrc = hasImg ? kitAssetDisplaySrc(frame.src.trim()) : "";
-                  const label = frame.description.trim() || "Tap to add prompt and edit";
-                  const kindShort = frame.kind === "transition" ? "Tr" : "Kf";
-                  return (
-                    <li key={frame.id} className="list-none">
-                      <button
-                        type="button"
-                        onClick={() => setEditorFrameId(frame.id)}
-                        className={cn(
-                          "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-card/30 px-2 py-1.5 text-left transition-[background-color,box-shadow,transform] duration-200",
-                          "hover:bg-muted/60 hover:shadow-sm active:scale-[0.99]",
-                        )}
-                        aria-expanded={editorFrameId === frame.id}
-                        aria-haspopup="dialog"
-                      >
-                        <span className="relative h-9 w-14 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border/40">
-                          {thumbSrc ? (
-                            <img src={thumbSrc} alt="" className="h-full w-full object-cover" />
-                          ) : null}
-                          {busy ? (
-                            <span className="absolute inset-0 flex items-center justify-center bg-background/55 text-[11px] font-medium text-muted-foreground">
-                              …
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="flex h-6 w-7 shrink-0 items-center justify-center rounded bg-muted/80 text-[11px] font-semibold tabular-nums text-muted-foreground">
-                          {kindShort}
-                          {i + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm text-foreground/90">{label}</span>
-                        {err ? (
-                          <span
-                            className="size-2 shrink-0 rounded-full bg-destructive"
-                            title={err}
-                            aria-label="Has error"
+      <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+        <p className={panelHeadingClass}>Shots</p>
+        <input
+          ref={keyframeFileInputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          aria-hidden
+          onChange={(e) => void onKeyframeFileChange(e)}
+        />
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <ul className="list-none space-y-2 p-0" role="list">
+            {orderedScenes.map((sc, i) => {
+              const title = sc.title.trim() || `Shot ${i + 1}`;
+              const selected = selectedSceneId === sc.id;
+              const audioError = narrationRenderErrors[sc.id];
+              const keyframeBusy = sceneHasKeyframeWork(sc.id);
+              const audioGenerating = Boolean(narrationGeneratingKeys[sc.id]);
+              const shotGenerating = keyframeBusy || audioGenerating;
+              const sceneFrames = framesForSceneSorted(frames, sc.id);
+              return (
+                <li key={sc.id} className="list-none">
+                  <div
+                    className={cn(
+                      "rounded-lg border border-transparent px-1.5 py-1.5 transition-colors",
+                      selected && "border-border/50 bg-muted/50",
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => seekFilmToScene(sc.id)}
+                      className="flex w-full min-w-0 cursor-pointer items-center gap-1.5 text-left"
+                      aria-busy={shotGenerating}
+                    >
+                      <span className="w-5 shrink-0 text-center text-[11px] tabular-nums text-muted-foreground">
+                        {i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium leading-tight">{title}</span>
+                      <span className="flex w-10 shrink-0 justify-end tabular-nums">
+                        {shotGenerating ? (
+                          <Loader2
+                            className="size-3.5 animate-spin text-muted-foreground"
+                            aria-label="Generating image or audio"
                           />
-                        ) : null}
-                        <ChevronRight
-                          className="size-4 shrink-0 text-muted-foreground/80"
-                          strokeWidth={2}
-                          aria-hidden
-                        />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          </div>
-        </section>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">
+                            {formatDurationMmSs(sc.durationSeconds)}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                    {audioError ? (
+                      <p className="mt-1 pl-6 text-xs text-destructive" role="alert">
+                        {audioError}
+                      </p>
+                    ) : null}
+                    {sceneFrames.length === 0 ? (
+                      <p className="mt-1.5 pl-6 text-[11px] text-muted-foreground">No keyframes</p>
+                    ) : (
+                      <ul
+                        className="mt-1.5 ml-1.5 list-none space-y-0.5 border-l border-border/50 pl-2"
+                        role="list"
+                        aria-label={`Keyframes for ${title}`}
+                      >
+                        {sceneFrames.map((frame, fi) => {
+                          const busy = Boolean(renderingFrameIds[frame.id]);
+                          const err = frameRenderErrors[frame.id];
+                          const hasImg = frameHasOutputImage(frame.src);
+                          const thumbSrc = hasImg ? kitAssetDisplaySrc(frame.src.trim()) : "";
+                          const label = frame.description.trim() || "Edit";
+                          const prior = sceneFrames.slice(0, fi);
+                          const isTransition = frame.kind === "transition";
+                          const badge = isTransition
+                            ? `T${prior.filter((f) => f.kind === "transition").length + 1}`
+                            : `K${prior.filter((f) => f.kind !== "transition").length + 1}`;
+                          return (
+                            <li key={frame.id} className="list-none">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSceneId(sc.id);
+                                  setEditorFrameId(frame.id);
+                                  seekFilmToFrame(frame.id);
+                                }}
+                                className={cn(
+                                  "flex w-full min-w-0 cursor-pointer items-center gap-1 rounded-md border border-border/40 bg-card/20 px-1 py-0.5 text-left transition-colors",
+                                  "hover:bg-muted/70",
+                                  editorFrameId === frame.id && "border-border/80 bg-muted/60",
+                                )}
+                                aria-expanded={editorFrameId === frame.id}
+                                aria-haspopup="dialog"
+                              >
+                                <span className="relative h-7 w-11 shrink-0 overflow-hidden rounded bg-muted ring-1 ring-border/30">
+                                  {thumbSrc ? (
+                                    <img src={thumbSrc} alt="" className="h-full w-full object-cover" />
+                                  ) : null}
+                                  {busy ? (
+                                    <span className="absolute inset-0 flex items-center justify-center bg-background/60 text-[10px] font-medium text-muted-foreground">
+                                      …
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <span className="flex h-5 min-w-[1.75rem] shrink-0 items-center justify-center rounded bg-muted/70 px-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
+                                  {badge}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-[11px] leading-snug text-foreground/90">
+                                  {label}
+                                </span>
+                                {err ? (
+                                  <span
+                                    className="size-1.5 shrink-0 rounded-full bg-destructive"
+                                    title={err}
+                                    aria-label="Has error"
+                                  />
+                                ) : null}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </div>
     );
 
@@ -467,69 +486,17 @@ export function StudioPageView() {
       </div>
       <RenderFilmPreview
         assetBundle={assetBundle}
-        scenes={previewScenes}
-        frames={previewFrames}
+        scenes={orderedScenes}
+        frames={frames}
         renders={renders}
         className="w-full shrink-0"
         filmPlayerRef={filmPlayerRef}
         globalFrame={filmGlobalFrame}
-        onGlobalFrameChange={setFilmGlobalFrame}
+        onGlobalFrameChange={handleFilmGlobalFrameChange}
         onPlayingChange={setFilmPlaying}
-        playbackDisabled={!canPlayPreview}
+        playbackDisabled={totalFrames <= 0}
         outsideCaption={outsideCaption}
       />
-      {selectedScene ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <label className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground">
-            Delay
-            <input
-              type="number"
-              min={0}
-              step={0.1}
-              value={Number.isFinite(selectedScene.delaySeconds) ? selectedScene.delaySeconds ?? 0 : 0}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                patchScene(selectedScene.id, {
-                  delaySeconds: Number.isFinite(v) && v > 0 ? v : undefined,
-                });
-              }}
-              className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-input/30"
-            />
-          </label>
-          <label className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground">
-            Transition
-            <select
-              value={selectedScene.transition ?? "cut"}
-              onChange={(e) =>
-                patchScene(selectedScene.id, {
-                  transition: e.target.value as Scene["transition"],
-                })
-              }
-              className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-input/30"
-            >
-              <option value="cut">Cut</option>
-              <option value="fade">Fade</option>
-              <option value="dissolve">Dissolve</option>
-            </select>
-          </label>
-          <label className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground">
-            Fade sec
-            <input
-              type="number"
-              min={0}
-              step={0.1}
-              value={Number.isFinite(selectedScene.transitionSeconds) ? selectedScene.transitionSeconds ?? 0 : 0}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                patchScene(selectedScene.id, {
-                  transitionSeconds: Number.isFinite(v) && v > 0 ? v : undefined,
-                });
-              }}
-              className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-input/30"
-            />
-          </label>
-        </div>
-      ) : null}
       <audio ref={narrationAudioRef} className="hidden" preload="auto" aria-hidden />
     </div>
   );
@@ -789,7 +756,7 @@ export function StudioPageView() {
         ) : (
           <WorkflowStepPage
             className="min-h-0 flex-1"
-            primaryClassName="gap-4 bg-background md:px-4 lg:border-r lg:border-border/60 lg:pl-4 lg:pr-4"
+            primaryClassName="gap-3 bg-background px-3 py-2 md:px-3 lg:basis-auto lg:max-w-[14rem] lg:flex-none lg:shrink-0 lg:border-r lg:border-border/60 lg:px-2.5 lg:py-2"
             panels={[scenesAndKeyframesPanel, buildPanel]}
           />
         )}

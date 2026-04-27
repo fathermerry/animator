@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,9 @@ import {
 } from "@/lib/projectIndexedDb";
 import {
   formatCost,
+  formatCostListTarget,
   renderCostTotalAmount,
+  sumRenderCosts,
   formatEngine,
   formatRenderDuration,
   formatRenderListTimestamp,
@@ -36,6 +38,13 @@ export function CostOverviewPageView() {
 
   const rows = dbRows;
 
+  const totalFormatted = useMemo(() => {
+    if (rows.length === 0) return null;
+    const total = sumRenderCosts(rows.map((r) => r.render));
+    const currency = rows[0]!.render.cost.currency.trim() || "USD";
+    return formatCost(total, currency);
+  }, [rows]);
+
   return (
     <main className="w-full px-6 pb-10 pt-6">
       {loadError ? (
@@ -44,12 +53,19 @@ export function CostOverviewPageView() {
         </p>
       ) : null}
 
-      <p className={cn(panelHeadingClass, "mb-3")}>Cost</p>
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+        <p className={cn(panelHeadingClass, "mb-0")}>Cost</p>
+        {totalFormatted != null ? (
+          <p className="text-base text-muted-foreground">
+            Total <span className="font-medium text-foreground">{totalFormatted}</span>
+          </p>
+        ) : null}
+      </div>
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-border px-4 py-10">
           <p className="text-center text-base text-muted-foreground">
-            No costs yet. OpenAI image runs in your projects are listed here after you generate frames.
+            No costs yet. Keyframe, narration, and other generations are listed here after you run them.
           </p>
         </div>
       ) : (
@@ -112,7 +128,7 @@ export function CostOverviewPageView() {
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="px-3 py-2 text-left font-medium text-foreground">Project</th>
-                  <th className="px-3 py-2 text-left font-medium text-foreground">Scene</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground">Target</th>
                   <th className="px-3 py-2 text-left font-medium text-foreground">Engine</th>
                   <th className="px-3 py-2 text-left font-medium text-foreground">Status</th>
                   <th className="px-3 py-2 text-left font-medium text-foreground">Model</th>
@@ -124,32 +140,40 @@ export function CostOverviewPageView() {
               <tbody>
                 {rows.map((row) => {
                   const { render, projectLabel, sceneTitle } = row;
+                  const targetLabel = formatCostListTarget(render, sceneTitle);
                   return (
                     <tr key={render.id} className="border-b border-border last:border-b-0">
-                      <td className="max-w-[12rem] px-3 py-2 align-top text-foreground">
-                        <span className="line-clamp-2" title={projectLabel}>
+                      <td className="max-w-[12rem] min-w-0 px-3 py-2 align-middle text-foreground">
+                        <span className="block truncate" title={projectLabel}>
                           {projectLabel}
                         </span>
                       </td>
-                      <td className="max-w-[10rem] px-3 py-2 align-top text-foreground">
-                        {sceneTitle ?? "—"}
+                      <td className="max-w-[14rem] min-w-0 px-3 py-2 align-middle text-foreground">
+                        <span className="block truncate" title={targetLabel}>
+                          {targetLabel}
+                        </span>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 align-top text-foreground">
+                      <td className="whitespace-nowrap px-3 py-2 align-middle text-foreground">
                         {formatEngine(render.engine)}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 align-top text-foreground">
+                      <td className="whitespace-nowrap px-3 py-2 align-middle text-foreground">
                         {formatRenderStatus(render.status)}
                       </td>
-                      <td className="max-w-[8rem] px-3 py-2 align-top text-muted-foreground">
-                        {render.model?.trim() ? render.model : "—"}
+                      <td className="max-w-[8rem] min-w-0 px-3 py-2 align-middle text-muted-foreground">
+                        <span
+                          className="block truncate"
+                          title={render.model?.trim() ? render.model : undefined}
+                        >
+                          {render.model?.trim() ? render.model : "—"}
+                        </span>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 align-top text-right text-foreground">
+                      <td className="whitespace-nowrap px-3 py-2 align-middle text-right text-foreground">
                         {formatCost(renderCostTotalAmount(render.cost), render.cost.currency)}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+                      <td className="whitespace-nowrap px-3 py-2 align-middle text-muted-foreground">
                         {formatRenderDuration(render)}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+                      <td className="whitespace-nowrap px-3 py-2 align-middle text-muted-foreground">
                         {formatRenderListTimestamp(render.createdAt)}
                       </td>
                     </tr>

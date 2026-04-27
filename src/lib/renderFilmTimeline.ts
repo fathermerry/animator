@@ -22,8 +22,6 @@ export type FilmSegmentInput = {
   characters: KitAsset[];
   /** Resolved background plate for this segment’s scene (kit + per-scene overrides). */
   plate: Background;
-  transition?: Scene["transition"];
-  transitionSeconds?: number;
   frameKind?: Frame["kind"];
 };
 
@@ -79,28 +77,11 @@ export function buildRenderFilmTimeline(
   for (const scene of ordered) {
     const sceneFrames = framesForSceneSorted(frames, scene.id);
     const durSec = Number.isFinite(scene.durationSeconds) ? Math.max(0, scene.durationSeconds) : 0;
-    const delaySec = Number.isFinite(scene.delaySeconds) ? Math.max(0, scene.delaySeconds ?? 0) : 0;
     const chars = resolveKitAssets(scene.characterIds, assetBundle.characters);
 
     const title = scene.title.trim();
     const sceneBeat = scene.description.trim();
     const plate = resolveSceneBackground(scene, assetBundle);
-
-    if (delaySec > 0) {
-      segments.push({
-        durationInFrames: Math.max(1, Math.round(delaySec * FILM_FPS)),
-        blank: true,
-        sceneId: scene.id,
-        frameId: null,
-        assetBundle,
-        sceneTitle: title,
-        frameDescription: "",
-        characters: chars,
-        plate,
-        transition: scene.transition,
-        transitionSeconds: scene.transitionSeconds,
-      });
-    }
 
     if (sceneFrames.length === 0) {
       const total = Math.max(1, Math.round(durSec * FILM_FPS));
@@ -114,8 +95,6 @@ export function buildRenderFilmTimeline(
         frameDescription: sceneBeat,
         characters: chars,
         plate,
-        transition: scene.transition,
-        transitionSeconds: scene.transitionSeconds,
       });
       continue;
     }
@@ -138,8 +117,6 @@ export function buildRenderFilmTimeline(
         frameDescription: frameText || sceneBeat,
         characters: chars,
         plate,
-        transition: scene.transition,
-        transitionSeconds: scene.transitionSeconds,
         frameKind: fr.kind,
       });
     });
@@ -278,6 +255,23 @@ export function getFilmStartFrameIndexForFrame(
   let acc = 0;
   for (const seg of segments) {
     if (seg.frameId === targetFrameId) return acc;
+    acc += seg.durationInFrames;
+  }
+  return null;
+}
+
+/** Global Remotion frame index at the start of a scene’s span on the film timeline (first segment for that scene). */
+export function getFilmStartFrameIndexForScene(
+  targetSceneId: string,
+  scenes: Scene[],
+  frames: Frame[],
+  renders: Render[],
+  assetBundle: AssetBundle,
+): number | null {
+  const { segments } = buildRenderFilmTimeline(scenes, frames, renders, assetBundle);
+  let acc = 0;
+  for (const seg of segments) {
+    if (seg.sceneId === targetSceneId) return acc;
     acc += seg.durationInFrames;
   }
   return null;

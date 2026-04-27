@@ -115,6 +115,7 @@ export function ComposePageView({ step: _step }: Props) {
   return (
     <>
       <WorkflowStepPage
+        resizableAfterMiddle={{ storageKey: "animator:compose:frame-details-w" }}
         panels={[
         <aside
           key="layers"

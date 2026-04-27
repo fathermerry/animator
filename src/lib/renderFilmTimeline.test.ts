@@ -43,7 +43,7 @@ function mkRender(partial: Partial<Render> & Pick<Render, "id" | "sceneId">): Re
 describe("buildRenderFilmTimeline", () => {
   const bundle = createDefaultAssetBundle();
 
-  it("inserts a leading blank segment when delaySeconds is set", () => {
+  it("ignores delaySeconds (no leading delay-only segment)", () => {
     const scene = mkScene({
       id: "s1",
       index: 0,
@@ -58,14 +58,11 @@ describe("buildRenderFilmTimeline", () => {
     });
     const renders = [mkRender({ id: "r1", sceneId: "s1" })];
     const { segments } = buildRenderFilmTimeline([scene], [frame], renders, bundle);
-    expect(segments.length).toBeGreaterThanOrEqual(2);
+    expect(segments).toHaveLength(1);
     expect(segments[0]).toMatchObject({
-      blank: true,
-      frameId: null,
-      durationInFrames: Math.round(1 * FILM_FPS),
+      frameId: "f1",
+      blank: false,
     });
-    expect(segments[1]!.frameId).toBe("f1");
-    expect(segments[1]!.blank).toBe(false);
   });
 
   it("uses a single blank segment with the scene beat when the scene has no frames", () => {

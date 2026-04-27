@@ -5,13 +5,15 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent,
+  type PointerEvent,
   type RefObject,
 } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 
 import { normalizeHex } from "@/lib/color";
 import { resolveSceneBackground } from "@/lib/sceneBackground";
-import { buildRenderFilmTimeline, FILM_FPS } from "@/lib/renderFilmTimeline";
+import { buildRenderFilmTimeline, FILM_FPS, type FilmSegmentInput } from "@/lib/renderFilmTimeline";
 import { cn } from "@/lib/utils";
 import { FilmComposition } from "@/remotion/FilmComposition";
 import type { Frame, Render, Scene } from "@/types/project";
@@ -19,6 +21,27 @@ import type { AssetBundle } from "@/types/styleConfig";
 
 const COMPOSITION_WIDTH = 1920;
 const COMPOSITION_HEIGHT = 1080;
+
+export type FilmSceneSpan = {
+  sceneId: string;
+  startFrame: number;
+  durationInFrames: number;
+};
+
+function sceneSpansFromSegments(segments: FilmSegmentInput[]): FilmSceneSpan[] {
+  const spans: FilmSceneSpan[] = [];
+  let acc = 0;
+  for (const seg of segments) {
+    const prev = spans[spans.length - 1];
+    if (prev && prev.sceneId === seg.sceneId) {
+      prev.durationInFrames += seg.durationInFrames;
+    } else {
+      spans.push({ sceneId: seg.sceneId, startFrame: acc, durationInFrames: seg.durationInFrames });
+    }
+    acc += seg.durationInFrames;
+  }
+  return spans;
+}
 
 type Props = {
   assetBundle: AssetBundle;
@@ -60,6 +83,8 @@ export function RenderFilmPreview({
     () => buildRenderFilmTimeline(scenes, frames, renders, assetBundle),
     [scenes, frames, renders, assetBundle],
   );
+
+  const sceneSpans = useMemo(() => sceneSpansFromSegments(segments), [segments]);
 
   /** Remount player when generated still URLs change so new images appear without a full reload. */
   const stillSignature = useMemo(
@@ -134,6 +159,73 @@ export function RenderFilmPreview({
     },
     [maxFrame, onGlobalFrameChange],
   );
+
+  const trackRef = useRef<HTMLDivElement>(null);
+  const scrubDragRef = useRef<{ pointerId: number; active: boolean } | null>(null);
+
+  const frameFromClientX = useCallback(
+    (clientX: number) => {
+      const el = trackRef.current;
+      if (!el || maxFrame <= 0) return 0;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0) return 0;
+      const ratio = (clientX - rect.left) / rect.width;
+      return Math.round(Math.min(1, Math.max(0, ratio)) * maxFrame);
+    },
+    [maxFrame],
+  );
+
+  const onScrubTrackPointerDown = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (playbackDisabled || e.button !== 0) return;
+      e.preventDefault();
+      scrubDragRef.current = { pointerId: e.pointerId, active: true };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      onScrub(frameFromClientX(e.clientX));
+    },
+    [frameFromClientX, onScrub, playbackDisabled],
+  );
+
+  const onScrubTrackPointerMove = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      const d = scrubDragRef.current;
+      if (!d?.active || d.pointerId !== e.pointerId) return;
+      onScrub(frameFromClientX(e.clientX));
+    },
+    [frameFromClientX, onScrub],
+  );
+
+  const endScrubDrag = useCallback((e: PointerEvent<HTMLDivElement>) => {
+    const d = scrubDragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    scrubDragRef.current = null;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* already released */
+    }
+  }, []);
+
+  const onScrubTrackKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (playbackDisabled) return;
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const delta = e.key === "ArrowLeft" ? -1 : 1;
+        const step = e.shiftKey ? Math.max(1, Math.floor(FILM_FPS)) : 1;
+        onScrub(scrubFrame + delta * step);
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        onScrub(0);
+      } else if (e.key === "End") {
+        e.preventDefault();
+        onScrub(maxFrame);
+      }
+    },
+    [maxFrame, onScrub, playbackDisabled, scrubFrame],
+  );
+
+  const playheadPct = maxFrame > 0 ? (scrubFrame / maxFrame) * 100 : 0;
 
   const firstScene = useMemo(() => {
     if (scenes.length === 0) return null;
@@ -221,20 +313,46 @@ export function RenderFilmPreview({
           )}
         </button>
 
-        <input
-          type="range"
-          className="h-2 min-w-0 flex-1 cursor-pointer accent-foreground disabled:cursor-not-allowed disabled:opacity-45"
-          min={0}
-          max={maxFrame}
-          step={1}
-          value={scrubFrame}
-          onChange={(e) => onScrub(Number(e.target.value))}
-          disabled={playbackDisabled}
-          aria-label="Scrub timeline"
-          aria-valuemin={0}
-          aria-valuemax={maxFrame}
-          aria-valuenow={scrubFrame}
-        />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div
+            ref={trackRef}
+            role="slider"
+            tabIndex={playbackDisabled ? -1 : 0}
+            aria-label="Scrub timeline"
+            aria-valuemin={0}
+            aria-valuemax={maxFrame}
+            aria-valuenow={scrubFrame}
+            aria-disabled={playbackDisabled}
+            className={cn(
+              "relative h-9 min-w-0 shrink-0 rounded-sm border border-border bg-muted/20 outline-none",
+              "focus-visible:ring-2 focus-visible:ring-ring",
+              playbackDisabled ? "cursor-not-allowed opacity-45" : "cursor-pointer",
+            )}
+            onPointerDown={onScrubTrackPointerDown}
+            onPointerMove={onScrubTrackPointerMove}
+            onPointerUp={endScrubDrag}
+            onPointerCancel={endScrubDrag}
+            onKeyDown={onScrubTrackKeyDown}
+          >
+            <div className="absolute inset-0 flex min-h-0 min-w-0 flex-row overflow-hidden rounded-[inherit]" aria-hidden>
+              {sceneSpans.map((span, i) => (
+                <div
+                  key={`${span.sceneId}-${span.startFrame}`}
+                  className={cn(
+                    "h-full min-w-0 border-r border-border/50 last:border-r-0",
+                    i % 2 === 0 ? "bg-muted/35" : "bg-muted/20",
+                  )}
+                  style={{ flex: span.durationInFrames }}
+                />
+              ))}
+            </div>
+            <div
+              className="pointer-events-none absolute bottom-0 top-0 z-[1] w-px -translate-x-1/2 bg-foreground shadow-[0_0_0_1px_hsl(var(--background))]"
+              style={{ left: `${playheadPct}%` }}
+              aria-hidden
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
