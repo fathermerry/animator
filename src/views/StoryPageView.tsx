@@ -1,17 +1,10 @@
 import {
-  Bot,
+  ArrowUp,
   Check,
   ChevronRight,
-  Clock3,
   Loader2,
-  Minus,
   Pencil,
   RotateCcw,
-  Send,
-  Sparkles,
-  TextQuote,
-  WandSparkles,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
@@ -100,7 +93,6 @@ export function StoryPageView() {
   const [preparingScenes, setPreparingScenes] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
   const [aiInput, setAiInput] = useState("");
   const [aiActionState, setAiActionState] = useState<AiActionState>("idle");
   const [aiStatus, setAiStatus] = useState("Ask for a script change.");
@@ -296,113 +288,68 @@ export function StoryPageView() {
         </div>
       </main>
 
-      <div className="fixed bottom-5 right-5 z-30 flex w-[min(calc(100vw-2.5rem),24rem)] flex-col items-end gap-2">
-        {chatOpen ? (
-          <section className="w-full rounded-lg border border-border bg-background shadow-xl">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                  <Bot className="size-4" aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">Script assistant</div>
-                  <div className="truncate text-xs text-muted-foreground">{aiStatus}</div>
-                </div>
+      <div className="fixed bottom-5 left-1/2 z-30 w-[min(calc(100vw-2rem),38rem)] -translate-x-1/2">
+        <section className="overflow-hidden rounded-[1.75rem] bg-muted/95 shadow-2xl backdrop-blur">
+          {aiActionState !== "idle" || aiChangedIds.length > 0 ? (
+            <div className="px-5 pt-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {aiActionState === "done" ? (
+                  <Check className="size-4 shrink-0 text-foreground" aria-hidden />
+                ) : (
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                )}
+                <span className="min-w-0 flex-1 truncate">{aiStatus}</span>
               </div>
+              {aiChangedIds.length > 0 ? (
+                <div className="mt-2 space-y-1">
+                  {blocks
+                    .filter((block) => aiChangedIds.includes(block.id))
+                    .map((block) => (
+                      <div key={block.id} className="line-clamp-2 pl-6 text-sm leading-snug text-foreground/90">
+                        {summarizeBlock(block)}
+                      </div>
+                    ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="flex items-center gap-1.5 p-2.5">
+            <Input
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") runAiEdit();
+              }}
+              placeholder="Ask for a change..."
+              disabled={aiActionState === "rolling" || aiActionState === "editing"}
+              aria-label="Script change request"
+              className="h-9 border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0 dark:bg-transparent"
+            />
+            {undoPrompt ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-8 shrink-0 cursor-pointer"
-                onClick={() => setChatOpen(false)}
-                aria-label="Close script assistant"
+                className="size-9 shrink-0 cursor-pointer rounded-full text-muted-foreground hover:text-foreground"
+                onClick={undoAiEdit}
+                aria-label="Undo last edit"
               >
-                <X className="size-4" aria-hidden />
+                <RotateCcw className="size-4" aria-hidden />
               </Button>
-            </div>
-
-            <div className="space-y-3 p-3">
-              <div className="rounded-md bg-muted/50 px-3 py-2 text-sm leading-snug text-muted-foreground">
-                Ask for a focused change like “tighten the hook”, “make it punchier”, or “add a CTA”.
-              </div>
-
-              {aiActionState !== "idle" ? (
-                <div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                  {aiActionState === "done" ? (
-                    <Check className="size-4 shrink-0 text-foreground" aria-hidden />
-                  ) : (
-                    <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
-                  )}
-                  <span className="min-w-0 flex-1">{aiStatus}</span>
-                </div>
-              ) : null}
-
-              {aiChangedIds.length > 0 ? (
-                <div className="rounded-md border border-border p-2">
-                  <div className="mb-1.5 text-xs font-medium uppercase text-muted-foreground">
-                    Edited blocks
-                  </div>
-                  <div className="space-y-1">
-                    {blocks
-                      .filter((block) => aiChangedIds.includes(block.id))
-                      .map((block) => (
-                        <div key={block.id} className="line-clamp-2 text-sm leading-snug">
-                          {summarizeBlock(block)}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="flex gap-2">
-                <Input
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") runAiEdit();
-                  }}
-                  placeholder="Tell AI what to change..."
-                  disabled={aiActionState === "rolling" || aiActionState === "editing"}
-                  aria-label="Script assistant prompt"
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  className="size-8 shrink-0 cursor-pointer"
-                  onClick={runAiEdit}
-                  disabled={!aiInput.trim() || aiActionState === "rolling" || aiActionState === "editing"}
-                  aria-label="Send script assistant prompt"
-                >
-                  <Send className="size-4" aria-hidden />
-                </Button>
-              </div>
-
-              {undoPrompt ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 w-full cursor-pointer gap-1.5"
-                  onClick={undoAiEdit}
-                >
-                  <RotateCcw className="size-4" aria-hidden />
-                  Undo last AI edit
-                </Button>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
-
-        <Button
-          type="button"
-          className="h-11 cursor-pointer gap-2 rounded-full px-4 shadow-lg"
-          onClick={() => {
-            setChatOpen((open) => !open);
-            setAiActionState("idle");
-          }}
-        >
-          <WandSparkles className="size-4" aria-hidden />
-          AI edit
-        </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="icon"
+              className="size-9 shrink-0 cursor-pointer rounded-full bg-foreground text-background shadow-none hover:bg-foreground/90 disabled:bg-muted-foreground/30 disabled:text-background/70"
+              onClick={runAiEdit}
+              disabled={!aiInput.trim() || aiActionState === "rolling" || aiActionState === "editing"}
+              aria-label="Send script change request"
+            >
+              <ArrowUp className="size-5" aria-hidden />
+            </Button>
+          </div>
+        </section>
       </div>
     </div>
   );
@@ -423,38 +370,19 @@ function StoryBlockRow({
   onDone: () => void;
   onPatch: (patch: Partial<StoryBlock>) => void;
 }) {
-  const typeIcon =
-    block.type === "timestamp" ? (
-      <Clock3 className="size-4" aria-hidden />
-    ) : block.type === "prompt" ? (
-      <Sparkles className="size-4" aria-hidden />
-    ) : block.type === "transition" ? (
-      <Minus className="size-4" aria-hidden />
-    ) : (
-      <TextQuote className="size-4" aria-hidden />
-    );
-
   return (
     <div
       className={cn(
-        "group rounded-lg border px-3 py-2 transition-colors",
-        changed ? "border-foreground bg-muted/50" : "border-transparent hover:border-border hover:bg-muted/25",
+        "group rounded-md border px-3 py-2 transition-colors",
+        changed ? "border-foreground bg-muted/45" : "border-transparent hover:border-border hover:bg-muted/20",
       )}
     >
       <div
         className={cn(
-          "flex gap-3",
+          "grid grid-cols-[minmax(0,1fr)_1.75rem] gap-3",
           editing || block.type === "dialogue" ? "items-start" : "items-center",
         )}
       >
-        <div
-          className={cn(
-            "flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground",
-            editing || block.type === "dialogue" ? "mt-0.5" : "mt-0",
-          )}
-        >
-          {typeIcon}
-        </div>
         <div className="min-w-0 flex-1">
           {editing ? (
             <BlockEditor block={block} onPatch={onPatch} onDone={onDone} />
@@ -501,7 +429,7 @@ function BlockPreview({ block }: { block: StoryBlock }) {
   }
   if (block.type === "prompt") {
     return (
-      <p className="flex min-h-7 items-center text-sm italic leading-snug text-muted-foreground">
+      <p className="whitespace-pre-wrap text-base italic leading-relaxed text-muted-foreground">
         {block.text}
       </p>
     );
