@@ -20,104 +20,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { frameHasOutputImage } from "@/lib/frameRenderStatus";
+import {
+  TRANSITION_TYPES,
+  markdownToStoryBlocks,
+  storyBlocksToMarkdown,
+  type StoryBlock,
+  type TransitionType,
+} from "@/lib/storyMarkdown";
 import { cn } from "@/lib/utils";
 import { pathForProjectStep, navigate } from "@/router";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 
-type TransitionType = "cut" | "fade" | "dissolve";
-
-type TimestampBlock = {
-  id: string;
-  type: "timestamp";
-  title: string;
-  start: string;
-  end: string;
-};
-
-type PromptBlock = {
-  id: string;
-  type: "prompt";
-  text: string;
-};
-
-type DialogueBlock = {
-  id: string;
-  type: "dialogue";
-  text: string;
-};
-
-type TransitionBlock = {
-  id: string;
-  type: "transition";
-  transitionType: TransitionType;
-  delay: string;
-};
-
-type StoryBlock = TimestampBlock | PromptBlock | DialogueBlock | TransitionBlock;
 type AiActionState = "idle" | "rolling" | "editing" | "done";
-
-const TRANSITION_TYPES: TransitionType[] = ["cut", "fade", "dissolve"];
-const TIMESTAMP_RE = /^\[(.+?)\s*[—-]\s*([0-9][0-9:.]*)\s*[–-]\s*([0-9][0-9:.]*)\]$/;
-const TRANSITION_RE = /^(?:⸻|---|--|—|-)(?:\s+([a-z]+))?(?:\s+([0-9.]+s?))?$/i;
-
-function parseStoryBlocks(text: string): StoryBlock[] {
-  const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
-  return lines.map((line, index) => {
-    const trimmed = line.trim();
-    const timestampMatch = trimmed.match(TIMESTAMP_RE);
-    if (timestampMatch) {
-      return {
-        id: `block-${index}`,
-        type: "timestamp",
-        title: timestampMatch[1]?.trim() || "Scene",
-        start: timestampMatch[2]?.trim() || "0:00",
-        end: timestampMatch[3]?.trim() || "0:00",
-      };
-    }
-
-    const transitionMatch = trimmed.match(TRANSITION_RE);
-    if (transitionMatch) {
-      const transitionType = TRANSITION_TYPES.includes(transitionMatch[1] as TransitionType)
-        ? (transitionMatch[1] as TransitionType)
-        : "cut";
-      return {
-        id: `block-${index}`,
-        type: "transition",
-        transitionType,
-        delay: transitionMatch[2]?.replace(/s$/i, "") || "0",
-      };
-    }
-
-    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-      return {
-        id: `block-${index}`,
-        type: "prompt",
-        text: trimmed.slice(1, -1).trim(),
-      };
-    }
-
-    return {
-      id: `block-${index}`,
-      type: "dialogue",
-      text: line.trim(),
-    };
-  });
-}
-
-function serializeStoryBlocks(blocks: StoryBlock[]): string {
-  return blocks
-    .map((block) => {
-      if (block.type === "timestamp") return `[${block.title} — ${block.start}–${block.end}]`;
-      if (block.type === "prompt") return `[${block.text}]`;
-      if (block.type === "transition") {
-        const delay = Number.parseFloat(block.delay);
-        const suffix = Number.isFinite(delay) && delay > 0 ? ` ${block.transitionType} ${delay}s` : "";
-        return `—${suffix}`;
-      }
-      return block.text;
-    })
-    .join("\n\n");
-}
 
 function summarizeBlock(block: StoryBlock): string {
   if (block.type === "timestamp") return `${block.title} (${block.start}-${block.end})`;
@@ -181,7 +95,7 @@ export function StoryPageView() {
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const renderingAllFrameImages = useStore(useProjectStore, (s) => s.renderingAllFrameImages);
 
-  const blocks = useMemo(() => parseStoryBlocks(project.prompt), [project.prompt]);
+  const blocks = useMemo(() => markdownToStoryBlocks(project.prompt), [project.prompt]);
   const orderedScenes = useMemo(() => [...scenes].sort((a, b) => a.index - b.index), [scenes]);
   const [preparingScenes, setPreparingScenes] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
@@ -202,7 +116,7 @@ export function StoryPageView() {
 
   const writeBlocks = useCallback(
     (nextBlocks: StoryBlock[]) => {
-      setPromptText(serializeStoryBlocks(nextBlocks));
+      setPromptText(storyBlocksToMarkdown(nextBlocks));
     },
     [setPromptText],
   );
@@ -280,7 +194,7 @@ export function StoryPageView() {
     );
     aiTimers.current.push(
       window.setTimeout(() => {
-        const result = applyAiEdit(parseStoryBlocks(useProjectStore.getState().project.prompt), command);
+        const result = applyAiEdit(markdownToStoryBlocks(useProjectStore.getState().project.prompt), command);
         writeBlocks(result.blocks);
         setAiChangedIds(result.changedIds);
         setAiActionState("done");
@@ -527,8 +441,18 @@ function StoryBlockRow({
         changed ? "border-foreground bg-muted/50" : "border-transparent hover:border-border hover:bg-muted/25",
       )}
     >
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
+      <div
+        className={cn(
+          "flex gap-3",
+          editing || block.type === "dialogue" ? "items-start" : "items-center",
+        )}
+      >
+        <div
+          className={cn(
+            "flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground",
+            editing || block.type === "dialogue" ? "mt-0.5" : "mt-0",
+          )}
+        >
           {typeIcon}
         </div>
         <div className="min-w-0 flex-1">
@@ -552,7 +476,7 @@ function StoryBlockRow({
             size="icon"
             className="size-7 shrink-0 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
             onClick={onEdit}
-            aria-label={`Edit ${block.type} block`}
+            aria-label={`Open ${block.type} block editor`}
           >
             <Pencil className="size-3.5" aria-hidden />
           </Button>
@@ -565,25 +489,35 @@ function StoryBlockRow({
 function BlockPreview({ block }: { block: StoryBlock }) {
   if (block.type === "timestamp") {
     return (
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="min-w-0 text-sm font-semibold uppercase">{block.title}</span>
-        <span className="text-xs text-muted-foreground">
+      <div className="grid min-h-7 min-w-0 items-center gap-x-3 gap-y-0.5 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <span className="min-w-0 truncate text-sm font-semibold uppercase leading-none">
+          {block.title}
+        </span>
+        <span className="text-xs leading-none text-muted-foreground">
           {block.start} - {block.end}
         </span>
       </div>
     );
   }
   if (block.type === "prompt") {
-    return <p className="text-sm italic leading-relaxed text-muted-foreground">[{block.text}]</p>;
+    return (
+      <p className="flex min-h-7 items-center text-sm italic leading-snug text-muted-foreground">
+        {block.text}
+      </p>
+    );
   }
   if (block.type === "transition") {
+    const delay = Number.parseFloat(block.delay);
+    const label = Number.isFinite(delay) && delay > 0
+      ? `${block.transitionType} ${delay}s`
+      : block.transitionType;
     return (
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <span className="text-lg leading-none">-</span>
-        <span className="text-xs uppercase">
-          {block.transitionType}
-          {Number.parseFloat(block.delay) > 0 ? `, ${block.delay}s` : ""}
+      <div className="flex min-h-7 items-center gap-3 text-muted-foreground">
+        <span className="h-px min-w-8 flex-1 bg-border" aria-hidden />
+        <span className="shrink-0 rounded-full border border-border bg-background px-2 py-0.5 text-[11px] font-medium uppercase leading-none">
+          {label}
         </span>
+        <span className="h-px min-w-8 flex-1 bg-border" aria-hidden />
       </div>
     );
   }
