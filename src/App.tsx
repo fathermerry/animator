@@ -9,7 +9,8 @@ import { STEPS } from "@/steps";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 import { HomePageView } from "@/views/HomePageView";
 import { CostOverviewPageView } from "@/views/CostOverviewPageView";
-import { StudioPageView } from "@/views/StudioPageView";
+import { ComposePageView } from "@/views/ComposePageView";
+import { StoryPageView } from "@/views/StoryPageView";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -59,7 +60,8 @@ export default function App() {
   const currentSlug =
     route.kind === "workflow" || route.kind === "legacyWorkflow" ? route.stepSlug : null;
 
-  const isWorkflowStepPage = currentSlug === "studio";
+  /** Compose uses fixed panes; story scrolls with the main shell like other pages. */
+  const composeLocksMainScroll = currentSlug === "compose";
 
   const isProjectsPage = route.kind === "home" || route.kind === "projects";
   const isRendersPage = route.kind === "renders";
@@ -89,7 +91,7 @@ export default function App() {
     } else if (isRendersPage) {
       title = "animator — Cost";
     } else if (currentSlug) {
-      const stepLabel = STEPS.find((s) => s.slug === currentSlug)?.label ?? "Studio";
+      const stepLabel = STEPS.find((s) => s.slug === currentSlug)?.label ?? "Project";
       title = `animator — ${stepLabel} — ${fileTitle}`;
     } else {
       title = `animator — ${fileTitle}`;
@@ -125,7 +127,7 @@ export default function App() {
       <div
         className={cn(
           "absolute inset-x-0 bottom-0 top-14 box-border flex min-h-0 w-full flex-col justify-start overflow-x-hidden",
-          isWorkflowStepPage ? "overflow-y-hidden" : "overflow-y-auto overscroll-contain",
+          composeLocksMainScroll ? "overflow-y-hidden" : "overflow-y-auto overscroll-contain",
         )}
       >
         <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col justify-start basis-0">
@@ -133,8 +135,10 @@ export default function App() {
             <HomePageView />
           ) : isRendersPage ? (
             <CostOverviewPageView />
-          ) : currentSlug === "studio" ? (
-            <StudioPageView />
+          ) : currentSlug === "story" ? (
+            <StoryPageView />
+          ) : currentSlug === "compose" ? (
+            <ComposePageView />
           ) : null}
         </div>
       </div>

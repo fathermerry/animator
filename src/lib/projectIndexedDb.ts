@@ -1,6 +1,6 @@
 import { buildDefaultProjectBundle } from "@/data/defaultProjectSeed";
 import { idbKvDelete, idbKvGet, idbKvSet, openAnimatorDb, PROJECTS_STORE } from "@/lib/indexedDbKv";
-import { isStructuralFrameShellRender } from "@/lib/renderDisplay";
+import { isStructuralFrameShellRender, renderTargetProviderFromEngine, targetMediaTypeFromEngine } from "@/lib/renderDisplay";
 import { enrichRenderList, projectFromConfigJson } from "@/lib/projectHydrate";
 import {
   type LegacyPersistableProjectSlice,
@@ -153,7 +153,14 @@ export async function listAllRendersAcrossProjects(): Promise<RenderListRow[]> {
       if (t && typeof t === "object" && typeof t.name === "string") {
         return r as Render;
       }
-      return { ...(r as object), target: { type: (r as Render).type, name: "" } } as Render;
+      return {
+      ...(r as object),
+      target: {
+        type: targetMediaTypeFromEngine((r as Render).engine),
+        name: "",
+        provider: renderTargetProviderFromEngine((r as Render).engine),
+      },
+    } as Render;
     });
     const renders = enrichRenderList(
       withTargetPlaceholders,
@@ -192,7 +199,14 @@ export async function getProjectSlice(id: string): Promise<PersistableProjectSli
     if (t && typeof t === "object" && typeof t.name === "string") {
       return r as Render;
     }
-    return { ...(r as object), target: { type: (r as Render).type, name: "" } } as Render;
+    return {
+      ...(r as object),
+      target: {
+        type: targetMediaTypeFromEngine((r as Render).engine),
+        name: "",
+        provider: renderTargetProviderFromEngine((r as Render).engine),
+      },
+    } as Render;
   });
   return {
     ...migrated,

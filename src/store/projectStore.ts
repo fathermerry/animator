@@ -23,6 +23,7 @@ import {
 import type { PersistableProjectSlice } from "../lib/projectPersistence";
 import { requestSceneNarration } from "../lib/narrationApi";
 import { requestFrameImageRender } from "../lib/renderFrameApi";
+import { renderTargetProviderFromEngine, targetMediaTypeFromEngine } from "../lib/renderDisplay";
 import { requestScriptGeneration } from "../lib/scriptApi";
 import { requestStoryStoryboard } from "../lib/storyboardApi";
 import { loadAudioDurationSeconds } from "../lib/useNarrationAudioDuration";
@@ -300,9 +301,11 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       createdAt: kitStarted,
       startedAt: kitStarted,
       target: {
-        type: "asset",
+        type: "image",
         name: assetName ? `Kit image · ${assetName}` : "Kit image",
         referenceId: asset.id,
+        provider: "openai",
+        model: undefined,
       },
       kitTarget: { kind, assetId: asset.id },
     };
@@ -494,7 +497,12 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         cost: zeroCost,
         createdAt: startedAt,
         startedAt,
-        target: { type: "script", name: "Script", referenceId: project.id },
+        target: {
+          type: "text",
+          name: "Script",
+          referenceId: project.id,
+          provider: "openai",
+        },
       };
       set((s) => ({ renders: [...s.renders, pendingRender] }));
       try {
@@ -512,6 +520,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
                   model: data.model,
                   cost: data.cost,
                   endedAt: new Date(),
+                  target: { ...r.target, model: data.model, type: "text" as const, provider: "openai" },
                 }
               : r,
           ),
@@ -556,7 +565,29 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
 
     patchRender: (renderId, patch) => {
       set((s) => ({
-        renders: s.renders.map((r) => (r.id === renderId ? { ...r, ...patch } : r)),
+        renders: s.renders.map((r) => {
+          if (r.id !== renderId) return r;
+          let next: Render = { ...r, ...patch };
+          if (next.target) {
+            if (typeof patch.model === "string" && patch.model.trim()) {
+              next = {
+                ...next,
+                target: { ...next.target, model: patch.model },
+              };
+            }
+            if (patch.engine) {
+              next = {
+                ...next,
+                target: {
+                  ...next.target,
+                  type: targetMediaTypeFromEngine(patch.engine),
+                  provider: renderTargetProviderFromEngine(patch.engine),
+                },
+              };
+            }
+          }
+          return next;
+        }),
       }));
     },
 
@@ -669,7 +700,12 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         cost: zeroCost,
         createdAt: startedAt,
         startedAt,
-        target: { type: "storyboard", name: "Story plan", referenceId: project.id },
+        target: {
+          type: "text",
+          name: "Story plan",
+          referenceId: project.id,
+          provider: "openai",
+        },
       };
       set((s) => ({ renders: [...s.renders, pendingRender] }));
 
@@ -708,7 +744,12 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
               status: "complete",
               cost: zeroCost,
               createdAt: now,
-              target: { type: "frame", name: `Keyframe image · ${sceneLabel}`, referenceId: frameId },
+              target: {
+                type: "image",
+                name: `Keyframe image · ${sceneLabel}`,
+                referenceId: frameId,
+                provider: "remotion",
+              },
             });
             nextFrames.push({
               id: frameId,
@@ -734,6 +775,12 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
                     model: data.model,
                     cost: data.cost,
                     endedAt: new Date(),
+                    target: {
+                      ...r.target,
+                      model: data.model,
+                      type: "text" as const,
+                      provider: "openai",
+                    },
                   }
                 : r,
             ),
@@ -749,7 +796,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
           }
           await narrations;
         })();
-        navigate(pathForProjectStep(project.id, "studio"));
+        navigate(pathForProjectStep(project.id, "compose"));
       } catch (e: unknown) {
         get().patchRender(storyboardRenderId, {
           status: "failed",
@@ -781,9 +828,11 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         startedAt,
         endedAt,
         target: {
-          type: "narration",
+          type: "audio",
           name: st ? `Narration · ${st}` : "Narration",
           referenceId: sceneId,
+          provider: "openai",
+          model,
         },
       };
       set((s) => ({ renders: [...s.renders, render] }));
@@ -877,7 +926,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     openProject: async (id) => {
       const ok = await get().loadProjectById(id);
       if (!ok) return;
-      navigate(pathForProjectStep(id, "studio"));
+      navigate(pathForProjectStep(id, "story"));
     },
 
     createNewProject: async () => {
@@ -925,7 +974,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         narrationGeneratingKeys: {},
         narrationRenderErrors: {},
       });
-      navigate(pathForProjectStep(slice.project.id, "studio"));
+      navigate(pathForProjectStep(slice.project.id, "story"));
     },
 
     deleteProject: async (id) => {

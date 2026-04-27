@@ -474,7 +474,7 @@ export function CombinedNarrationPreview({ scenes, className }: Props) {
             onChange={(e) => {
               seekFrame(Number(e.target.value));
             }}
-            className="h-2 w-full min-w-0 cursor-pointer accent-foreground disabled:cursor-not-allowed"
+            className="h-4 w-full min-w-0 cursor-pointer accent-foreground disabled:cursor-not-allowed"
           />
           <div className="flex justify-between tabular-nums text-muted-foreground">
             <span>{formatDurationMmSs(globalSec)}</span>

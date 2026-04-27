@@ -10,12 +10,15 @@ import {
 import {
   formatCost,
   formatRenderTargetListLabel,
-  renderCostTotalAmount,
-  sumRenderCosts,
-  formatEngine,
-  formatRenderDuration,
   formatRenderListTimestamp,
   formatRenderStatus,
+  formatTargetMediaTypeLabel,
+  formatTargetProviderLabel,
+  modelDisplayLabel,
+  renderCostTotalAmount,
+  renderModelForList,
+  sumRenderCosts,
+  formatRenderDuration,
 } from "@/lib/renderDisplay";
 import { panelHeadingClass } from "@/lib/panelHeading";
 import { cn } from "@/lib/utils";
@@ -124,48 +127,59 @@ export function CostOverviewPageView() {
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[640px] border-collapse text-base">
+            <table className="w-full min-w-[1000px] border-collapse text-base">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="px-3 py-2 text-left font-medium text-foreground">Project</th>
-                  <th className="px-3 py-2 text-left font-medium text-foreground">Target</th>
-                  <th className="px-3 py-2 text-left font-medium text-foreground">Engine</th>
-                  <th className="px-3 py-2 text-left font-medium text-foreground">Status</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground">Type</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground">Name</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground">Reference</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground">Provider</th>
                   <th className="px-3 py-2 text-left font-medium text-foreground">Model</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground">Status</th>
                   <th className="px-3 py-2 text-right font-medium text-foreground">Cost</th>
                   <th className="px-3 py-2 text-left font-medium text-foreground">Duration</th>
-                  <th className="px-3 py-2 text-left font-medium text-foreground">Created</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground">Started</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground">Ended</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
                   const { render, projectLabel } = row;
-                  const targetLabel = formatRenderTargetListLabel(render);
+                  const nameLabel = formatRenderTargetListLabel(render);
+                  const refId = render.target.referenceId?.trim();
+                  const modelId = renderModelForList(render);
                   return (
                     <tr key={render.id} className="border-b border-border last:border-b-0">
-                      <td className="max-w-[12rem] min-w-0 px-3 py-2 align-middle text-foreground">
+                      <td className="max-w-[10rem] min-w-0 px-3 py-2 align-middle text-foreground">
                         <span className="block truncate" title={projectLabel}>
                           {projectLabel}
                         </span>
                       </td>
-                      <td className="max-w-[14rem] min-w-0 px-3 py-2 align-middle text-foreground">
-                        <span className="block truncate" title={targetLabel}>
-                          {targetLabel}
+                      <td className="whitespace-nowrap px-3 py-2 align-middle text-foreground">
+                        {formatTargetMediaTypeLabel(render.target.type)}
+                      </td>
+                      <td className="max-w-[12rem] min-w-0 px-3 py-2 align-middle text-foreground">
+                        <span className="block truncate" title={nameLabel}>
+                          {nameLabel}
                         </span>
                       </td>
+                      <td
+                        className="max-w-[8rem] min-w-0 px-3 py-2 align-middle font-mono text-xs text-muted-foreground"
+                        title={refId}
+                      >
+                        {refId ? <span className="block truncate">{refId}</span> : "—"}
+                      </td>
                       <td className="whitespace-nowrap px-3 py-2 align-middle text-foreground">
-                        {formatEngine(render.engine)}
+                        {formatTargetProviderLabel(render.target.provider)}
+                      </td>
+                      <td className="max-w-[7rem] min-w-0 px-3 py-2 align-middle text-muted-foreground">
+                        <span className="block truncate" title={modelId || undefined}>
+                          {modelDisplayLabel(modelId || undefined)}
+                        </span>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 align-middle text-foreground">
                         {formatRenderStatus(render.status)}
-                      </td>
-                      <td className="max-w-[8rem] min-w-0 px-3 py-2 align-middle text-muted-foreground">
-                        <span
-                          className="block truncate"
-                          title={render.model?.trim() ? render.model : undefined}
-                        >
-                          {render.model?.trim() ? render.model : "—"}
-                        </span>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 align-middle text-right text-foreground">
                         {formatCost(renderCostTotalAmount(render.cost), render.cost.currency)}
@@ -174,7 +188,14 @@ export function CostOverviewPageView() {
                         {formatRenderDuration(render)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 align-middle text-muted-foreground">
-                        {formatRenderListTimestamp(render.createdAt)}
+                        {render.startedAt
+                          ? formatRenderListTimestamp(render.startedAt)
+                          : "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 align-middle text-muted-foreground">
+                        {render.endedAt
+                          ? formatRenderListTimestamp(render.endedAt)
+                          : "—"}
                       </td>
                     </tr>
                   );

@@ -7,6 +7,7 @@ import {
   useState,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
@@ -58,8 +59,10 @@ type Props = {
   /** Fired when Remotion play/pause state changes. */
   onPlayingChange?: (playing: boolean) => void;
   playbackDisabled?: boolean;
-  /** Caption below the picture (e.g. narration cue synced to the same timeline as audio). */
+  /** One-line caption overlaid on the video (e.g. narration cue synced to the same timeline as audio). */
   outsideCaption?: string;
+  /** Rendered below the video frame and above play / scrub (e.g. current / total time). */
+  belowVideo?: ReactNode;
 };
 
 export function RenderFilmPreview({
@@ -74,6 +77,7 @@ export function RenderFilmPreview({
   onPlayingChange,
   playbackDisabled = false,
   outsideCaption,
+  belowVideo,
 }: Props) {
   const localRef = useRef<PlayerRef>(null);
   const playerRef = filmPlayerRef ?? localRef;
@@ -226,6 +230,7 @@ export function RenderFilmPreview({
   );
 
   const playheadPct = maxFrame > 0 ? (scrubFrame / maxFrame) * 100 : 0;
+  const overlayCaption = outsideCaption?.trim() ?? "";
 
   const firstScene = useMemo(() => {
     if (scenes.length === 0) return null;
@@ -256,37 +261,56 @@ export function RenderFilmPreview({
   }
 
   return (
-    <div className={cn("flex w-full min-w-0 flex-col gap-3", className)}>
-      <div
-        className="relative box-border aspect-video w-full min-h-0 overflow-hidden border-2 border-dotted border-muted-foreground/45 bg-black"
-        role="region"
-        aria-label="Film preview"
-      >
-        <Player
-          ref={playerRef}
-          key={`${totalFrames}-${stillSignature}`}
-          component={FilmComposition}
-          durationInFrames={totalFrames}
-          initialFrame={scrubFrame}
-          compositionWidth={COMPOSITION_WIDTH}
-          compositionHeight={COMPOSITION_HEIGHT}
-          fps={FILM_FPS}
-          controls={false}
-          inputProps={{ segments }}
-          style={{ width: "100%", height: "100%" }}
-          acknowledgeRemotionLicense
-        />
-      </div>
-
-      {outsideCaption != null && outsideCaption.trim() !== "" ? (
-        <p
-          className="mx-auto w-full max-w-[min(100%,42rem)] rounded-md border border-white/10 bg-black/88 px-4 py-2.5 text-center text-sm font-medium leading-snug tracking-wide text-white shadow-md [text-wrap:balance]"
-          role="status"
-          aria-live="polite"
+    <div className={cn("flex w-full min-w-0 flex-col gap-2", className)}>
+      <div className="flex min-h-0 w-full min-w-0 flex-col gap-1">
+        <div
+          className="relative box-border aspect-video w-full min-h-0 overflow-hidden border-2 border-dotted border-muted-foreground/45 bg-black"
+          role="region"
+          aria-label="Film preview"
         >
-          {outsideCaption.trim()}
-        </p>
-      ) : null}
+          <Player
+            ref={playerRef}
+            key={`${totalFrames}-${stillSignature}`}
+            component={FilmComposition}
+            durationInFrames={totalFrames}
+            initialFrame={scrubFrame}
+            compositionWidth={COMPOSITION_WIDTH}
+            compositionHeight={COMPOSITION_HEIGHT}
+            fps={FILM_FPS}
+            controls={false}
+            inputProps={{ segments }}
+            style={{ width: "100%", height: "100%" }}
+            acknowledgeRemotionLicense
+          />
+          <div
+            role="presentation"
+            aria-hidden
+            className={cn(
+              "absolute inset-0 z-[1]",
+              playbackDisabled ? "pointer-events-none" : "cursor-pointer",
+            )}
+            onClick={playbackDisabled ? undefined : togglePlay}
+          />
+          {overlayCaption !== "" ? (
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] flex justify-center px-3 pb-[min(10%,2.75rem)] pt-10"
+              role="status"
+              aria-live="polite"
+            >
+              <p
+                className="min-w-0 max-w-[calc(100%-1.5rem)] truncate whitespace-nowrap rounded bg-black/78 px-3 py-1.5 text-center text-sm font-medium tracking-wide text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.95)]"
+                title={overlayCaption}
+              >
+                {overlayCaption}
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        {belowVideo != null && belowVideo !== false ? (
+          <div className="w-full min-w-0 shrink-0 leading-none">{belowVideo}</div>
+        ) : null}
+      </div>
 
       <div className="flex w-full min-w-0 items-center gap-3">
         <button
@@ -347,7 +371,7 @@ export function RenderFilmPreview({
               ))}
             </div>
             <div
-              className="pointer-events-none absolute bottom-0 top-0 z-[1] w-px -translate-x-1/2 bg-foreground shadow-[0_0_0_1px_hsl(var(--background))]"
+              className="pointer-events-none absolute bottom-0 top-0 z-[1] w-1.5 -translate-x-1/2 rounded-sm bg-foreground shadow-[0_0_0_1px_hsl(var(--background))]"
               style={{ left: `${playheadPct}%` }}
               aria-hidden
             />

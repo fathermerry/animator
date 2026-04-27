@@ -1,17 +1,11 @@
 /** Must stay aligned with {@link STEPS} slugs in `steps.ts`. */
-const WORKFLOW_STEP_SLUGS = new Set(["studio"]);
+const WORKFLOW_STEP_SLUGS = new Set(["story", "compose"]);
 
+/** Map legacy or alternate step segments to the canonical slug. */
 function normalizeWorkflowStepSlug(step: string): string {
-  if (
-    step === "story" ||
-    step === "script" ||
-    step === "style" ||
-    step === "assets" ||
-    step === "compose" ||
-    step === "render"
-  ) {
-    return "studio";
-  }
+  if (step === "story" || step === "compose") return step;
+  if (step === "script" || step === "studio") return "story";
+  if (step === "style" || step === "assets" || step === "render" || step === "film") return "compose";
   return step;
 }
 

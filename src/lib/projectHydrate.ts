@@ -1,6 +1,17 @@
 import { renumberKitAssetsWithMaps } from "./kitAssetId";
 import { normalizeProjectConfigSeed } from "./projectConfig";
-import type { Cost, CostItem, Frame, Project, Render, RenderTargetPersisted, Scene } from "../types/project";
+import { renderTargetProviderFromEngine, targetMediaTypeFromEngine } from "./renderDisplay";
+import type {
+  Cost,
+  CostItem,
+  Frame,
+  Project,
+  Render,
+  RenderTargetMedia,
+  RenderTargetPersisted,
+  RenderTargetType,
+  Scene,
+} from "../types/project";
 import {
   createDefaultAssetBundle,
   createDefaultStyleConfig,
@@ -153,32 +164,73 @@ function reviveCost(raw: unknown): Cost {
   };
 }
 
+function isRenderTargetMedia(x: unknown): x is RenderTargetMedia {
+  return x === "image" || x === "audio" || x === "text";
+}
+
+/** Legacy: `target.type` stored workflow kind (frame, narration, …) instead of media. */
+function isWorkflowKindInTargetType(x: unknown): x is RenderTargetType {
+  return (
+    x === "frame" ||
+    x === "asset" ||
+    x === "reference" ||
+    x === "narration" ||
+    x === "script" ||
+    x === "storyboard"
+  );
+}
+
 function reviveTarget(
   r: Partial<Render> & { target?: unknown },
-  renderType: Render["type"],
+  _renderType: Render["type"],
   sceneId: string,
   kitTarget: Render["kitTarget"] | undefined,
+  engine: Render["engine"],
+  topModel: string | undefined,
 ): RenderTargetPersisted {
+  const media = targetMediaTypeFromEngine(engine);
+  const prov = renderTargetProviderFromEngine(engine);
+  const model = typeof topModel === "string" && topModel.trim() ? topModel.trim() : undefined;
   const raw = r.target;
   if (raw && typeof raw === "object") {
-    const o = raw as Partial<RenderTargetPersisted>;
+    const o = raw as Record<string, unknown>;
     const name = typeof o.name === "string" ? o.name : "";
-    const t: Render["type"] =
-      o.type === "asset" ||
-      o.type === "reference" ||
-      o.type === "narration" ||
-      o.type === "script" ||
-      o.type === "storyboard" ||
-      o.type === "frame"
-        ? o.type
-        : renderType;
     const ref =
       typeof o.referenceId === "string" && o.referenceId.trim() ? o.referenceId.trim() : undefined;
-    return { type: t, name, ...(ref ? { referenceId: ref } : {}) };
+    const tRaw = o.type;
+    if (isRenderTargetMedia(tRaw)) {
+      const p =
+        typeof o.provider === "string" && o.provider.trim() ? o.provider.trim() : prov;
+      const m =
+        typeof o.model === "string" && o.model.trim() ? o.model.trim() : model;
+      return {
+        type: tRaw,
+        name,
+        ...(ref ? { referenceId: ref } : {}),
+        provider: p,
+        ...(m ? { model: m } : {}),
+      };
+    }
+    if (isWorkflowKindInTargetType(tRaw)) {
+      return {
+        type: media,
+        name,
+        ...(ref ? { referenceId: ref } : {}),
+        provider: prov,
+        ...(model ? { model } : {}),
+        ...(ref === undefined && kitTarget
+          ? { referenceId: kitTarget.assetId }
+          : ref === undefined && sceneId.trim()
+            ? { referenceId: sceneId.trim() }
+            : {}),
+      };
+    }
   }
   return {
-    type: renderType,
+    type: media,
     name: "",
+    provider: prov,
+    ...(model ? { model } : {}),
     ...(kitTarget
       ? { referenceId: kitTarget.assetId }
       : sceneId.trim()
@@ -195,6 +247,9 @@ function inferTargetForRender(
   project: Project,
   styleConfigs: readonly StyleConfig[],
 ): RenderTargetPersisted {
+  const media = targetMediaTypeFromEngine(r.engine);
+  const prov = renderTargetProviderFromEngine(r.engine);
+  const m = r.model?.trim() || r.target.model?.trim();
   const sceneTitle = (id: string) => {
     if (!id.trim()) return "";
     return scenes.find((s) => s.id === id)?.title?.trim() || "";
@@ -204,9 +259,11 @@ function inferTargetForRender(
     case "narration": {
       const st = sceneTitle(r.sceneId);
       return {
-        type: "narration",
+        type: media,
         name: st ? `Narration · ${st}` : "Narration",
         referenceId: r.sceneId,
+        provider: prov,
+        ...(m ? { model: m } : {}),
       };
     }
     case "frame": {
@@ -214,9 +271,11 @@ function inferTargetForRender(
       const sid = f?.sceneId || r.sceneId;
       const st = sceneTitle(sid);
       return {
-        type: "frame",
+        type: media,
         name: st ? `Keyframe image · ${st}` : "Keyframe image",
+        provider: prov,
         ...(f ? { referenceId: f.id } : sid.trim() ? { referenceId: sid } : {}),
+        ...(m ? { model: m } : {}),
       };
     }
     case "asset": {
@@ -227,26 +286,42 @@ function inferTargetForRender(
           kt.kind === "characters" ? cfg?.assets.characters.find((a) => a.id === kt.assetId) : undefined;
         const n = asset?.name?.trim();
         return {
-          type: "asset",
+          type: media,
           name: n ? `Kit image · ${n}` : "Kit image",
           referenceId: kt.assetId,
+          provider: prov,
+          ...(m ? { model: m } : {}),
         };
       }
-      return { type: "asset", name: "Kit image" };
+      return { type: media, name: "Kit image", provider: prov, ...(m ? { model: m } : {}) };
     }
     case "reference": {
       const st = sceneTitle(r.sceneId);
       return {
-        type: "reference",
+        type: media,
         name: st ? `Reference · ${st}` : "Reference",
+        provider: prov,
         ...(r.sceneId.trim() ? { referenceId: r.sceneId } : {}),
+        ...(m ? { model: m } : {}),
       };
     }
     case "script": {
-      return { type: "script", name: "Script", referenceId: project.id };
+      return {
+        type: media,
+        name: "Script",
+        referenceId: project.id,
+        provider: prov,
+        ...(m ? { model: m } : {}),
+      };
     }
     case "storyboard": {
-      return { type: "storyboard", name: "Story plan", referenceId: project.id };
+      return {
+        type: media,
+        name: "Story plan",
+        referenceId: project.id,
+        provider: prov,
+        ...(m ? { model: m } : {}),
+      };
     }
   }
 }
@@ -262,11 +337,16 @@ export function enrichRenderList(
   styleConfigs: StyleConfig[],
 ): Render[] {
   return renders.map((r) => {
-    if (r.target.name.trim()) {
-      if (r.target.type !== r.type) {
-        return { ...r, target: { ...r.target, type: r.type } };
-      }
-      return r;
+    const t = r.target;
+    if (t.name.trim() && isRenderTargetMedia(t.type) && !isWorkflowKindInTargetType(t.type)) {
+      return {
+        ...r,
+        target: {
+          ...t,
+          provider: t.provider?.trim() || renderTargetProviderFromEngine(r.engine),
+          model: t.model?.trim() || r.model?.trim() || undefined,
+        },
+      };
     }
     return { ...r, target: inferTargetForRender(r, scenes, frames, project, styleConfigs) };
   });
@@ -316,6 +396,8 @@ function reviveRender(raw: unknown): Render | null {
     renderType,
     sceneIdRaw,
     kitTarget,
+    engine,
+    model,
   );
   const startedAt = reviveOptionalDate(r.startedAt);
   const endedAt = reviveOptionalDate(r.endedAt);

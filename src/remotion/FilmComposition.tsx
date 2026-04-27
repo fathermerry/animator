@@ -21,6 +21,11 @@ const EDGE_PAD = 56;
 /** Inset for the scene title in the top-left (tighter than full edge padding). */
 const SCENE_TITLE_INSET = 24;
 
+/** Strips a leading "Hook:" beat label from storyboard copy (on-screen only). */
+function stripLeadingHookLabel(s: string): string {
+  return s.replace(/^\s*Hook\s*:\s*/i, "").trim();
+}
+
 function PlateLayer({ background }: { background: Background }) {
   const bgHex = normalizeHex(background.color);
   const bgSrc = background.src?.trim();
@@ -132,6 +137,8 @@ function CenteredAssetLine({
 function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
   const { assetBundle, sceneTitle, frameDescription, characters } = segment;
   const still = segment.stillSrc?.trim() ?? "";
+  const sceneTitleForDisplay = stripLeadingHookLabel(sceneTitle);
+  const frameDescriptionForDisplay = stripLeadingHookLabel(frameDescription);
 
   /** Generated keyframe: show only the image (no titles, staging copy, or kit overlay). */
   if (still) {
@@ -191,7 +198,7 @@ function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
         }}
       >
         <p style={{ ...sceneCorner, position: "absolute", top: SCENE_TITLE_INSET, left: SCENE_TITLE_INSET, zIndex: 1 }}>
-          {sceneTitle.trim() || "—"}
+          {sceneTitleForDisplay.trim() || "—"}
         </p>
 
         <div
@@ -218,7 +225,7 @@ function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
               boxSizing: "border-box",
             }}
           >
-            {frameDescription.trim() ? (
+            {frameDescriptionForDisplay.trim() ? (
               <p
                 style={{
                   ...body,
@@ -229,7 +236,7 @@ function FilmSegmentContent({ segment }: { segment: FilmSegmentInput }) {
                   whiteSpace: "pre-wrap",
                 }}
               >
-                {frameDescription}
+                {frameDescriptionForDisplay}
               </p>
             ) : (
               <p style={{ ...body, textAlign: "center", opacity: 0.45 }}>—</p>

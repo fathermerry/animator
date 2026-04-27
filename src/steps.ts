@@ -9,11 +9,16 @@ export type Step = {
 
 export const STEPS: readonly Step[] = [
   {
-    slug: "studio",
-    label: "Studio",
-    title: "Studio",
-    body:
-      "One studio for story, script, keyframes, timing, and build preview.",
+    slug: "story",
+    label: "Story",
+    title: "Story",
+    body: "Write the narrative and high-level plan for the film.",
+  },
+  {
+    slug: "compose",
+    label: "Compose",
+    title: "Compose",
+    body: "Shots, keyframes, timing, and build preview.",
   },
 ] as const;
 

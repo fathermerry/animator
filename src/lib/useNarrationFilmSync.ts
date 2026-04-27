@@ -16,9 +16,11 @@ export function useNarrationFilmSync(
   filmPlaying: boolean,
 ): void {
   const startedPlaybackRef = useRef(false);
+  const lastElapsedRef = useRef<number | null>(null);
 
   useEffect(() => {
     startedPlaybackRef.current = false;
+    lastElapsedRef.current = null;
   }, [narrationSrc]);
 
   useEffect(() => {
@@ -37,23 +39,39 @@ export function useNarrationFilmSync(
             Math.max(0, playbackWithin.elapsedInSceneSeconds / playbackWithin.sceneFilmDurationSeconds),
           )
         : 0;
+    const elapsed = playbackWithin.elapsedInSceneSeconds;
 
     const apply = () => {
       if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
       const target = ratio * audio.duration;
+      const desiredPlaybackRate =
+        playbackWithin.sceneFilmDurationSeconds > 0
+          ? audio.duration / playbackWithin.sceneFilmDurationSeconds
+          : 1;
+      audio.playbackRate =
+        Number.isFinite(desiredPlaybackRate) && desiredPlaybackRate > 0
+          ? Math.min(4, Math.max(0.25, desiredPlaybackRate))
+          : 1;
 
       if (!filmPlaying) {
         startedPlaybackRef.current = false;
+        lastElapsedRef.current = elapsed;
         if (Math.abs(audio.currentTime - target) > 0.02) audio.currentTime = target;
         audio.pause();
         return;
       }
 
+      const lastElapsed = lastElapsedRef.current;
+      const jumped =
+        lastElapsed != null &&
+        Math.abs(elapsed - lastElapsed - 1 / 30) > 0.35;
+      lastElapsedRef.current = elapsed;
+
       if (!startedPlaybackRef.current) {
         startedPlaybackRef.current = true;
         if (Math.abs(audio.currentTime - target) > 0.12) audio.currentTime = target;
         void audio.play().catch(() => {});
-      } else if (Math.abs(audio.currentTime - target) > 0.4) {
+      } else if (jumped && Math.abs(audio.currentTime - target) > 0.12) {
         audio.currentTime = target;
       }
     };

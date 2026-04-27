@@ -19,14 +19,23 @@ export type RenderKitTarget =
   | { kind: "objects"; assetId: string };
 
 /**
- * What a billable render row is for: saved with the model for cost/exports (not only derived from scenes/frames at read time).
- * {@link Render.type} remains the app’s discriminator; `type` here must match and is included for a stable, self-describing document.
+ * What was generated for cost/history. Distinct from {@link Render.type} (workflow: frame, narration, script, etc.).
+ */
+export type RenderTargetMedia = "image" | "audio" | "text";
+
+/**
+ * What a billable run produced — saved on the model for cost/exports.
+ * `type` is the output modality (image vs audio). Text (script/story plan) uses `"text"`.
+ * {@link Render.model} is duplicated at the top level for the active engine; `target.model` is the same for portable rows.
  */
 export type RenderTargetPersisted = {
-  type: RenderTargetType;
+  type: RenderTargetMedia;
   name: string;
-  /** Frame id, scene id, asset id, project id, or other id depending on {@link RenderTargetType}. */
+  /** Frame id, scene id, asset id, project id, etc. */
   referenceId?: string;
+  /** e.g. `openai`, `remotion`, `three` */
+  provider: string;
+  model?: string;
 };
 
 export type Render = {
