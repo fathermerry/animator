@@ -249,7 +249,7 @@ export function CostActivityFloatingDock({
       <ul className="flex list-none flex-col gap-0 p-0" role="list">
         {displayedRenders.map((r) => {
           const expanded = expandedRenderId === r.id;
-          const rowTitle = frameRowTitle(r);
+          const rowTitle = r.target.name?.trim() ? r.target.name : frameRowTitle(r);
           return (
             <li key={r.id} className="flex flex-col" role="listitem">
               <button

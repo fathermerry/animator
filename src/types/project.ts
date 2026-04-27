@@ -18,6 +18,17 @@ export type RenderKitTarget =
   /** Legacy renders from older projects; no longer produced. */
   | { kind: "objects"; assetId: string };
 
+/**
+ * What a billable render row is for: saved with the model for cost/exports (not only derived from scenes/frames at read time).
+ * {@link Render.type} remains the app’s discriminator; `type` here must match and is included for a stable, self-describing document.
+ */
+export type RenderTargetPersisted = {
+  type: RenderTargetType;
+  name: string;
+  /** Frame id, scene id, asset id, project id, or other id depending on {@link RenderTargetType}. */
+  referenceId?: string;
+};
+
 export type Render = {
   id: string;
   projectId: string;
@@ -27,6 +38,7 @@ export type Render = {
   status: "pending" | "processing" | "complete" | "failed";
   cost: Cost;
   createdAt: Date;
+  target: RenderTargetPersisted;
   /** When this render entered `processing` (work started). */
   startedAt?: Date;
   /** When this render finished (`complete` or `failed`). */

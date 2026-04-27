@@ -9,7 +9,7 @@ import {
 } from "@/lib/projectIndexedDb";
 import {
   formatCost,
-  formatCostListTarget,
+  formatRenderTargetListLabel,
   renderCostTotalAmount,
   sumRenderCosts,
   formatEngine,
@@ -139,8 +139,8 @@ export function CostOverviewPageView() {
               </thead>
               <tbody>
                 {rows.map((row) => {
-                  const { render, projectLabel, sceneTitle } = row;
-                  const targetLabel = formatCostListTarget(render, sceneTitle);
+                  const { render, projectLabel } = row;
+                  const targetLabel = formatRenderTargetListLabel(render);
                   return (
                     <tr key={render.id} className="border-b border-border last:border-b-0">
                       <td className="max-w-[12rem] min-w-0 px-3 py-2 align-middle text-foreground">

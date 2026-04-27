@@ -36,6 +36,7 @@ function mkRender(partial: Partial<Render> & Pick<Render, "id" | "sceneId">): Re
     status: "complete",
     cost: baseCost,
     createdAt: new Date(),
+    target: { type: "frame", name: "T" },
     ...partial,
   } as Render;
 }

@@ -14,6 +14,7 @@ function render(partial: Partial<Render> & Pick<Render, "id">): Render {
     status: "complete",
     cost: baseCost,
     createdAt: new Date(),
+    target: { type: "frame", name: "T" },
     ...partial,
   } as Render;
 }
@@ -33,7 +34,12 @@ describe("findRender", () => {
   it("returns the render matching frame.renderId with type frame", () => {
     const r = render({ id: "r1" });
     const f = frame({ id: "f1", renderId: "r1" });
-    expect(findRender([r, render({ id: "r2", type: "narration" })], f)).toEqual(r);
+    expect(
+      findRender(
+        [r, render({ id: "r2", type: "narration", target: { type: "narration", name: "N" } })],
+        f,
+      ),
+    ).toEqual(r);
   });
 
   it("returns undefined when no frame render matches", () => {
@@ -42,7 +48,7 @@ describe("findRender", () => {
   });
 
   it("ignores renders with non-frame type even when ids match", () => {
-    const r = render({ id: "r1", type: "narration" });
+    const r = render({ id: "r1", type: "narration", target: { type: "narration", name: "N" } });
     const f = frame({ id: "f1", renderId: "r1" });
     expect(findRender([r], f)).toBeUndefined();
   });

@@ -1,6 +1,6 @@
 import { renumberKitAssetsWithMaps } from "./kitAssetId";
 import { normalizeProjectConfigSeed } from "./projectConfig";
-import type { Cost, CostItem, Frame, Project, Render, Scene } from "../types/project";
+import type { Cost, CostItem, Frame, Project, Render, RenderTargetPersisted, Scene } from "../types/project";
 import {
   createDefaultAssetBundle,
   createDefaultStyleConfig,
@@ -153,6 +153,125 @@ function reviveCost(raw: unknown): Cost {
   };
 }
 
+function reviveTarget(
+  r: Partial<Render> & { target?: unknown },
+  renderType: Render["type"],
+  sceneId: string,
+  kitTarget: Render["kitTarget"] | undefined,
+): RenderTargetPersisted {
+  const raw = r.target;
+  if (raw && typeof raw === "object") {
+    const o = raw as Partial<RenderTargetPersisted>;
+    const name = typeof o.name === "string" ? o.name : "";
+    const t: Render["type"] =
+      o.type === "asset" ||
+      o.type === "reference" ||
+      o.type === "narration" ||
+      o.type === "script" ||
+      o.type === "storyboard" ||
+      o.type === "frame"
+        ? o.type
+        : renderType;
+    const ref =
+      typeof o.referenceId === "string" && o.referenceId.trim() ? o.referenceId.trim() : undefined;
+    return { type: t, name, ...(ref ? { referenceId: ref } : {}) };
+  }
+  return {
+    type: renderType,
+    name: "",
+    ...(kitTarget
+      ? { referenceId: kitTarget.assetId }
+      : sceneId.trim()
+        ? { referenceId: sceneId.trim() }
+        : {}),
+  };
+}
+
+/** Fill or refresh {@link Render.target} using scenes, frames, and the active style config (for legacy or empty rows). */
+function inferTargetForRender(
+  r: Render,
+  scenes: readonly Scene[],
+  frames: readonly Frame[],
+  project: Project,
+  styleConfigs: readonly StyleConfig[],
+): RenderTargetPersisted {
+  const sceneTitle = (id: string) => {
+    if (!id.trim()) return "";
+    return scenes.find((s) => s.id === id)?.title?.trim() || "";
+  };
+
+  switch (r.type) {
+    case "narration": {
+      const st = sceneTitle(r.sceneId);
+      return {
+        type: "narration",
+        name: st ? `Narration · ${st}` : "Narration",
+        referenceId: r.sceneId,
+      };
+    }
+    case "frame": {
+      const f = frames.find((fr) => fr.renderId === r.id);
+      const sid = f?.sceneId || r.sceneId;
+      const st = sceneTitle(sid);
+      return {
+        type: "frame",
+        name: st ? `Keyframe image · ${st}` : "Keyframe image",
+        ...(f ? { referenceId: f.id } : sid.trim() ? { referenceId: sid } : {}),
+      };
+    }
+    case "asset": {
+      const kt = r.kitTarget;
+      if (kt) {
+        const cfg = styleConfigs.find((c) => c.id === project.styleConfigId) ?? styleConfigs[0];
+        const asset: KitAsset | undefined =
+          kt.kind === "characters" ? cfg?.assets.characters.find((a) => a.id === kt.assetId) : undefined;
+        const n = asset?.name?.trim();
+        return {
+          type: "asset",
+          name: n ? `Kit image · ${n}` : "Kit image",
+          referenceId: kt.assetId,
+        };
+      }
+      return { type: "asset", name: "Kit image" };
+    }
+    case "reference": {
+      const st = sceneTitle(r.sceneId);
+      return {
+        type: "reference",
+        name: st ? `Reference · ${st}` : "Reference",
+        ...(r.sceneId.trim() ? { referenceId: r.sceneId } : {}),
+      };
+    }
+    case "script": {
+      return { type: "script", name: "Script", referenceId: project.id };
+    }
+    case "storyboard": {
+      return { type: "storyboard", name: "Story plan", referenceId: project.id };
+    }
+  }
+}
+
+/**
+ * When loading project JSON, ensure every render has a concrete {@link Render.target} (name + optional reference id).
+ */
+export function enrichRenderList(
+  renders: Render[],
+  scenes: Scene[],
+  frames: Frame[],
+  project: Project,
+  styleConfigs: StyleConfig[],
+): Render[] {
+  return renders.map((r) => {
+    if (r.target.name.trim()) {
+      if (r.target.type !== r.type) {
+        return { ...r, target: { ...r.target, type: r.type } };
+      }
+      return r;
+    }
+    return { ...r, target: inferTargetForRender(r, scenes, frames, project, styleConfigs) };
+  });
+}
+
 function reviveRender(raw: unknown): Render | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Partial<Render>;
@@ -192,6 +311,12 @@ function reviveRender(raw: unknown): Render | null {
   ) {
     kitTarget = { kind: ktRaw.kind, assetId: ktRaw.assetId.trim() };
   }
+  const target = reviveTarget(
+    { ...r, type: renderType, sceneId: sceneIdRaw },
+    renderType,
+    sceneIdRaw,
+    kitTarget,
+  );
   const startedAt = reviveOptionalDate(r.startedAt);
   const endedAt = reviveOptionalDate(r.endedAt);
   return {
@@ -203,6 +328,7 @@ function reviveRender(raw: unknown): Render | null {
     status,
     cost: reviveCost(r.cost),
     createdAt: reviveDate(r.createdAt),
+    target,
     ...(startedAt ? { startedAt } : {}),
     ...(endedAt ? { endedAt } : {}),
     ...(model ? { model } : {}),
@@ -355,9 +481,6 @@ export function projectFromConfigJson(raw: unknown): HydratedProjectBundle {
     characterIds: s.characterIds.map((id) => characterIdMap.get(id) ?? id),
   }));
 
-  const rendersRaw = Array.isArray(o.renders) ? o.renders : [];
-  const renders = rendersRaw.map(reviveRender).filter((x): x is Render => x !== null);
-
   const framesRaw = Array.isArray(o.frames) ? o.frames : [];
   const frames = framesRaw.map(reviveFrame).filter((x): x is Frame => x !== null);
 
@@ -374,6 +497,10 @@ export function projectFromConfigJson(raw: unknown): HydratedProjectBundle {
     styleConfigId,
     ...(fileLabel ? { fileLabel } : {}),
   };
+
+  const rendersRaw = Array.isArray(o.renders) ? o.renders : [];
+  const rendersRebuilt = rendersRaw.map(reviveRender).filter((x): x is Render => x !== null);
+  const renders = enrichRenderList(rendersRebuilt, scenes, frames, project, styleConfigs);
 
   return { project, styleConfigs, scenes, renders, frames };
 }

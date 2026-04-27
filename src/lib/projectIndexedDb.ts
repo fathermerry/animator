@@ -1,7 +1,7 @@
 import { buildDefaultProjectBundle } from "@/data/defaultProjectSeed";
 import { idbKvDelete, idbKvGet, idbKvSet, openAnimatorDb, PROJECTS_STORE } from "@/lib/indexedDbKv";
 import { isStructuralFrameShellRender } from "@/lib/renderDisplay";
-import { projectFromConfigJson } from "@/lib/projectHydrate";
+import { enrichRenderList, projectFromConfigJson } from "@/lib/projectHydrate";
 import {
   type LegacyPersistableProjectSlice,
   migratePersistableProjectSlice,
@@ -145,15 +145,32 @@ export async function listAllRendersAcrossProjects(): Promise<RenderListRow[]> {
   const records = await projectStoreGetAll();
   const out: RenderListRow[] = [];
   for (const row of records) {
-    const p = row.slice.project;
+    const migrated = migratePersistableProjectSlice(
+      row.slice as PersistableProjectSlice | LegacyPersistableProjectSlice,
+    );
+    const withTargetPlaceholders: Render[] = migrated.renders.map((r) => {
+      const t = (r as { target?: { name?: string } }).target;
+      if (t && typeof t === "object" && typeof t.name === "string") {
+        return r as Render;
+      }
+      return { ...(r as object), target: { type: (r as Render).type, name: "" } } as Render;
+    });
+    const renders = enrichRenderList(
+      withTargetPlaceholders,
+      migrated.scenes,
+      migrated.frames,
+      migrated.project,
+      migrated.styleConfigs,
+    );
+    const p = migrated.project;
     const projectLabel = p.fileLabel?.trim() || p.name?.trim() || "Untitled";
-    const scenes = row.slice.scenes;
-    for (const raw of row.slice.renders) {
-      const render = coerceRenderCreatedAt(raw);
-      if (isStructuralFrameShellRender(render)) continue;
-      const scene = scenes.find((s) => s.id === render.sceneId);
+    const scenes = migrated.scenes;
+    for (const render of renders) {
+      const r = coerceRenderCreatedAt(render);
+      if (isStructuralFrameShellRender(r)) continue;
+      const scene = scenes.find((s) => s.id === r.sceneId);
       out.push({
-        render,
+        render: r,
         projectId: p.id,
         projectLabel,
         sceneTitle: scene?.title?.trim() ? scene.title.trim() : null,
@@ -167,7 +184,26 @@ export async function listAllRendersAcrossProjects(): Promise<RenderListRow[]> {
 export async function getProjectSlice(id: string): Promise<PersistableProjectSlice | null> {
   const row = await projectStoreGet(id);
   if (!row?.slice) return null;
-  return migratePersistableProjectSlice(row.slice as PersistableProjectSlice | LegacyPersistableProjectSlice);
+  const migrated = migratePersistableProjectSlice(
+    row.slice as PersistableProjectSlice | LegacyPersistableProjectSlice,
+  );
+  const withTargetPlaceholders: Render[] = migrated.renders.map((r) => {
+    const t = (r as { target?: { name?: string } }).target;
+    if (t && typeof t === "object" && typeof t.name === "string") {
+      return r as Render;
+    }
+    return { ...(r as object), target: { type: (r as Render).type, name: "" } } as Render;
+  });
+  return {
+    ...migrated,
+    renders: enrichRenderList(
+      withTargetPlaceholders,
+      migrated.scenes,
+      migrated.frames,
+      migrated.project,
+      migrated.styleConfigs,
+    ),
+  };
 }
 
 export async function putProjectSlice(slice: PersistableProjectSlice): Promise<void> {

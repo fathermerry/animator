@@ -288,6 +288,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     const renderId = crypto.randomUUID();
     const zeroCost: Render["cost"] = { amount: 0, currency: "USD", breakdown: [] };
     const kitStarted = new Date();
+    const assetName = asset.name?.trim();
     const newRender: Render = {
       id: renderId,
       projectId: project.id,
@@ -298,6 +299,11 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       cost: zeroCost,
       createdAt: kitStarted,
       startedAt: kitStarted,
+      target: {
+        type: "asset",
+        name: assetName ? `Kit image · ${assetName}` : "Kit image",
+        referenceId: asset.id,
+      },
       kitTarget: { kind, assetId: asset.id },
     };
     set((s) => ({ renders: [...s.renders, newRender] }));
@@ -488,6 +494,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         cost: zeroCost,
         createdAt: startedAt,
         startedAt,
+        target: { type: "script", name: "Script", referenceId: project.id },
       };
       set((s) => ({ renders: [...s.renders, pendingRender] }));
       try {
@@ -662,6 +669,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         cost: zeroCost,
         createdAt: startedAt,
         startedAt,
+        target: { type: "storyboard", name: "Story plan", referenceId: project.id },
       };
       set((s) => ({ renders: [...s.renders, pendingRender] }));
 
@@ -690,6 +698,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
           sc.frames.forEach((fr, frameIndex) => {
             const renderId = crypto.randomUUID();
             const frameId = crypto.randomUUID();
+            const sceneLabel = sc.title?.trim() || "Scene";
             nextRenders.push({
               id: renderId,
               projectId: project.id,
@@ -699,6 +708,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
               status: "complete",
               cost: zeroCost,
               createdAt: now,
+              target: { type: "frame", name: `Keyframe image · ${sceneLabel}`, referenceId: frameId },
             });
             nextFrames.push({
               id: frameId,
@@ -755,6 +765,8 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
 
     addNarrationRender: (sceneId, model, cost, startedAt) => {
       const project = get().project;
+      const scene = get().scenes.find((s) => s.id === sceneId);
+      const st = scene?.title?.trim() ?? "";
       const endedAt = new Date();
       const render: Render = {
         id: crypto.randomUUID(),
@@ -768,6 +780,11 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
         createdAt: startedAt,
         startedAt,
         endedAt,
+        target: {
+          type: "narration",
+          name: st ? `Narration · ${st}` : "Narration",
+          referenceId: sceneId,
+        },
       };
       set((s) => ({ renders: [...s.renders, render] }));
     },
