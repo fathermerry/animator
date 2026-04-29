@@ -95,3 +95,18 @@ export function downloadPersistableProjectSlice(slice: PersistableProjectSlice):
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/** Trigger a browser download of only the story markdown body. */
+export function downloadStoryMarkdown(project: Project): void {
+  const raw = project.fileLabel?.trim() || project.name?.trim() || "story";
+  const base = raw.replace(/\.md$/i, "");
+  const safe = base.replace(/[^\w\-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80) || "story";
+  const blob = new Blob([project.prompt], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safe}.md`;
+  a.rel = "noopener";
+  a.click();
+  URL.revokeObjectURL(url);
+}

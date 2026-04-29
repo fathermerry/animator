@@ -23,6 +23,7 @@ import {
 import type { PersistableProjectSlice } from "../lib/projectPersistence";
 import { requestSceneNarration } from "../lib/narrationApi";
 import { requestFrameImageRender } from "../lib/renderFrameApi";
+import type { ExportRenderQuality } from "../lib/exportRenderQuality";
 import { buildRenderFilmTimeline } from "../lib/renderFilmTimeline";
 import { renderTargetProviderFromEngine, targetMediaTypeFromEngine } from "../lib/renderDisplay";
 import { requestScriptGeneration } from "../lib/scriptApi";
@@ -102,7 +103,7 @@ export type ProjectState = {
   ensureDraftProject: () => string;
   setPromptText: (text: string) => void;
   setScriptText: (text: string) => void;
-  requestScriptGeneration: () => Promise<void>;
+  requestScriptGeneration: (storyOverride?: string) => Promise<void>;
   updateStyle: (recipe: (bundle: AssetBundle) => AssetBundle) => void;
   patchScene: (sceneId: string, patch: Partial<Scene>) => void;
   patchFrame: (frameId: string, patch: Partial<Frame>) => void;
@@ -115,7 +116,10 @@ export type ProjectState = {
   requestFrameRender: (frameId: string, modelId?: OpenAiImageModelId) => Promise<void>;
   /** Generate images for frames that are empty or still using the placeholder (keyframes and transitions), in project order. */
   requestFullFilmRender: (modelId?: OpenAiImageModelId) => Promise<void>;
-  requestExportJob: (modelId?: OpenAiImageModelId) => Promise<void>;
+  requestExportJob: (options: {
+    quality: ExportRenderQuality;
+    includeSubtitles: boolean;
+  }) => Promise<void>;
   /** Re-run the image model for every project frame (keyframes and transitions), in scene order. */
   requestRerenderAllFrames: (modelId?: OpenAiImageModelId) => Promise<void>;
   /** Generate one style-kit still (character or object) via the image API. */
@@ -147,7 +151,7 @@ export type ExportJob = {
   startedAt?: Date;
   endedAt?: Date;
   error?: string;
-  /** App path to the finished MP4 (e.g. `/exports/…mp4`); play or save via same origin. */
+  /** App path to the finished ZIP (`/exports/…zip` with video + SRT). */
   downloadPath?: string;
 };
 
@@ -483,9 +487,9 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       }));
     },
 
-    requestScriptGeneration: async () => {
+    requestScriptGeneration: async (storyOverride) => {
       const project = get().project;
-      const story = project.prompt.trim();
+      const story = (storyOverride ?? project.prompt).trim();
       if (!story) return;
       const startedAt = new Date();
       const renderId = crypto.randomUUID();
@@ -514,7 +518,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
           story,
         });
         set((s) => ({
-          project: { ...s.project, script: data.script },
+          project: { ...s.project, prompt: data.script, script: data.script },
           renders: s.renders.map((r) =>
             r.id === renderId
               ? {
@@ -871,8 +875,8 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       }
     },
 
-    requestExportJob: async (modelIdParam) => {
-      void modelIdParam;
+    requestExportJob: async (options) => {
+      const { quality, includeSubtitles } = options;
       const jobId = crypto.randomUUID();
       const createdAt = new Date();
       const startedAt = new Date();
@@ -898,16 +902,33 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
           }
           const assetBaseUrl = window.location.origin;
           const fileLabel = get().project.name?.trim() || "film";
-          const scenes = get().scenes.map((s) => ({
+          const storeScenes = get().scenes;
+          const scenes = storeScenes.map((s) => ({
             id: s.id,
             ...(s.narrationAudioSrc?.trim()
               ? { narrationAudioSrc: s.narrationAudioSrc.trim() }
               : {}),
           }));
+          const exportScenes = storeScenes.map((s) => ({
+            id: s.id,
+            index: s.index,
+            durationSeconds: s.durationSeconds,
+            title: s.title,
+            voiceoverText: s.voiceoverText,
+            description: s.description,
+          }));
           const res = await fetch("/api/export-film", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ segments, scenes, assetBaseUrl, fileLabel }),
+            body: JSON.stringify({
+              segments,
+              scenes,
+              exportScenes,
+              assetBaseUrl,
+              fileLabel,
+              quality,
+              includeSubtitles,
+            }),
           });
           const text = await res.text();
           if (!res.ok) {
@@ -920,7 +941,10 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
             }
             throw new Error(message);
           }
-          const { publicPath } = JSON.parse(text) as { publicPath?: string };
+          const { publicPath, outputKind } = JSON.parse(text) as {
+            publicPath?: string;
+            outputKind?: "mp4" | "zip";
+          };
           if (typeof publicPath !== "string" || !publicPath.startsWith("/")) {
             throw new Error("Invalid export response");
           }
@@ -934,7 +958,9 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
           }));
           const a = document.createElement("a");
           a.href = new URL(publicPath, window.location.origin).href;
-          a.download = publicPath.split("/").pop() ?? "film.mp4";
+          a.download =
+            publicPath.split("/").pop() ??
+            (outputKind === "mp4" ? "export.mp4" : "export.zip");
           a.rel = "noopener";
           a.target = "_blank";
           document.body.appendChild(a);

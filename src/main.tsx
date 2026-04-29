@@ -2,7 +2,6 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import App from "./App";
-import { hydrateProjectFromStorage } from "./bootstrapProject";
 import { attachProjectStorageToStore } from "./lib/projectStorage";
 import { useProjectStore } from "./store/projectStore";
 import "./index.css";
@@ -30,13 +29,7 @@ function renderApp() {
 }
 
 try {
-  void hydrateProjectFromStorage()
-    .catch((e) => {
-      console.error(e);
-    })
-    .finally(() => {
-      renderApp();
-    });
+  renderApp();
 } catch (err) {
   const msg = err instanceof Error ? `${err.name}: ${err.message}\n${err.stack ?? ""}` : String(err);
   showFatal(msg);

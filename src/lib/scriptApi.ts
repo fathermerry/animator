@@ -1,4 +1,5 @@
 import type { Cost } from "@/types/project";
+import { jsonApiHeaders } from "@/lib/apiAuthHeaders";
 
 export type ScriptRequestBody = {
   projectId: string;
@@ -17,7 +18,7 @@ export async function requestScriptGeneration(
 ): Promise<ScriptResponse> {
   const res = await fetch("/api/script", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await jsonApiHeaders(),
     body: JSON.stringify({
       projectId: body.projectId,
       story: body.story,

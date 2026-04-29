@@ -1,10 +1,14 @@
-import { mkdir } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { mkdir, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import archiver from "archiver";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 
+import { getCrfForExportQuality, type ExportRenderQuality } from "../src/lib/exportRenderQuality.ts";
+import { buildSceneVoiceoverSrt, type SceneSrtInput } from "../src/lib/buildFilmSrt.ts";
 import { buildNarrationExportClips } from "../src/lib/filmNarrationExport.ts";
 import { absolutizeFilmExportSegments, absolutizeNarrationSceneMeta } from "../src/lib/filmExportUrls.ts";
 import type { FilmSegmentInput } from "../src/lib/renderFilmTimeline.ts";
@@ -48,23 +52,52 @@ function safeFileSegment(s: string): string {
   return s.replace(/[^\w\-.()]+/g, "-").replace(/^-+|-+$/g, "") || "export";
 }
 
-export type RenderFilmToMp4Result = {
-  /** URL path the browser can open (e.g. `/exports/foo.mp4`) */
+export type FilmExportResult = {
   publicPath: string;
-  absoluteFilePath: string;
+  outputKind: "mp4" | "zip";
 };
 
+async function createZipWithVideoAndSrt(
+  videoAbsolutePath: string,
+  srtText: string,
+  zipPath: string,
+  baseName: string,
+): Promise<void> {
+  const out = createWriteStream(zipPath);
+  const archive = archiver("zip", { zlib: { level: 9 } });
+  const done = new Promise<void>((resolve, reject) => {
+    out.on("close", () => resolve());
+    out.on("error", reject);
+    archive.on("error", reject);
+  });
+  archive.pipe(out);
+  archive.file(videoAbsolutePath, { name: `${baseName}.mp4` });
+  archive.append(srtText, { name: `${baseName}.srt` });
+  await archive.finalize();
+  await done;
+}
+
 /**
- * Renders the film Remotion composition to an H.264 MP4 and writes it under `public/exports/`.
+ * Renders the full film, then either publishes an MP4 only or a ZIP of MP4 + SRT.
  */
-export async function renderFilmToMp4(options: {
+export async function exportFilm(options: {
   segments: FilmSegmentInput[];
-  /** Scene ids and narration MP3 paths (as stored in the project; absolutized for Remotion). */
   scenes: { id: string; narrationAudioSrc?: string }[];
+  exportScenes: SceneSrtInput[];
   assetBaseUrl: string;
   fileLabel: string;
-}): Promise<RenderFilmToMp4Result> {
-  const { assetBaseUrl, fileLabel, segments: raw, scenes: rawScenes } = options;
+  quality: ExportRenderQuality;
+  includeSubtitles: boolean;
+}): Promise<FilmExportResult> {
+  const {
+    assetBaseUrl,
+    fileLabel,
+    segments: raw,
+    scenes: rawScenes,
+    exportScenes,
+    quality,
+    includeSubtitles,
+  } = options;
   const segments = absolutizeFilmExportSegments(raw, assetBaseUrl);
   const sceneMeta = absolutizeNarrationSceneMeta(rawScenes, assetBaseUrl);
   if (segments.length === 0) {
@@ -80,8 +113,10 @@ export async function renderFilmToMp4(options: {
   const outDir = path.join(repoRoot, "public", "exports");
   await mkdir(outDir, { recursive: true });
   const baseName = safeFileSegment(fileLabel.trim() || "film");
-  const outName = `${baseName}-${Date.now()}.mp4`;
-  const outPath = path.join(outDir, outName);
+  const stamp = Date.now();
+  const videoName = `${baseName}-render-${stamp}.mp4`;
+  const videoPath = path.join(outDir, videoName);
+  const crf = getCrfForExportQuality(quality);
 
   const inputProps: FilmForExportProps = { segments, narrationClips };
   const composition = await selectComposition({
@@ -96,12 +131,26 @@ export async function renderFilmToMp4(options: {
     composition,
     inputProps,
     codec: "h264",
-    outputLocation: outPath,
+    crf,
+    outputLocation: videoPath,
     logLevel: "error",
   });
 
-  return {
-    publicPath: `/exports/${outName}`,
-    absoluteFilePath: outPath,
-  };
+  if (!includeSubtitles) {
+    const outName = `${baseName}-${stamp}.mp4`;
+    const outPath = path.join(outDir, outName);
+    await rename(videoPath, outPath);
+    return { publicPath: `/exports/${outName}`, outputKind: "mp4" };
+  }
+
+  const srt = buildSceneVoiceoverSrt(exportScenes);
+  const zipName = `${baseName}-${stamp}.zip`;
+  const zipPath = path.join(outDir, zipName);
+  await createZipWithVideoAndSrt(videoPath, srt, zipPath, baseName);
+  try {
+    await unlink(videoPath);
+  } catch {
+    /* best-effort */
+  }
+  return { publicPath: `/exports/${zipName}`, outputKind: "zip" };
 }

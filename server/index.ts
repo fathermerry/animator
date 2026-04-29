@@ -2,21 +2,31 @@ import "dotenv/config";
 
 import cors from "cors";
 import express from "express";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import OpenAI from "openai";
+import { createClient } from "@supabase/supabase-js";
 
 import { SAMPLE_PROJECT_ID } from "../src/lib/sampleProject.ts";
+import type { SceneSrtInput } from "../src/lib/buildFilmSrt.ts";
+import { isExportRenderQuality, type ExportRenderQuality } from "../src/lib/exportRenderQuality.ts";
 import type { FilmSegmentInput } from "../src/lib/renderFilmTimeline.ts";
-import { renderFilmToMp4 } from "./renderFilmExport.ts";
+import { exportFilm } from "./renderFilmExport.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const publicRenders = path.join(repoRoot, "public", "renders");
+const promptsDir = path.join(repoRoot, "prompts");
 
 const PORT = Number(process.env.RENDER_API_PORT ?? 8787);
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+const supabase = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
+  : null;
 
 /** OpenAI Images `prompt` max length (same as client-side assembly). */
 const OPENAI_IMAGE_PROMPT_MAX_CHARS = 4000;
@@ -25,11 +35,61 @@ const OPENAI_IMAGE_PROMPT_MAX_CHARS = 4000;
 const OPENAI_TTS_INPUT_MAX_CHARS = 4096;
 const OPENAI_STORY_INPUT_MAX_CHARS = 12000;
 
+const systemPromptCache = new Map<string, string>();
+
+async function readSystemPrompt(fileName: string): Promise<string> {
+  const cached = systemPromptCache.get(fileName);
+  if (cached) return cached;
+  const prompt = (await readFile(path.join(promptsDir, fileName), "utf8")).trim();
+  systemPromptCache.set(fileName, prompt);
+  return prompt;
+}
+
 type Cost = {
   amount: number;
   currency: string;
   breakdown: { label: string; amount: number }[];
 };
+
+type UsageEventInput = {
+  projectId: string;
+  renderId?: string;
+  provider: string;
+  model: string;
+  eventType: string;
+  cost: Cost;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  inputCharacters?: number;
+  imageCount?: number;
+  audioSeconds?: number;
+  metadata?: Record<string, unknown>;
+};
+
+async function recordUsageEvent(_req: express.Request, event: UsageEventInput): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from("usage_events").insert({
+    user_id: null,
+    project_id: event.projectId,
+    render_id: event.renderId ?? null,
+    provider: event.provider,
+    model: event.model,
+    event_type: event.eventType,
+    input_tokens: Math.max(0, Math.floor(event.inputTokens ?? 0)),
+    output_tokens: Math.max(0, Math.floor(event.outputTokens ?? 0)),
+    total_tokens: Math.max(0, Math.floor(event.totalTokens ?? 0)),
+    input_characters: Math.max(0, Math.floor(event.inputCharacters ?? 0)),
+    image_count: Math.max(0, Math.floor(event.imageCount ?? 0)),
+    audio_seconds: Math.max(0, event.audioSeconds ?? 0),
+    cost_amount: event.cost.amount,
+    cost_currency: event.cost.currency,
+    metadata: event.metadata ?? {},
+  });
+  if (error) {
+    console.warn("Usage event insert failed", error.message);
+  }
+}
 
 function clampPromptForOpenAiImages(prompt: string): string {
   if (prompt.length <= OPENAI_IMAGE_PROMPT_MAX_CHARS) return prompt;
@@ -234,8 +294,11 @@ app.post("/api/export-film", async (req, res) => {
     const body = req.body as {
       segments?: unknown;
       scenes?: unknown;
+      exportScenes?: unknown;
       assetBaseUrl?: string;
       fileLabel?: string;
+      quality?: unknown;
+      includeSubtitles?: unknown;
     };
     const assetBaseUrl = typeof body.assetBaseUrl === "string" ? body.assetBaseUrl.trim() : "";
     const fileLabel = typeof body.fileLabel === "string" ? body.fileLabel.trim() : "film";
@@ -257,13 +320,40 @@ app.post("/api/export-film", async (req, res) => {
           typeof o.narrationAudioSrc === "string" ? o.narrationAudioSrc : undefined;
         return { id, ...(narration != null && narration.length > 0 ? { narrationAudioSrc: narration } : {}) };
       });
-    const result = await renderFilmToMp4({
+    const expIn = Array.isArray(body.exportScenes) ? body.exportScenes : [];
+    const exportScenes: SceneSrtInput[] = expIn
+      .filter((x) => x && typeof x === "object")
+      .map((x) => {
+        const o = x as {
+          id?: unknown;
+          index?: unknown;
+          durationSeconds?: unknown;
+          title?: unknown;
+          voiceoverText?: unknown;
+          description?: unknown;
+        };
+        return {
+          id: typeof o.id === "string" ? o.id : "",
+          index: typeof o.index === "number" && Number.isFinite(o.index) ? o.index : 0,
+          durationSeconds: typeof o.durationSeconds === "number" && Number.isFinite(o.durationSeconds) ? o.durationSeconds : 0,
+          title: typeof o.title === "string" ? o.title : "",
+          voiceoverText: typeof o.voiceoverText === "string" ? o.voiceoverText : "",
+          description: typeof o.description === "string" ? o.description : "",
+        };
+      });
+    const qualityRaw = typeof body.quality === "string" ? body.quality : "standard";
+    const quality: ExportRenderQuality = isExportRenderQuality(qualityRaw) ? qualityRaw : "standard";
+    const includeSubtitles = body.includeSubtitles === true;
+    const result = await exportFilm({
       segments: body.segments as FilmSegmentInput[],
       scenes,
+      exportScenes,
       assetBaseUrl,
       fileLabel: fileLabel || "film",
+      quality,
+      includeSubtitles,
     });
-    res.json({ publicPath: result.publicPath });
+    res.json({ publicPath: result.publicPath, outputKind: result.outputKind });
   } catch (e: unknown) {
     console.error(e);
     const message = e instanceof Error ? e.message : "Export failed";
@@ -299,6 +389,7 @@ app.post("/api/script", async (req, res) => {
     }
 
     const model = process.env.OPENAI_SCRIPT_MODEL?.trim() || "gpt-4.1-mini";
+    const systemPrompt = await readSystemPrompt("story-markdown-system.md");
     const openai = new OpenAI({ apiKey });
     const response = await openai.chat.completions.create({
       model,
@@ -306,8 +397,7 @@ app.post("/api/script", async (req, res) => {
       messages: [
         {
           role: "system",
-          content:
-            "Turn the user's raw story idea into a clean short-film script for an image-to-video animation workflow. Keep it concise, visual, and scene-friendly. Include spoken narration/dialogue and clear beats, but do not create JSON.",
+          content: systemPrompt,
         },
         {
           role: "user",
@@ -322,10 +412,22 @@ app.post("/api/script", async (req, res) => {
       return;
     }
 
+    const cost = costForTextGeneration({ model, usage: response.usage });
+    await recordUsageEvent(req, {
+      projectId,
+      provider: "openai",
+      model,
+      eventType: "script",
+      cost,
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
+      totalTokens: response.usage?.total_tokens,
+    });
+
     res.json({
       script,
       model,
-      cost: costForTextGeneration({ model, usage: response.usage }),
+      cost,
     });
   } catch (e: unknown) {
     console.error(e);
@@ -359,6 +461,7 @@ app.post("/api/storyboard", async (req, res) => {
     }
 
     const model = process.env.OPENAI_STORY_MODEL?.trim() || "gpt-4.1-mini";
+    const systemPrompt = await readSystemPrompt("storyboard-system.md");
     const openai = new OpenAI({ apiKey });
     const response = await openai.chat.completions.create({
       model,
@@ -367,8 +470,7 @@ app.post("/api/storyboard", async (req, res) => {
       messages: [
         {
           role: "system",
-          content:
-            "You convert a confirmed short-film script into a compact image-to-video storyboard. Return only valid JSON with a scenes array. Each scene needs title, description, voiceoverText, durationSeconds, and 1-3 frames with description. Each frame description should be a concrete visual staging prompt for a single widescreen keyframe (also suitable as an I2V start frame). Use a simple consistent animated explainer style. Keep the wording concrete and visual.",
+          content: systemPrompt,
         },
         {
           role: "user",
@@ -392,10 +494,22 @@ app.post("/api/storyboard", async (req, res) => {
       return;
     }
 
+    const cost = costForTextGeneration({ model, usage: response.usage });
+    await recordUsageEvent(req, {
+      projectId,
+      provider: "openai",
+      model,
+      eventType: "storyboard",
+      cost,
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
+      totalTokens: response.usage?.total_tokens,
+    });
+
     res.json({
       scenes,
       model,
-      cost: costForTextGeneration({ model, usage: response.usage }),
+      cost,
     });
   } catch (e: unknown) {
     console.error(e);
@@ -474,6 +588,17 @@ app.post("/api/render-frame", async (req, res) => {
       size,
       usage: response.usage,
     });
+    await recordUsageEvent(req, {
+      projectId,
+      renderId: frameId,
+      provider: "openai",
+      model,
+      eventType: "image",
+      cost,
+      totalTokens: response.usage?.total_tokens,
+      imageCount: 1,
+      metadata: { size, aspectRatio: aspectRatio ?? "1:1" },
+    });
 
     res.json({
       imageUrl,
@@ -534,10 +659,21 @@ app.post("/api/narration", async (req, res) => {
     await writeFile(filePath, Buffer.from(arrayBuffer));
 
     const audioUrl = `/renders/${safeSegment(projectId)}/${fileName}`;
+    const cost = costForTts({ model, characters: text.length });
+    await recordUsageEvent(req, {
+      projectId,
+      renderId: sceneId,
+      provider: "openai",
+      model,
+      eventType: "narration",
+      cost,
+      inputCharacters: text.length,
+    });
+
     res.json({
       audioUrl,
       model,
-      cost: costForTts({ model, characters: text.length }),
+      cost,
     });
   } catch (e: unknown) {
     console.error(e);

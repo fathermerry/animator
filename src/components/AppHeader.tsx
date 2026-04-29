@@ -1,10 +1,12 @@
-import { ChevronRight, Home, Loader2 } from "lucide-react";
+import { ChevronRight, Download, Home, Loader2 } from "lucide-react";
 import { useStore } from "zustand/react";
 
+import { ExportFilmDropdown } from "@/components/ExportFilmDropdown";
 import { MainAppNav } from "@/components/MainAppNav";
 import { WorkflowStepNav } from "@/components/WorkflowStepNav";
 import { Button } from "@/components/ui/button";
 import { useStoryNextContext } from "@/context/StoryNextProvider";
+import { downloadStoryMarkdown } from "@/lib/projectPersistence";
 import { navigate } from "@/router";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 
@@ -20,7 +22,6 @@ type Props = {
 export function AppHeader({ currentSlug, mainNav, projectId }: Props) {
   const project = useStore(useProjectStore, selectCurrentProject);
   const createNewProject = useStore(useProjectStore, (s) => s.createNewProject);
-  const requestExportJob = useStore(useProjectStore, (s) => s.requestExportJob);
   const fileLabel = project?.fileLabel?.trim() || project?.name?.trim() || "Untitled";
   const titleValue = project.name.trim() === "Untitled" && project.fileLabel?.trim()
     ? project.fileLabel.trim()
@@ -70,29 +71,34 @@ export function AppHeader({ currentSlug, mainNav, projectId }: Props) {
         ) : null}
       </div>
 
-      <div className="flex justify-end justify-self-end">
+      <div className="flex items-center justify-end gap-2 justify-self-end">
         {mainNav === "projects" ? (
           <Button
             type="button"
             variant="secondary"
-            className="cursor-pointer disabled:cursor-not-allowed"
-            disabled
-            title="New project is temporarily unavailable"
+            className="cursor-pointer"
             onClick={() => void createNewProject()}
           >
             New project
           </Button>
         ) : mainNav === "renders" ? null : inWorkflow && currentSlug === "story" ? (
-          <StoryHeaderNextButton />
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-lg"
+              className="cursor-pointer"
+              onClick={() => downloadStoryMarkdown(project)}
+              disabled={!project.prompt.trim()}
+              aria-label="Export story markdown"
+              title="Export story markdown"
+            >
+              <Download className="size-4" aria-hidden />
+            </Button>
+            <StoryHeaderNextButton />
+          </>
         ) : inWorkflow && currentSlug === "compose" ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="h-9 shrink-0 cursor-pointer px-3"
-            onClick={() => void requestExportJob()}
-          >
-            Export
-          </Button>
+          <ExportFilmDropdown />
         ) : null}
       </div>
     </header>

@@ -1,4 +1,5 @@
 import type { Cost } from "@/types/project";
+import { jsonApiHeaders } from "@/lib/apiAuthHeaders";
 
 export const DEFAULT_IMAGE_MODEL_ID = "gpt-image-1.5";
 
@@ -28,7 +29,7 @@ export async function requestFrameImageRender(
 ): Promise<RenderFrameResponse> {
   const res = await fetch("/api/render-frame", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await jsonApiHeaders(),
     body: JSON.stringify({
       projectId: body.projectId,
       frameId: body.frameId,

@@ -1,7 +1,8 @@
 import type { StoreApi } from "zustand/vanilla";
 
-import { putProjectSlice, runProjectDbBootstrap } from "@/lib/projectIndexedDb";
+import { projectStoreGet, projectStorePut, putProjectSlice, runProjectDbBootstrap } from "@/lib/projectIndexedDb";
 import type { PersistableProjectSlice } from "@/lib/projectPersistence";
+import { subscribeToRemoteProject } from "@/lib/projectSupabase";
 import type { ProjectState } from "@/store/projectStore";
 
 const SAVE_DEBOUNCE_MS = 400;
@@ -73,7 +74,55 @@ export function attachProjectStorageToStore(
   store: StoreApi<ProjectState>,
   storage: ProjectStorageAdapter = getDefaultProjectStorage(),
 ): void {
+  let suppressNextPersist = false;
+  let activeRemoteProjectId: string | null = null;
+  let unsubscribeRemoteProject: (() => void) | null = null;
+
+  const connectRemoteProject = (projectId: string, force = false) => {
+    if (!force && activeRemoteProjectId === projectId) return;
+    unsubscribeRemoteProject?.();
+    activeRemoteProjectId = projectId;
+    unsubscribeRemoteProject = subscribeToRemoteProject(projectId, (record) => {
+      if (!record) return;
+      void (async () => {
+        const local = await projectStoreGet(record.id);
+        if (local && local.updatedAt >= record.updatedAt) return;
+        await projectStorePut({
+          id: record.id,
+          updatedAt: record.updatedAt,
+          ...(record.isSample ? { isSample: true } : {}),
+          slice: record.slice,
+        });
+        if (store.getState().project.id !== record.id) return;
+        suppressNextPersist = true;
+        store.setState({
+          project: record.slice.project,
+          styleConfigs: record.slice.styleConfigs,
+          scenes: record.slice.scenes,
+          renders: record.slice.renders,
+          frames: record.slice.frames,
+          renderingFrameIds: {},
+          frameRenderErrors: {},
+          renderingAllFrameImages: false,
+          kitAssetGeneratingKeys: {},
+          kitAssetRenderErrors: {},
+          narrationGeneratingKeys: {},
+          narrationRenderErrors: {},
+        });
+      })().catch((e: unknown) => {
+        console.warn("Remote project update failed", e);
+      });
+    });
+  };
+
+  connectRemoteProject(store.getState().project.id);
+
   store.subscribe((state) => {
+    connectRemoteProject(state.project.id);
+    if (suppressNextPersist) {
+      suppressNextPersist = false;
+      return;
+    }
     storage.schedulePersist(() => ({
       project: state.project,
       styleConfigs: state.styleConfigs,

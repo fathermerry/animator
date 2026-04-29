@@ -1,4 +1,5 @@
 import type { Cost } from "@/types/project";
+import { jsonApiHeaders } from "@/lib/apiAuthHeaders";
 
 export type StoryboardFrameDraft = {
   description: string;
@@ -29,7 +30,7 @@ export async function requestStoryStoryboard(
 ): Promise<StoryboardResponse> {
   const res = await fetch("/api/storyboard", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await jsonApiHeaders(),
     body: JSON.stringify({
       projectId: body.projectId,
       story: body.story,

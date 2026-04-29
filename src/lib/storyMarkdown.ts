@@ -28,8 +28,42 @@ export type TransitionBlock = {
 };
 
 export type StoryBlock = TimestampBlock | PromptBlock | DialogueBlock | TransitionBlock;
+export type StoryBlockType = StoryBlock["type"];
 
 export const TRANSITION_TYPES: TransitionType[] = ["cut", "fade", "dissolve"];
+export const STORY_BLOCK_TYPES: StoryBlockType[] = ["timestamp", "prompt", "dialogue", "transition"];
+
+export function createStoryBlock(type: StoryBlockType, id: string): StoryBlock {
+  if (type === "timestamp") {
+    return {
+      id,
+      type,
+      title: "SCENE",
+      start: "0:00",
+      end: "0:10",
+    };
+  }
+  if (type === "prompt") {
+    return {
+      id,
+      type,
+      text: "Visual direction",
+    };
+  }
+  if (type === "transition") {
+    return {
+      id,
+      type,
+      transitionType: "cut",
+      delay: "0",
+    };
+  }
+  return {
+    id,
+    type,
+    text: "Spoken line.",
+  };
+}
 
 const TIMESTAMP_RE = /^\[(.+?)\s*[—-]\s*([0-9][0-9:.]*)\s*[–-]\s*([0-9][0-9:.]*)\]$/;
 const TRANSITION_RE = /^(?:⸻|---|--|—|-)(?:\s+([a-z]+))?(?:\s+([0-9.]+s?))?$/i;
@@ -86,7 +120,7 @@ export function storyBlocksToMarkdown(blocks: StoryBlock[]): string {
       if (block.type === "transition") {
         const delay = Number.parseFloat(block.delay);
         const suffix = Number.isFinite(delay) && delay > 0 ? ` ${block.transitionType} ${delay}s` : "";
-        return `—${suffix}`;
+        return `⸻${suffix}`;
       }
       return block.text;
     })

@@ -1,4 +1,15 @@
-import { ArrowUp, Check, Loader2, Pencil, RotateCcw } from "lucide-react";
+import {
+  ArrowUp,
+  ChevronDown,
+  Clock3,
+  Clapperboard,
+  Loader2,
+  MessageSquareText,
+  Pencil,
+  Plus,
+  Trash2,
+  WandSparkles,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
@@ -7,91 +18,86 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   TRANSITION_TYPES,
+  createStoryBlock,
   markdownToStoryBlocks,
   storyBlocksToMarkdown,
   type StoryBlock,
+  type StoryBlockType,
   type TransitionType,
 } from "@/lib/storyMarkdown";
 import { cn } from "@/lib/utils";
 import { useStoryNextContext } from "@/context/StoryNextProvider";
 import { selectCurrentProject, useProjectStore } from "@/store/projectStore";
 
-type AiActionState = "idle" | "rolling" | "editing" | "done";
+type AiActionState = "idle" | "working";
 
-function summarizeBlock(block: StoryBlock): string {
-  if (block.type === "timestamp") return `${block.title} (${block.start}-${block.end})`;
-  if (block.type === "transition") return `${block.transitionType}, ${block.delay || "0"}s`;
-  return block.text;
+const EMPTY_BLOCK_ACTIONS: {
+  type: StoryBlockType;
+  label: string;
+  description: string;
+  icon: typeof Clock3;
+}[] = [
+  {
+    type: "timestamp",
+    label: "Timestamp",
+    description: "Scene title and time range",
+    icon: Clock3,
+  },
+  {
+    type: "prompt",
+    label: "Direction",
+    description: "Bracketed visual or performance note",
+    icon: Clapperboard,
+  },
+  {
+    type: "dialogue",
+    label: "Dialogue",
+    description: "Narration or spoken line",
+    icon: MessageSquareText,
+  },
+  {
+    type: "transition",
+    label: "Transition",
+    description: "Separator with optional timing",
+    icon: WandSparkles,
+  },
+];
+
+const NEW_STORY_COMMAND_RE =
+  /^(?:start over|new story|start a new story|write a new story|create a new story|make a new story|replace (?:this|the) story|change (?:this|the) story to be about)\b/i;
+
+function shouldStartNewStory(command: string): boolean {
+  return NEW_STORY_COMMAND_RE.test(command.trim());
 }
 
-function blockTextForAi(block: StoryBlock): string {
-  if (block.type === "dialogue" || block.type === "prompt") return block.text;
-  return "";
-}
-
-function reviseTextForAi(text: string, command: string): string {
-  const clean = text.trim();
-  const lower = command.toLowerCase();
-  if (!clean) return clean;
-  if (lower.includes("short") || lower.includes("tight")) {
-    const words = clean.split(/\s+/);
-    return words.length > 24 ? `${words.slice(0, 24).join(" ")}.` : clean;
-  }
-  if (lower.includes("clear") || lower.includes("simple")) {
-    return clean
-      .replace(/\s*[—-]\s*/g, " - ")
-      .replace(/\bvery\b/gi, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
-  }
-  if (lower.includes("cta") || lower.includes("subscribe")) {
-    return clean.toLowerCase().includes("subscribe")
-      ? clean
-      : `${clean} Subscribe for more practical, no-fluff guidance.`;
-  }
-  if (lower.includes("energy") || lower.includes("punch")) {
-    return clean.endsWith("!") ? clean : `${clean.replace(/[.!?]*$/, "")}!`;
-  }
-  return clean.endsWith(".") || clean.endsWith("!") || clean.endsWith("?")
-    ? clean
-    : `${clean}.`;
-}
-
-function applyAiEdit(blocks: StoryBlock[], command: string): { blocks: StoryBlock[]; changedIds: string[] } {
-  const firstEditableIndex = blocks.findIndex((block) => block.type === "dialogue");
-  if (firstEditableIndex < 0) return { blocks, changedIds: [] };
-
-  const changedIds: string[] = [];
-  const next = blocks.map((block, index) => {
-    if (index !== firstEditableIndex) return block;
-    const updated = reviseTextForAi(blockTextForAi(block), command);
-    if (!updated || updated === blockTextForAi(block)) return block;
-    changedIds.push(block.id);
-    return { ...block, text: updated };
-  });
-
-  return { blocks: next, changedIds };
+function buildStoryUpdatePrompt(currentStory: string, command: string): string {
+  return [
+    "Update the existing markdown story using the requested change.",
+    "Keep the same markdown story block grammar.",
+    "Preserve details that the request does not change.",
+    "",
+    "Existing story markdown:",
+    currentStory.trim(),
+    "",
+    "Requested change:",
+    command.trim(),
+  ].join("\n");
 }
 
 export function StoryPageView() {
   const project = useStore(useProjectStore, selectCurrentProject);
   const setPromptText = useStore(useProjectStore, (s) => s.setPromptText);
+  const requestScriptGeneration = useStore(useProjectStore, (s) => s.requestScriptGeneration);
   const { flowError } = useStoryNextContext();
 
   const blocks = useMemo(() => markdownToStoryBlocks(project.prompt), [project.prompt]);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [aiInput, setAiInput] = useState("");
   const [aiActionState, setAiActionState] = useState<AiActionState>("idle");
-  const [aiStatus, setAiStatus] = useState("Ask for a script change.");
-  const [aiChangedIds, setAiChangedIds] = useState<string[]>([]);
-  const [undoPrompt, setUndoPrompt] = useState<string | null>(null);
-  const aiTimers = useRef<number[]>([]);
-
-  useEffect(() => {
-    return () => {
-      aiTimers.current.forEach(window.clearTimeout);
-    };
-  }, []);
+  const [aiError, setAiError] = useState("");
+  const [emptyAddOpen, setEmptyAddOpen] = useState(false);
+  const [insertMenuIndex, setInsertMenuIndex] = useState<number | null>(null);
+  const aiWorking = aiActionState === "working";
 
   const writeBlocks = useCallback(
     (nextBlocks: StoryBlock[]) => {
@@ -108,43 +114,87 @@ export function StoryPageView() {
     [blocks, writeBlocks],
   );
 
-  const runAiEdit = useCallback(() => {
-    const command = aiInput.trim();
-    if (!command || aiActionState !== "idle") return;
+  const addInitialBlock = useCallback(
+    (type: StoryBlockType) => {
+      const blockId = "block-0";
+      writeBlocks([createStoryBlock(type, blockId)]);
+      setEditingBlockId(blockId);
+      setEmptyAddOpen(false);
+    },
+    [writeBlocks],
+  );
 
-    aiTimers.current.forEach(window.clearTimeout);
-    aiTimers.current = [];
-    setUndoPrompt(project.prompt);
-    setAiChangedIds([]);
-    setAiActionState("rolling");
-    setAiStatus("Reading the script...");
+  const insertBlockAt = useCallback(
+    (index: number, type: StoryBlockType) => {
+      const blockId = `block-${index}`;
+      const next = [
+        ...blocks.slice(0, index),
+        createStoryBlock(type, blockId),
+        ...blocks.slice(index),
+      ];
+      writeBlocks(next);
+      setEditingBlockId(blockId);
+      setInsertMenuIndex(null);
+      setAiActionState("idle");
+    },
+    [blocks, writeBlocks],
+  );
 
-    aiTimers.current.push(
-      window.setTimeout(() => {
-        setAiActionState("editing");
-        setAiStatus("Applying block edits...");
-      }, 650),
-    );
-    aiTimers.current.push(
-      window.setTimeout(() => {
-        const result = applyAiEdit(markdownToStoryBlocks(useProjectStore.getState().project.prompt), command);
-        writeBlocks(result.blocks);
-        setAiChangedIds(result.changedIds);
-        setAiActionState("done");
-        setAiStatus(result.changedIds.length > 0 ? "Edited block ready to review." : "No matching edit found.");
+  const removeBlock = useCallback(
+    (blockId: string) => {
+      const next = blocks.filter((block) => block.id !== blockId);
+      writeBlocks(next);
+      if (editingBlockId === blockId) setEditingBlockId(null);
+    },
+    [blocks, editingBlockId, writeBlocks],
+  );
+
+  const generateStoryFromDescription = useCallback(
+    async (description: string) => {
+      const story = description.trim();
+      if (!story || aiWorking) return;
+
+      setAiError("");
+      setAiActionState("working");
+      try {
+        await requestScriptGeneration(story);
         setAiInput("");
-      }, 1300),
-    );
-  }, [aiActionState, aiInput, project.prompt, writeBlocks]);
+      } catch (e: unknown) {
+        setAiError(e instanceof Error ? e.message : "Story generation failed.");
+      } finally {
+        setAiActionState("idle");
+      }
+    },
+    [aiWorking, requestScriptGeneration],
+  );
 
-  const undoAiEdit = useCallback(() => {
-    if (!undoPrompt) return;
-    setPromptText(undoPrompt);
-    setUndoPrompt(null);
-    setAiChangedIds([]);
-    setAiActionState("idle");
-    setAiStatus("Change undone.");
-  }, [setPromptText, undoPrompt]);
+  const runAiEdit = useCallback(async () => {
+    const command = aiInput.trim();
+    if (!command || aiWorking) return;
+
+    if (blocks.length === 0 || shouldStartNewStory(command)) {
+      await generateStoryFromDescription(command);
+      return;
+    }
+
+    setAiError("");
+    setAiActionState("working");
+    try {
+      await requestScriptGeneration(buildStoryUpdatePrompt(project.prompt, command));
+      setAiInput("");
+    } catch (e: unknown) {
+      setAiError(e instanceof Error ? e.message : "Story update failed.");
+    } finally {
+      setAiActionState("idle");
+    }
+  }, [
+    aiWorking,
+    aiInput,
+    blocks.length,
+    generateStoryFromDescription,
+    project.prompt,
+    requestScriptGeneration,
+  ]);
 
   return (
     <div className="flex w-full min-w-0 flex-col">
@@ -157,97 +207,169 @@ export function StoryPageView() {
       ) : null}
 
       <main className="mx-auto w-full max-w-3xl px-4 pb-40 pt-3 md:px-8 md:pb-44 md:pt-5">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col">
           {blocks.length > 0 ? (
-            blocks.map((block) => (
-              <StoryBlockRow
-                key={block.id}
-                block={block}
-                changed={aiChangedIds.includes(block.id)}
-                editing={editingBlockId === block.id}
-                onEdit={() => setEditingBlockId(block.id)}
-                onDone={() => setEditingBlockId(null)}
-                onPatch={(patch) => patchBlock(block.id, patch)}
-              />
-            ))
+            <>
+              {blocks.map((block, index) => (
+                <div key={block.id} className="flex flex-col">
+                  <StoryBlockRow
+                    block={block}
+                    changed={false}
+                    editing={editingBlockId === block.id}
+                    onEdit={() => setEditingBlockId(block.id)}
+                    onDone={() => setEditingBlockId(null)}
+                    onPatch={(patch) => patchBlock(block.id, patch)}
+                    onRemove={() => removeBlock(block.id)}
+                  />
+                  {index < blocks.length - 1 ? (
+                    <AddStepControl
+                      open={insertMenuIndex === index + 1}
+                      revealOnHover
+                      onAddBlock={(type) => insertBlockAt(index + 1, type)}
+                      onToggle={() => setInsertMenuIndex((current) => (current === index + 1 ? null : index + 1))}
+                    />
+                  ) : null}
+                </div>
+              ))}
+            </>
           ) : (
-            <button
-              type="button"
-              className="min-h-48 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-10 text-left text-muted-foreground transition-colors hover:bg-muted/35"
-              onClick={() => {
-                setPromptText("Write a simple story...");
-                setEditingBlockId("block-0");
-              }}
-            >
-              Write a simple story...
-            </button>
+            <EmptyStoryState
+              addOpen={emptyAddOpen}
+              onAddBlock={addInitialBlock}
+              onToggleAdd={() => setEmptyAddOpen((open) => !open)}
+            />
           )}
         </div>
       </main>
 
       <div className="fixed bottom-5 left-1/2 z-30 w-[min(calc(100vw-2rem),38rem)] -translate-x-1/2">
-        <section className="overflow-hidden rounded-[1.75rem] bg-muted/95 shadow-2xl backdrop-blur">
-          {aiActionState !== "idle" || aiChangedIds.length > 0 ? (
-            <div className="px-5 pt-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                {aiActionState === "done" ? (
-                  <Check className="size-4 shrink-0 text-foreground" aria-hidden />
-                ) : (
-                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-                )}
-                <span className="min-w-0 flex-1 truncate">{aiStatus}</span>
-              </div>
-              {aiChangedIds.length > 0 ? (
-                <div className="mt-2 space-y-1">
-                  {blocks
-                    .filter((block) => aiChangedIds.includes(block.id))
-                    .map((block) => (
-                      <div key={block.id} className="line-clamp-2 pl-6 text-sm leading-snug text-foreground/90">
-                        {summarizeBlock(block)}
-                      </div>
-                    ))}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="flex items-center gap-1.5 p-2.5">
-            <Input
+        <section className="overflow-hidden rounded-3xl border border-border bg-background shadow-2xl">
+          <div className="flex items-end gap-1.5 p-2.5">
+            <Textarea
               value={aiInput}
-              onChange={(e) => setAiInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") runAiEdit();
+              onChange={(e) => {
+                setAiInput(e.target.value);
+                if (aiError) setAiError("");
               }}
-              placeholder="Edit your story"
-              disabled={aiActionState === "rolling" || aiActionState === "editing"}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || e.shiftKey) return;
+                if (e.nativeEvent.isComposing) return;
+                e.preventDefault();
+                void runAiEdit();
+              }}
+              rows={1}
+              placeholder={
+                aiError || (blocks.length === 0 ? "Describe a story to generate" : "Start a new story or edit this one")
+              }
+              disabled={aiWorking}
               aria-label="Script change request"
-              className="h-9 border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="min-h-9 max-h-40 resize-none border-0 bg-transparent px-3 py-2 text-base leading-snug shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
-            {undoPrompt ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-9 shrink-0 cursor-pointer rounded-full text-muted-foreground hover:text-foreground"
-                onClick={undoAiEdit}
-                aria-label="Undo last edit"
-              >
-                <RotateCcw className="size-4" aria-hidden />
-              </Button>
-            ) : null}
             <Button
               type="button"
               size="icon"
               className="size-9 shrink-0 cursor-pointer rounded-full bg-foreground text-background shadow-none hover:bg-foreground/90 disabled:bg-muted-foreground/30 disabled:text-background/70"
-              onClick={runAiEdit}
-              disabled={!aiInput.trim() || aiActionState === "rolling" || aiActionState === "editing"}
+              onClick={() => void runAiEdit()}
+              disabled={!aiInput.trim() || aiWorking}
               aria-label="Send script change request"
             >
-              <ArrowUp className="size-5" aria-hidden />
+              {aiWorking ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <ArrowUp className="size-5" aria-hidden />
+              )}
             </Button>
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+type AddStepControlProps = {
+  addOpen: boolean;
+  onAddBlock: (type: StoryBlockType) => void;
+  onToggleAdd: () => void;
+};
+
+function EmptyStoryState(props: AddStepControlProps) {
+  return <AddStepControl open={props.addOpen} onAddBlock={props.onAddBlock} onToggle={props.onToggleAdd} />;
+}
+
+function AddStepControl({
+  open,
+  revealOnHover = false,
+  onAddBlock,
+  onToggle,
+}: {
+  open: boolean;
+  revealOnHover?: boolean;
+  onAddBlock: (type: StoryBlockType) => void;
+  onToggle: () => void;
+}) {
+  return (
+    <div className={cn("group/insert grid py-1", revealOnHover && "py-0")}>
+      <div className="relative w-full">
+        <Button
+          type="button"
+          variant="ghost"
+          className={cn(
+            "h-9 w-full justify-between rounded-md border border-dashed border-transparent bg-transparent px-3 text-muted-foreground/70 hover:border-border hover:bg-muted/20 hover:text-foreground",
+            revealOnHover && !open && "h-4 opacity-0 transition-all group-hover/insert:h-9 group-hover/insert:opacity-100 focus-visible:h-9 focus-visible:opacity-100",
+            open && "border-border bg-muted/20 text-foreground",
+          )}
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-haspopup="menu"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Plus className="size-4 shrink-0" aria-hidden />
+            <span className="truncate">Add step</span>
+          </span>
+          <ChevronDown className="size-4 shrink-0" aria-hidden />
+        </Button>
+
+        {open ? (
+          <StoryBlockTypeMenu
+            className="absolute left-0 top-10 z-20 w-full"
+            onAddBlock={onAddBlock}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function StoryBlockTypeMenu({
+  className,
+  onAddBlock,
+}: {
+  className?: string;
+  onAddBlock: (type: StoryBlockType) => void;
+}) {
+  return (
+    <div
+      className={cn("overflow-hidden rounded-md border border-border bg-popover shadow-xl", className)}
+      role="menu"
+    >
+      {EMPTY_BLOCK_ACTIONS.map((action) => {
+        const Icon = action.icon;
+        return (
+          <button
+            key={action.type}
+            type="button"
+            className="grid w-full grid-cols-[1.75rem_minmax(0,1fr)] items-center gap-2 px-4 py-2 text-left hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+            onClick={() => onAddBlock(action.type)}
+            role="menuitem"
+          >
+            <Icon className="size-4 text-muted-foreground" aria-hidden />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium text-foreground">{action.label}</span>
+              <span className="block truncate text-xs text-muted-foreground">{action.description}</span>
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -259,6 +381,7 @@ function StoryBlockRow({
   onEdit,
   onDone,
   onPatch,
+  onRemove,
 }: {
   block: StoryBlock;
   changed: boolean;
@@ -266,6 +389,7 @@ function StoryBlockRow({
   onEdit: () => void;
   onDone: () => void;
   onPatch: (patch: Partial<StoryBlock>) => void;
+  onRemove: () => void;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
 
@@ -297,7 +421,7 @@ function StoryBlockRow({
     <div
       ref={rowRef}
       className={cn(
-        "group rounded-md border px-3 py-2 transition-colors",
+        "group relative rounded-md border px-3 py-2 transition-colors",
         changed ? "border-foreground bg-muted/45" : "border-transparent hover:border-border hover:bg-muted/20",
       )}
     >
@@ -322,16 +446,28 @@ function StoryBlockRow({
           )}
         </div>
         {!editing ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-7 shrink-0 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-            onClick={onEdit}
-            aria-label={`Open ${block.type} block editor`}
-          >
-            <Pencil className="size-3.5" aria-hidden />
-          </Button>
+          <div className="flex shrink-0 flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="cursor-pointer text-muted-foreground hover:text-foreground"
+              onClick={onEdit}
+              aria-label={`Open ${block.type} block editor`}
+            >
+              <Pencil className="size-3.5" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="cursor-pointer text-muted-foreground hover:text-destructive"
+              onClick={onRemove}
+              aria-label={`Remove ${block.type} block`}
+            >
+              <Trash2 className="size-3.5" aria-hidden />
+            </Button>
+          </div>
         ) : null}
       </div>
     </div>

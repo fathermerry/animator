@@ -13,8 +13,33 @@ import { CostOverviewPageView } from "@/views/CostOverviewPageView";
 import { ComposePageView } from "@/views/ComposePageView";
 import { StoryPageView } from "@/views/StoryPageView";
 import { cn } from "@/lib/utils";
+import { hydrateProjectFromStorage } from "@/bootstrapProject";
 
 export default function App() {
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void hydrateProjectFromStorage().finally(() => {
+      if (!cancelled) setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <div className="flex h-full min-h-0 flex-col items-center justify-center overflow-hidden">
+        <p className="text-base text-muted-foreground">Loading app…</p>
+      </div>
+    );
+  }
+
+  return <ProjectApp />;
+}
+
+function ProjectApp() {
   const path = useHashPath();
   const route = parseRoute(path);
   const project = useStore(useProjectStore, selectCurrentProject);

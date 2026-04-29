@@ -3,6 +3,10 @@ import { ChevronLeft, ChevronRight, Loader2, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand/react";
 
+import {
+  FilmShotsEmptySkeletonList,
+  FrameListEmptySkeletonRows,
+} from "@/components/FrameListEmptySkeletonRows";
 import { RenderFilmPreview } from "@/components/RenderFilmPreview";
 import { WorkflowStepPage } from "@/components/WorkflowStepPage";
 import { Button } from "@/components/ui/button";
@@ -11,7 +15,6 @@ import { formatDurationMmSs } from "@/lib/filmTime";
 import { frameHasOutputImage } from "@/lib/frameRenderStatus";
 import { validateBackgroundImageFile } from "@/lib/kitAssetPng";
 import { kitAssetDisplaySrc } from "@/lib/kitAssetDisplaySrc";
-import { panelHeadingClass } from "@/lib/panelHeading";
 import { captionCueForVoiceoverSync } from "@/lib/filmPreviewCaptions";
 import {
   buildRenderFilmTimeline,
@@ -268,13 +271,10 @@ export function ComposePageView() {
 
   const scenesAndKeyframesPanel =
     orderedScenes.length === 0 ? (
-      <div className="flex h-full min-h-0 flex-col justify-center gap-4 px-1">
-        <p className={panelHeadingClass}>Film</p>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          You do not have any shots yet. Write your story in the{" "}
-          <span className="font-medium text-foreground">Story</span> view, then return here to
-          arrange keyframes and export your film.
-        </p>
+      <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <FilmShotsEmptySkeletonList />
+        </div>
       </div>
     ) : (
       <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
@@ -333,7 +333,13 @@ export function ComposePageView() {
                       </p>
                     ) : null}
                     {sceneFrames.length === 0 ? (
-                      <p className="mt-1.5 pl-6 text-[11px] text-muted-foreground">No keyframes</p>
+                      <ul
+                        className="mt-1.5 ml-1.5 list-none space-y-0.5 border-l border-border/50 pl-2"
+                        role="list"
+                        aria-label={`Keyframes for ${title} — none yet`}
+                      >
+                        <FrameListEmptySkeletonRows variant="compose" />
+                      </ul>
                     ) : (
                       <ul
                         className="mt-1.5 ml-1.5 list-none space-y-0.5 border-l border-border/50 pl-2"

@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { FloatingSurface } from "@/components/FloatingDock";
@@ -48,7 +48,11 @@ export function ExportActivityFloatingDock({ jobs }: { jobs: readonly ExportJob[
           <span className="min-w-0 flex-1 truncate text-foreground">Exports</span>
           {latest ? (
             <span className="inline-flex shrink-0 items-center gap-2 text-muted-foreground">
-              <StatusDot status={latest.status} />
+              {latest.status === "processing" ? (
+                <Loader2 className="size-3.5 shrink-0 animate-spin text-amber-500" aria-hidden />
+              ) : (
+                <StatusDot status={latest.status} />
+              )}
               {statusLabel(latest.status)}
             </span>
           ) : (
@@ -89,8 +93,14 @@ export function ExportActivityFloatingDock({ jobs }: { jobs: readonly ExportJob[
                 <p className="mt-0.5 truncate pl-4 text-xs text-muted-foreground">
                   {job.error ??
                     (job.status === "complete" && job.downloadPath
-                      ? "Saved — use the link to open or download again"
-                      : statusLabel(job.status))}
+                      ? `Saved (${
+                          job.downloadPath.toLowerCase().endsWith(".mp4")
+                            ? "MP4"
+                            : "ZIP with video and subtitles"
+                        }) — use the link to download again`
+                      : job.status === "processing"
+                        ? "Rendering video (this can take a while)…"
+                        : statusLabel(job.status))}
                 </p>
                 {job.status === "complete" && job.downloadPath ? (
                   <a

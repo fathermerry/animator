@@ -8,6 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { FrameListEmptySkeletonRows } from "@/components/FrameListEmptySkeletonRows";
 import { findRender, frameHasOutputImage } from "@/lib/frameRenderStatus";
 import { formatFilmSegmentClock } from "@/lib/filmTime";
 import { getFilmTimingByProjectFrameId } from "@/lib/renderFilmTimeline";
@@ -186,9 +187,14 @@ export function RenderSceneLayers({
                       <ul
                         className="relative ml-3 mt-0.5 flex list-none flex-col gap-0 pb-1 pl-2 pt-0"
                         role="group"
+                        aria-label={
+                          sceneFrames.length === 0
+                            ? `No frames in ${scene.title.trim() || `Scene ${scene.index + 1}`}`
+                            : undefined
+                        }
                       >
                         {sceneFrames.length === 0 ? (
-                          <li className="px-1 py-1 pl-2 text-sm text-muted-foreground">Empty</li>
+                          <FrameListEmptySkeletonRows variant="layers" />
                         ) : (
                           sceneFrames.map((fr) => {
                             const isPlaybackActive = playbackActiveFrameId === fr.id;

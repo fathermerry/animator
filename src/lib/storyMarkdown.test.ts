@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { markdownToStoryBlocks, storyBlocksToMarkdown, type StoryBlock } from "./storyMarkdown";
+import {
+  createStoryBlock,
+  markdownToStoryBlocks,
+  storyBlocksToMarkdown,
+  type StoryBlock,
+} from "./storyMarkdown";
 
 describe("story markdown blocks", () => {
   it("parses markdown lines into render-only story blocks", () => {
@@ -52,7 +57,16 @@ describe("story markdown blocks", () => {
     ];
 
     expect(storyBlocksToMarkdown(blocks)).toBe(
-      "[HOOK — 0:00–0:20]\n\n[Upbeat, direct-to-camera]\n\nA short spoken line.\n\n— dissolve 0.5s",
+      "[HOOK — 0:00–0:20]\n\n[Upbeat, direct-to-camera]\n\nA short spoken line.\n\n⸻ dissolve 0.5s",
     );
+  });
+
+  it("creates every empty-state block type in markdown-compatible shape", () => {
+    expect(storyBlocksToMarkdown([
+      createStoryBlock("timestamp", "a"),
+      createStoryBlock("prompt", "b"),
+      createStoryBlock("dialogue", "c"),
+      createStoryBlock("transition", "d"),
+    ])).toBe("[SCENE — 0:00–0:10]\n\n[Visual direction]\n\nSpoken line.\n\n⸻");
   });
 });

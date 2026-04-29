@@ -3,20 +3,29 @@ import { useStore } from "zustand/react";
 
 import { Button } from "@/components/ui/button";
 import { listProjectSummaries, type ProjectSummary } from "@/lib/projectIndexedDb";
+import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/store/projectStore";
 
 export function HomePageView() {
   const [rows, setRows] = useState<ProjectSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [pastInitialProjectListLoad, setPastInitialProjectListLoad] = useState(false);
 
   const openProject = useStore(useProjectStore, (s) => s.openProject);
   const deleteProject = useStore(useProjectStore, (s) => s.deleteProject);
 
   const refresh = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
     void listProjectSummaries()
       .then(setRows)
       .catch((e: unknown) => {
         setLoadError(e instanceof Error ? e.message : "Could not load projects");
+      })
+      .finally(() => {
+        setLoading(false);
+        setPastInitialProjectListLoad(true);
       });
   }, []);
 
@@ -28,10 +37,19 @@ export function HomePageView() {
     r.fileLabel?.trim() || r.name?.trim() || "Untitled";
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 pb-10 pt-10">
+    <main
+      className={cn(
+        "mx-auto w-full max-w-3xl px-6 pb-10 pt-10",
+        !loadError && loading && "flex min-h-0 flex-1 flex-col items-center justify-center",
+      )}
+    >
       {loadError ? (
         <p className="text-base text-muted-foreground" role="alert">
           {loadError}
+        </p>
+      ) : loading ? (
+        <p className="text-base text-muted-foreground">
+          {pastInitialProjectListLoad ? "Loading projects…" : "Loading app…"}
         </p>
       ) : rows.length === 0 ? (
         <p className="text-base text-muted-foreground">No projects yet.</p>

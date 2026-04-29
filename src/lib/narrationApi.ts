@@ -1,4 +1,5 @@
 import type { Cost } from "@/types/project";
+import { jsonApiHeaders } from "@/lib/apiAuthHeaders";
 
 export type NarrationRequestBody = {
   projectId: string;
@@ -18,7 +19,7 @@ export async function requestSceneNarration(
 ): Promise<NarrationResponse> {
   const res = await fetch("/api/narration", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await jsonApiHeaders(),
     body: JSON.stringify({
       projectId: body.projectId,
       sceneId: body.sceneId,

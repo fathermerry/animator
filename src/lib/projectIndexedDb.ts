@@ -8,10 +8,18 @@ import {
   type PersistableProjectSlice,
   PROJECT_IDB_KEY,
 } from "@/lib/projectPersistence";
+import {
+  deleteRemoteProjectRecord,
+  getRemoteProjectRecord,
+  getRemoteProjectRecords,
+  type RemoteProjectRecord,
+  upsertRemoteProjectRecord,
+} from "@/lib/projectSupabase";
 import { LEGACY_PLACEHOLDER_PROJECT_ID, SAMPLE_PROJECT_ID } from "@/lib/sampleProject";
 import type { Render } from "@/types/project";
 
 const ACTIVE_PROJECT_KEY = "activeProjectId";
+const REMOTE_PROJECT_SYNC_TIMEOUT_MS = 1500;
 
 export type ProjectRecord = {
   id: string;
@@ -28,6 +36,18 @@ export type ProjectSummary = {
   isSample: boolean;
 };
 
+function summarizeProjectRows(rows: ProjectRecord[]): ProjectSummary[] {
+  return rows
+    .map((row) => ({
+      id: row.id,
+      name: row.slice.project.name,
+      fileLabel: row.slice.project.fileLabel,
+      updatedAt: row.updatedAt,
+      isSample: !!row.isSample || row.id === SAMPLE_PROJECT_ID,
+    }))
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+}
+
 function rewriteProjectId(slice: PersistableProjectSlice, newId: string): PersistableProjectSlice {
   const oldId = slice.project.id;
   if (oldId === newId) return slice;
@@ -40,7 +60,7 @@ function rewriteProjectId(slice: PersistableProjectSlice, newId: string): Persis
   };
 }
 
-async function projectStoreGet(id: string): Promise<ProjectRecord | undefined> {
+export async function projectStoreGet(id: string): Promise<ProjectRecord | undefined> {
   const db = await openAnimatorDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(PROJECTS_STORE, "readonly");
@@ -50,7 +70,7 @@ async function projectStoreGet(id: string): Promise<ProjectRecord | undefined> {
   });
 }
 
-async function projectStorePut(record: ProjectRecord): Promise<void> {
+export async function projectStorePut(record: ProjectRecord): Promise<void> {
   const db = await openAnimatorDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(PROJECTS_STORE, "readwrite");
@@ -60,7 +80,7 @@ async function projectStorePut(record: ProjectRecord): Promise<void> {
   });
 }
 
-async function projectStoreDelete(id: string): Promise<void> {
+export async function projectStoreDelete(id: string): Promise<void> {
   const db = await openAnimatorDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(PROJECTS_STORE, "readwrite");
@@ -80,6 +100,73 @@ async function projectStoreGetAll(): Promise<ProjectRecord[]> {
   });
 }
 
+function remoteRecordToLocal(record: RemoteProjectRecord): ProjectRecord {
+  return {
+    id: record.id,
+    updatedAt: record.updatedAt,
+    ...(record.isSample ? { isSample: true } : {}),
+    slice: record.slice,
+  };
+}
+
+async function syncRemoteProjectsToIndexedDb(): Promise<void> {
+  const [localRows, remoteRows] = await Promise.all([
+    projectStoreGetAll(),
+    getRemoteProjectRecords(),
+  ]);
+  const localById = new Map(localRows.map((row) => [row.id, row]));
+  const remoteById = new Map(remoteRows.map((row) => [row.id, row]));
+
+  for (const remote of remoteRows) {
+    const local = localById.get(remote.id);
+    if (!local || local.updatedAt < remote.updatedAt) {
+      await projectStorePut(remoteRecordToLocal(remote));
+    }
+  }
+
+  for (const local of localRows) {
+    if (local.id === SAMPLE_PROJECT_ID) continue;
+    const remote = remoteById.get(local.id);
+    if (!remote || remote.updatedAt < local.updatedAt) {
+      await upsertRemoteProjectRecord(local);
+    }
+  }
+}
+
+async function syncRemoteProjectsToIndexedDbWithTimeout(): Promise<boolean> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      syncRemoteProjectsToIndexedDb().then(() => true),
+      new Promise<false>((resolve) => {
+        timeout = setTimeout(() => resolve(false), REMOTE_PROJECT_SYNC_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (e: unknown) {
+    console.warn("Project remote sync failed", e);
+    return false;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+async function getRemoteProjectRecordWithTimeout(id: string): Promise<RemoteProjectRecord | null> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      getRemoteProjectRecord(id),
+      new Promise<null>((resolve) => {
+        timeout = setTimeout(() => resolve(null), REMOTE_PROJECT_SYNC_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (e: unknown) {
+    console.warn("Could not load remote project", e);
+    return null;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 export async function getActiveProjectId(): Promise<string | undefined> {
   return idbKvGet<string>(ACTIVE_PROJECT_KEY);
 }
@@ -89,16 +176,10 @@ export async function setActiveProjectId(id: string): Promise<void> {
 }
 
 export async function listProjectSummaries(): Promise<ProjectSummary[]> {
-  const rows = await projectStoreGetAll();
-  return rows
-    .map((row) => ({
-      id: row.id,
-      name: row.slice.project.name,
-      fileLabel: row.slice.project.fileLabel,
-      updatedAt: row.updatedAt,
-      isSample: !!row.isSample || row.id === SAMPLE_PROJECT_ID,
-    }))
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+  const localRows = await projectStoreGetAll();
+  const synced = await syncRemoteProjectsToIndexedDbWithTimeout();
+  if (!synced) return summarizeProjectRows(localRows);
+  return summarizeProjectRows(await projectStoreGetAll());
 }
 
 /** One persisted render plus project and scene labels for cross-project lists. */
@@ -189,6 +270,13 @@ export async function listAllRendersAcrossProjects(): Promise<RenderListRow[]> {
 }
 
 export async function getProjectSlice(id: string): Promise<PersistableProjectSlice | null> {
+  const remote = await getRemoteProjectRecordWithTimeout(id);
+  if (remote) {
+    const local = await projectStoreGet(id);
+    if (!local || local.updatedAt < remote.updatedAt) {
+      await projectStorePut(remoteRecordToLocal(remote));
+    }
+  }
   const row = await projectStoreGet(id);
   if (!row?.slice) return null;
   const migrated = migratePersistableProjectSlice(
@@ -231,11 +319,17 @@ export async function putProjectSlice(slice: PersistableProjectSlice): Promise<v
     slice,
   };
   await projectStorePut(record);
+  await upsertRemoteProjectRecord(record).catch((e: unknown) => {
+    console.warn("Project remote persist failed", e);
+  });
 }
 
 export async function deleteProjectRecord(id: string): Promise<void> {
   if (id === SAMPLE_PROJECT_ID) return;
   await projectStoreDelete(id);
+  await deleteRemoteProjectRecord(id).catch((e: unknown) => {
+    console.warn("Project remote delete failed", e);
+  });
 }
 
 async function migrateLegacyProjectConfigKv(): Promise<void> {
@@ -305,6 +399,7 @@ async function ensureSampleProjectSeeded(): Promise<void> {
 export async function runProjectDbBootstrap(): Promise<PersistableProjectSlice> {
   await migrateLegacyProjectConfigKv();
   await ensureSampleProjectSeeded();
+  await syncRemoteProjectsToIndexedDbWithTimeout();
 
   let activeId = await getActiveProjectId();
   if (!activeId) {
