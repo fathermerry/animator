@@ -30,8 +30,8 @@ export default function App() {
 
   if (!hydrated) {
     return (
-      <div className="flex h-full min-h-0 flex-col items-center justify-center overflow-hidden">
-        <p className="text-base text-muted-foreground">Loading app…</p>
+      <div className="flex min-h-dvh w-full flex-col items-center justify-center overflow-hidden">
+        <p className="text-base text-muted-foreground">Loading app...</p>
       </div>
     );
   }

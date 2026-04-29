@@ -428,6 +428,7 @@ function reviveFrame(raw: unknown): Frame | null {
   const index = typeof f.index === "number" && Number.isFinite(f.index) ? Math.max(0, Math.floor(f.index)) : 0;
   const src = typeof f.src === "string" ? f.src : "";
   const description = typeof f.description === "string" ? f.description : "";
+  const productionType = f.productionType === "remotion-shapes" ? "remotion-shapes" : "llm";
   const durationSeconds =
     typeof f.durationSeconds === "number" && Number.isFinite(f.durationSeconds) && f.durationSeconds > 0
       ? f.durationSeconds
@@ -440,6 +441,7 @@ function reviveFrame(raw: unknown): Frame | null {
     renderId: f.renderId,
     index,
     src,
+    productionType,
     description,
     ...(durationSeconds !== undefined ? { durationSeconds } : {}),
     ...(kind ? { kind } : {}),

@@ -23,6 +23,7 @@ export type FilmSegmentInput = {
   /** Resolved background plate for this segment’s scene (kit + per-scene overrides). */
   plate: Background;
   frameKind?: Frame["kind"];
+  frameProductionType?: Frame["productionType"];
 };
 
 function resolveKitAssets(ids: string[], pool: KitAsset[]): KitAsset[] {
@@ -105,10 +106,11 @@ export function buildRenderFilmTimeline(
       const durationInFrames = frameDurations[i] ?? 1;
       const generated = isFrameGeneratedForPreview(fr, renders);
       const frameText = (fr.description ?? "").trim();
-      const stillSrc = generated ? fr.src.trim() : null;
+      const productionType = fr.productionType ?? "llm";
+      const stillSrc = generated && productionType !== "remotion-shapes" ? fr.src.trim() : null;
       segments.push({
         durationInFrames,
-        blank: !stillSrc,
+        blank: !stillSrc && productionType !== "remotion-shapes",
         sceneId: scene.id,
         frameId: fr.id,
         stillSrc,
@@ -118,6 +120,7 @@ export function buildRenderFilmTimeline(
         characters: chars,
         plate,
         frameKind: fr.kind,
+        frameProductionType: productionType,
       });
     });
   }

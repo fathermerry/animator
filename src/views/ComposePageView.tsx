@@ -26,10 +26,12 @@ import {
 } from "@/lib/renderFilmTimeline";
 import { framesForSceneSorted } from "@/lib/sceneFrames";
 import { useNarrationFilmSync } from "@/lib/useNarrationFilmSync";
+import { useStoryNextContext } from "@/context/StoryNextProvider";
 import { cn } from "@/lib/utils";
 import { selectResolvedStyleBundle, useProjectStore } from "@/store/projectStore";
 
 export function ComposePageView() {
+  const { flowError } = useStoryNextContext();
   const assetBundle = useStore(useProjectStore, selectResolvedStyleBundle);
   const scenes = useStore(useProjectStore, (s) => s.scenes);
   const frames = useStore(useProjectStore, (s) => s.frames);
@@ -40,6 +42,7 @@ export function ComposePageView() {
   const narrationGeneratingKeys = useStore(useProjectStore, (s) => s.narrationGeneratingKeys);
   const narrationRenderErrors = useStore(useProjectStore, (s) => s.narrationRenderErrors);
   const patchFrame = useStore(useProjectStore, (s) => s.patchFrame);
+  const patchRender = useStore(useProjectStore, (s) => s.patchRender);
 
   const orderedScenes = useMemo(() => [...scenes].sort((a, b) => a.index - b.index), [scenes]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
@@ -90,6 +93,32 @@ export function ComposePageView() {
       if (next) setEditorFrameId(next.id);
     },
     [selectedSceneId, editorFrameId, frames],
+  );
+
+  const setFrameProductionType = useCallback(
+    (frameId: string, productionType: "llm" | "remotion-shapes") => {
+      const frame = frames.find((f) => f.id === frameId);
+      if (!frame) return;
+      if (productionType === "remotion-shapes") {
+        patchFrame(frameId, { productionType, src: "" });
+        patchRender(frame.renderId, {
+          engine: "remotion",
+          status: "complete",
+          startedAt: undefined,
+          endedAt: undefined,
+        });
+        return;
+      }
+
+      patchFrame(frameId, { productionType });
+      patchRender(frame.renderId, {
+        engine: "openai-image",
+        status: frameHasOutputImage(frame.src) ? "complete" : "pending",
+        startedAt: undefined,
+        endedAt: undefined,
+      });
+    },
+    [frames, patchFrame, patchRender],
   );
 
   useEffect(() => {
@@ -350,6 +379,7 @@ export function ComposePageView() {
                           const busy = Boolean(renderingFrameIds[frame.id]);
                           const err = frameRenderErrors[frame.id];
                           const hasImg = frameHasOutputImage(frame.src);
+                          const isRemotionShape = frame.productionType === "remotion-shapes";
                           const thumbSrc = hasImg ? kitAssetDisplaySrc(frame.src.trim()) : "";
                           const label = frame.description.trim() || "Edit";
                           const badge = `${i + 1}.${fi + 1}`;
@@ -396,6 +426,11 @@ export function ComposePageView() {
                                 <span className="relative h-7 w-11 shrink-0 overflow-hidden rounded bg-muted ring-1 ring-border/30">
                                   {thumbSrc ? (
                                     <img src={thumbSrc} alt="" className="h-full w-full object-cover" />
+                                  ) : isRemotionShape ? (
+                                    <span className="absolute inset-0 bg-background">
+                                      <span className="absolute left-1 top-1 h-3 w-3 rounded-full bg-cyan-500/80" />
+                                      <span className="absolute bottom-1 right-1 h-3 w-5 rotate-[-12deg] bg-orange-500/75" />
+                                    </span>
                                   ) : null}
                                   {busy ? (
                                     <span className="absolute inset-0 flex items-center justify-center bg-background/60 text-[10px] font-medium text-muted-foreground">
@@ -534,7 +569,16 @@ export function ComposePageView() {
                   <ChevronRight className="size-6" strokeWidth={2} aria-hidden />
                 </button>
               ) : null}
-              {frameHasOutputImage(editingFrame.src) ? (
+              {editingFrame.productionType === "remotion-shapes" ? (
+                <div className="relative flex h-full min-h-[12rem] items-center justify-center overflow-hidden bg-background p-6">
+                  <div className="absolute right-[-12%] top-[12%] h-40 w-40 rounded-full bg-cyan-500/25" />
+                  <div className="absolute bottom-[16%] left-[-8%] h-20 w-52 -rotate-12 bg-orange-500/25" />
+                  <div className="absolute bottom-[18%] right-[22%] h-20 w-20 rotate-12 border-[10px] border-green-500/35" />
+                  <p className="relative z-[1] line-clamp-3 max-w-[82%] text-center text-xl font-semibold leading-tight">
+                    {editingFrame.description.trim() || selectedScene.description.trim() || "Remotion frame"}
+                  </p>
+                </div>
+              ) : frameHasOutputImage(editingFrame.src) ? (
                 <img
                   src={kitAssetDisplaySrc(editingFrame.src.trim())}
                   alt=""
@@ -570,13 +614,40 @@ export function ComposePageView() {
               />
             </div>
 
+            <div className="mt-4 flex flex-col gap-2">
+              <label
+                htmlFor="keyframe-editor-production"
+                className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                Production
+              </label>
+              <select
+                id="keyframe-editor-production"
+                value={editingFrame.productionType ?? "llm"}
+                onChange={(e) =>
+                  setFrameProductionType(
+                    editingFrame.id,
+                    e.target.value === "remotion-shapes" ? "remotion-shapes" : "llm",
+                  )
+                }
+                disabled={Boolean(renderingFrameIds[editingFrame.id])}
+                className={cn(
+                  "h-10 rounded-lg border border-input bg-background px-3 text-base shadow-xs outline-none",
+                  "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30",
+                )}
+              >
+                <option value="llm">LLM image generation</option>
+                <option value="remotion-shapes">Remotion shapes + type</option>
+              </select>
+            </div>
+
             <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border/50 pt-5">
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
                 className="gap-2"
-                disabled={Boolean(renderingFrameIds[editingFrame.id])}
+                disabled={Boolean(renderingFrameIds[editingFrame.id]) || editingFrame.productionType === "remotion-shapes"}
                 onClick={() => void requestFrameRender(editingFrame.id)}
               >
                 <Sparkles className="size-4" aria-hidden />
@@ -586,7 +657,7 @@ export function ComposePageView() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={Boolean(renderingFrameIds[editingFrame.id])}
+                disabled={Boolean(renderingFrameIds[editingFrame.id]) || editingFrame.productionType === "remotion-shapes"}
                 onClick={() => {
                   replaceTargetFrameIdRef.current = editingFrame.id;
                   keyframeFileInputRef.current?.click();
@@ -626,6 +697,13 @@ export function ComposePageView() {
   return (
     <>
       <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
+        {flowError ? (
+          <div className="z-10 shrink-0 border-b border-border/50 bg-background/90 px-3 py-2 backdrop-blur md:px-3">
+            <p className="min-w-0 text-sm text-destructive" role="alert">
+              {flowError}
+            </p>
+          </div>
+        ) : null}
         <WorkflowStepPage
           className="min-h-0 flex-1"
           primaryClassName="gap-3 bg-background px-3 py-2 md:px-3 lg:basis-auto lg:max-w-[14rem] lg:flex-none lg:shrink-0 lg:border-r lg:border-border/60 lg:px-2.5 lg:py-2"

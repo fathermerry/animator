@@ -32,12 +32,16 @@ export function useStoryNextActions() {
 
   const storyNextBusy = preparingScenes || renderingAllFrameImages;
 
-  const onStoryNext = useCallback(async () => {
+  const onStoryNext = useCallback(() => {
     setFlowError(null);
-    if (project.prompt.trim() && orderedScenes.length === 0) {
-      const composeOk = await prepareScenes();
-      if (!composeOk) return;
-    } else {
+    navigate(pathForProjectStep(project.id, "compose"));
+
+    void (async () => {
+      if (project.prompt.trim() && orderedScenes.length === 0) {
+        const composeOk = await prepareScenes();
+        if (!composeOk) return;
+        return;
+      }
       const snap = useProjectStore.getState();
       const missing = snap.frames.some((f) => !frameHasOutputImage(f.src));
       if (snap.frames.length > 0 && !snap.renderingAllFrameImages && missing) {
@@ -45,11 +49,9 @@ export function useStoryNextActions() {
           await snap.requestFullFilmRender();
         } catch (e: unknown) {
           setFlowError(e instanceof Error ? e.message : "Keyframe generation failed");
-          return;
         }
       }
-    }
-    navigate(pathForProjectStep(project.id, "compose"));
+    })();
   }, [project.id, project.prompt, orderedScenes.length, prepareScenes]);
 
   return { flowError, onStoryNext, storyNextBusy };

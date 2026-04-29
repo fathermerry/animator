@@ -233,6 +233,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
     const prompt = buildFrameImagePrompt(get().project, scene, frame, bundle);
 
     const runStarted = new Date();
+    get().patchFrame(frameId, { productionType: "llm" });
     get().patchRender(render.id, {
       status: "processing",
       engine: "openai-image",
@@ -649,7 +650,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       if (get().renderingAllFrameImages) return;
       const modelId: OpenAiImageModelId =
         modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
-      const allFrames = get().frames;
+      const allFrames = get().frames.filter((f) => (f.productionType ?? "llm") === "llm");
       if (allFrames.length === 0) return;
 
       set({ renderingAllFrameImages: true });
@@ -765,6 +766,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
               renderId,
               index: frameIndex,
               src: "",
+              productionType: "llm",
               description: fr.description,
             });
           });
@@ -803,7 +805,6 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
           }
           await narrations;
         })();
-        navigate(pathForProjectStep(project.id, "compose"));
       } catch (e: unknown) {
         get().patchRender(storyboardRenderId, {
           status: "failed",
@@ -849,7 +850,7 @@ export const useProjectStore = createStore<ProjectState>((set, get) => {
       if (get().renderingAllFrameImages) return;
       const modelId: OpenAiImageModelId =
         modelIdParam && isOpenAiImageModelId(modelIdParam) ? modelIdParam : DEFAULT_OPENAI_IMAGE_MODEL;
-      const targets = get().frames.filter((f) => !frameHasOutputImage(f.src));
+      const targets = get().frames.filter((f) => (f.productionType ?? "llm") === "llm" && !frameHasOutputImage(f.src));
       if (targets.length === 0) return;
 
       set({ renderingAllFrameImages: true });

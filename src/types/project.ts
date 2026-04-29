@@ -65,6 +65,8 @@ export type Frame = {
   renderId: string;
   index: number;
   src: string;
+  /** How this frame is produced: LLM image generation, or native Remotion graphics. */
+  productionType?: "llm" | "remotion-shapes";
   /** Staging copy for this still — shown under the scene title in the film and UI. */
   description: string;
   /** Optional explicit hold length for this frame. Remaining scene time is split between frames without this. */

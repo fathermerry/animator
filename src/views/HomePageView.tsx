@@ -2,15 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useStore } from "zustand/react";
 
 import { Button } from "@/components/ui/button";
+import { useHashPath } from "@/hooks/useHashPath";
 import { listProjectSummaries, type ProjectSummary } from "@/lib/projectIndexedDb";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/store/projectStore";
 
 export function HomePageView() {
+  const path = useHashPath();
   const [rows, setRows] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [pastInitialProjectListLoad, setPastInitialProjectListLoad] = useState(false);
 
   const openProject = useStore(useProjectStore, (s) => s.openProject);
   const deleteProject = useStore(useProjectStore, (s) => s.deleteProject);
@@ -25,13 +26,12 @@ export function HomePageView() {
       })
       .finally(() => {
         setLoading(false);
-        setPastInitialProjectListLoad(true);
       });
   }, []);
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [refresh, path]);
 
   const title = (r: ProjectSummary) =>
     r.fileLabel?.trim() || r.name?.trim() || "Untitled";
@@ -39,8 +39,10 @@ export function HomePageView() {
   return (
     <main
       className={cn(
-        "mx-auto w-full max-w-3xl px-6 pb-10 pt-10",
-        !loadError && loading && "flex min-h-0 flex-1 flex-col items-center justify-center",
+        "mx-auto w-full max-w-3xl px-6",
+        !loadError && loading
+          ? "flex min-h-[calc(100dvh-3.5rem)] flex-col items-center justify-center py-0"
+          : "pb-10 pt-10",
       )}
     >
       {loadError ? (
@@ -48,9 +50,7 @@ export function HomePageView() {
           {loadError}
         </p>
       ) : loading ? (
-        <p className="text-base text-muted-foreground">
-          {pastInitialProjectListLoad ? "Loading projects…" : "Loading app…"}
-        </p>
+        <p className="text-base text-muted-foreground">Loading projects…</p>
       ) : rows.length === 0 ? (
         <p className="text-base text-muted-foreground">No projects yet.</p>
       ) : (

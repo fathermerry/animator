@@ -176,9 +176,7 @@ export async function setActiveProjectId(id: string): Promise<void> {
 }
 
 export async function listProjectSummaries(): Promise<ProjectSummary[]> {
-  const localRows = await projectStoreGetAll();
-  const synced = await syncRemoteProjectsToIndexedDbWithTimeout();
-  if (!synced) return summarizeProjectRows(localRows);
+  await syncRemoteProjectsToIndexedDbWithTimeout();
   return summarizeProjectRows(await projectStoreGetAll());
 }
 
@@ -326,10 +324,10 @@ export async function putProjectSlice(slice: PersistableProjectSlice): Promise<v
 
 export async function deleteProjectRecord(id: string): Promise<void> {
   if (id === SAMPLE_PROJECT_ID) return;
+  // Remote first: listProjectSummaries re-merges remote→IDB; deleting locally first lets a
+  // still-present server row resurrect until the remote delete completes.
+  await deleteRemoteProjectRecord(id);
   await projectStoreDelete(id);
-  await deleteRemoteProjectRecord(id).catch((e: unknown) => {
-    console.warn("Project remote delete failed", e);
-  });
 }
 
 async function migrateLegacyProjectConfigKv(): Promise<void> {

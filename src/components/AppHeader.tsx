@@ -115,7 +115,7 @@ function StoryHeaderNextButton() {
       className="h-9 shrink-0 cursor-pointer gap-1.5 disabled:cursor-not-allowed"
     >
       {storyNextBusy ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
-      Next
+      Render
       <ChevronRight className="size-4 shrink-0" aria-hidden />
     </Button>
   );

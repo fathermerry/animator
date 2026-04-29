@@ -21,5 +21,6 @@ export function frameHasOutputImage(src: string): boolean {
 export function isFrameGeneratedForPreview(frame: Frame, renders: Render[]): boolean {
   const r = findRender(renders, frame);
   if (!r || r.status !== "complete") return false;
+  if (frame.productionType === "remotion-shapes" && r.engine === "remotion") return true;
   return frameHasOutputImage(frame.src);
 }
